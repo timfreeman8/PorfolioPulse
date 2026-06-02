@@ -19,6 +19,9 @@
 
 export type ProjectStatus = 'Backlog' | 'In Progress' | 'Blocked' | 'Complete'
 
+/** Status of a single phase within a multi-phase project plan. */
+export type PhaseStatus = 'Not Started' | 'In Progress' | 'Complete'
+
 export type ProjectPhase =
   | 'Research'
   | 'Discovery'
@@ -71,6 +74,27 @@ export interface Member {
   projectIds: string[]
 }
 
+/**
+ * A single phase within a multi-phase project plan. Each step has its own
+ * date range, team assignments, and completion state — independent of the
+ * other phases. The project-level startDate, targetEndDate, phase, and
+ * percentComplete are derived from the collection of steps on save.
+ */
+export interface ProjectPhaseStep {
+  id: string
+  /** Which SDLC phase this step represents */
+  phase: ProjectPhase
+  startDate: string
+  endDate: string
+  /** Members working during this phase, with their role and allocation */
+  assignments: ProjectMemberAssignment[]
+  status: PhaseStatus
+  /** 0–100 */
+  percentComplete: number
+  /** Optional phase-level notes */
+  notes?: string
+}
+
 export interface ProjectMemberAssignment {
   memberId: string
   /** What this member is responsible for on this project (e.g. "Backend", "QA", "PM") */
@@ -116,6 +140,16 @@ export interface Project {
   valueType?: 'Revenue Impact' | 'Cost Savings'
   /** Actual value realized — populated once the project reaches Complete status. */
   actualValue?: number
+  /**
+   * Ordered sequence of phases that make up the project plan. When present,
+   * startDate, targetEndDate, phase, percentComplete, and assignments are
+   * derived from this array on save so all other views (Gantt, Dashboard,
+   * Analytics) continue to work without modification.
+   *
+   * Legacy projects without this field are auto-converted to a single-step
+   * plan when opened in the project builder.
+   */
+  phases?: ProjectPhaseStep[]
 }
 
 /**

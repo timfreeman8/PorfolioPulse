@@ -17,6 +17,7 @@
 import { create } from 'zustand'
 import { loadState, saveState } from '@/lib/persistence'
 import { normalizeRoles } from '@/lib/roles'
+import { legacyToPhases } from '@/lib/projectBuilder'
 import type {
   Domain,
   Escalation,
@@ -148,6 +149,9 @@ function migrateState(state: PortfolioState): PortfolioState {
         ...a,
         part: normalizeRoles(a.part),
       })),
+      // Auto-convert single-phase projects to the phases model.
+      // Projects that already have phases (like p30) are left untouched.
+      phases: p.phases ?? legacyToPhases(p),
     })),
   }
 }

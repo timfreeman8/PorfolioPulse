@@ -723,14 +723,13 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
               actualValue is shown only when the project is Complete. */}
           <Field label="Value Type">
             <Select
-              value={valueType || '__none__'}
-              onValueChange={v => setValueType(v === '__none__' ? '' : v as 'Revenue Impact' | 'Cost Savings')}
+              value={valueType || undefined}
+              onValueChange={v => setValueType(v as 'Revenue Impact' | 'Cost Savings')}
             >
               <SelectTrigger>
-                <SelectValue placeholder="— None —" />
+                <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">— None —</SelectItem>
                 {VALUE_TYPES.map(vt => (
                   <SelectItem key={vt} value={vt}>{vt}</SelectItem>
                 ))}

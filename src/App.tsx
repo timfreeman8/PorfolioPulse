@@ -28,7 +28,8 @@ const InitiativesPage = lazy(() => import('@/pages/InitiativesPage').then(m => (
 const PipelinePage   = lazy(() => import('@/pages/IntakePage').then(m     => ({ default: m.PipelinePage   })))
 const AnalyticsPage  = lazy(() => import('@/pages/AnalyticsPage').then(m  => ({ default: m.AnalyticsPage  })))
 const PlanningPage   = lazy(() => import('@/pages/CapacityPlannerPage').then(m => ({ default: m.PlanningPage })))
-const ProjectsPage   = lazy(() => import('@/pages/ProjectsPage').then(m   => ({ default: m.ProjectsPage   })))
+const ProjectsPage      = lazy(() => import('@/pages/ProjectsPage').then(m      => ({ default: m.ProjectsPage      })))
+const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })))
 const EscalationsPage = lazy(() => import('@/pages/EscalationsPage').then(m => ({ default: m.EscalationsPage })))
 const MemberDetailPage = lazy(() => import('@/pages/MemberDetailPage').then(m => ({ default: m.MemberDetailPage })))
 const SettingsPage   = lazy(() => import('@/pages/SettingsPage').then(m   => ({ default: m.SettingsPage   })))
@@ -64,7 +65,10 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="portfolio"   element={<PortfolioPage />} />
-            <Route path="projects"    element={<ProjectsPage />} />
+            <Route path="projects"             element={<ProjectsPage />} />
+            {/* /projects/new must come before :projectId so "new" isn't treated as an ID */}
+            <Route path="projects/new"         element={<ProjectDetailPage />} />
+            <Route path="projects/:projectId"  element={<ProjectDetailPage />} />
             <Route path="roster"      element={<RosterPage />} />
             <Route path="members/:id" element={<MemberDetailPage />} />
             <Route path="initiatives" element={<InitiativesPage />} />

@@ -22,6 +22,7 @@
  */
 
 import { loadState } from '@/lib/persistence'
+import { legacyToPhases } from '@/lib/projectBuilder'
 import type {
   Domain,
   Initiative,
@@ -29,6 +30,7 @@ import type {
   Member,
   PortfolioState,
   Project,
+  ProjectPhaseStep,
   ResourceRate,
   Team,
 } from '@/types'
@@ -910,6 +912,87 @@ const projects: Project[] = [
     notes: 'Not yet started. Planned for Q3 2026.',
     updatedAt: '2026-04-20T09:00:00Z',
   },
+
+  // ── Multi-phase example — shows the project builder in action ─────────────
+  // This project is intentionally structured as a full three-phase plan:
+  // Discovery → Development → QA & Deploy. Each phase has its own team,
+  // dates, and progress. The root-level fields are pre-derived from the
+  // phases so the Gantt and all other views continue to work.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p30',
+        phase: 'Discovery',
+        startDate: '2026-02-02',
+        endDate:   '2026-04-04',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'User research complete. Requirements doc signed off.',
+        assignments: [
+          { memberId: 'm10', part: 'Product Management', allocation: 50 },
+          { memberId: 'm19', part: 'UX Research',        allocation: 70 },
+        ],
+      },
+      {
+        id: 'ph2-p30',
+        phase: 'Development',
+        startDate: '2026-04-07',
+        endDate:   '2026-08-01',
+        status: 'In Progress',
+        percentComplete: 40,
+        notes: 'Core API layer complete. Frontend build in progress.',
+        assignments: [
+          { memberId: 'm6',  part: 'Backend',            allocation: 70 },
+          { memberId: 'm7',  part: 'Frontend',           allocation: 70 },
+          { memberId: 'm20', part: 'Product Management', allocation: 30 },
+        ],
+      },
+      {
+        id: 'ph3-p30',
+        phase: 'QA',
+        startDate: '2026-08-03',
+        endDate:   '2026-09-26',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Test plan drafted. Awaiting development handoff.',
+        assignments: [
+          { memberId: 'm16', part: 'QA Lead', allocation: 80 },
+          { memberId: 'm6',  part: 'Backend', allocation: 30 },
+        ],
+      },
+    ]
+
+    // Derived root-level fields — computed from phases so the Gantt, Dashboard,
+    // and Analytics views all work without any changes.
+    const project: Project = {
+      id: 'p30',
+      name: 'Store Associate Portal Redesign',
+      description: 'Full redesign of the in-store associate portal: new UX, modernized API layer, and consolidated tooling across checkout, inventory, and task management.',
+      status: 'In Progress',
+      phase: 'Development',          // first In Progress phase
+      priority: 'High',
+      initiativeId: 'i1',
+      startDate: '2026-02-02',       // earliest phase start
+      targetEndDate: '2026-09-26',   // latest phase end
+      percentComplete: 47,           // avg of [100, 40, 0] ≈ 47
+      stakeholders: 'Store Ops, Merchandising, Finance',
+      notes: 'Discovery complete. Development 40% done. QA begins August.',
+      updatedAt: '2026-06-01T10:00:00Z',
+      estimatedValue: 2800000,
+      valueType: 'Revenue Impact',
+      // Merged union of all phase assignments (min startDate / max endDate per member)
+      assignments: [
+        { memberId: 'm10', part: 'Product Management', allocation: 50, startDate: '2026-02-02', endDate: '2026-04-04' },
+        { memberId: 'm19', part: 'UX Research',        allocation: 70, startDate: '2026-02-02', endDate: '2026-04-04' },
+        { memberId: 'm6',  part: 'Backend',            allocation: 70, startDate: '2026-04-07', endDate: '2026-09-26' },
+        { memberId: 'm7',  part: 'Frontend',           allocation: 70, startDate: '2026-04-07', endDate: '2026-08-01' },
+        { memberId: 'm20', part: 'Product Management', allocation: 30, startDate: '2026-04-07', endDate: '2026-08-01' },
+        { memberId: 'm16', part: 'QA Lead',            allocation: 80, startDate: '2026-08-03', endDate: '2026-09-26' },
+      ],
+      phases,
+    }
+    return project
+  })(),
 ]
 
 // ─── Intake Requests ──────────────────────────────────────────────────────
@@ -1050,5 +1133,14 @@ function buildState(): PortfolioState {
  */
 export function seedIfEmpty(hydrate: (state: PortfolioState) => void): void {
   if (loadState() !== null) return          // already seeded — do nothing
-  hydrate(buildState())
+  const state = buildState()
+  // Ensure every project has a phases array. Projects like p30 that define
+  // phases explicitly are left untouched; all others are auto-converted to a
+  // single-phase plan from their root-level fields.
+  hydrate({
+    ...state,
+    projects: state.projects.map(p =>
+      p.phases ? p : { ...p, phases: legacyToPhases(p) }
+    ),
+  })
 }

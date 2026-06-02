@@ -9,16 +9,16 @@
  *   - Search by name
  *   - Filter by Phase, Status, Priority
  *   - Sort by name, start date, or % complete
- *   - Add / edit projects via the shared ProjectFormDialog
+ *   - Add / edit projects via the full-page ProjectDetailPage builder
  *   - Delete with confirmation
  *   - Unassigned projects are flagged so they stand out
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Trash2, Pencil, UserX, Download, ChevronDown, Check, SearchX, Layers } from 'lucide-react'
 import { FilterChip } from '@/components/ui/filter-chip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
 import { JiraImportDialog } from '@/components/projects/JiraImportDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
@@ -195,17 +195,17 @@ function StakeholderDropdown({
 // ─── Projects page ────────────────────────────────────────────────────────
 
 export function ProjectsPage() {
-  const { projects, members, initiatives, addProject, updateProject, deleteProject } = usePortfolioStore()
+  const { projects, members, initiatives, deleteProject } = usePortfolioStore()
   // User mode: activeMemberId is set → filter to that person's projects only.
   const { activeMemberId } = useViewStore()
-  const isAdmin = activeMemberId === null
+  const navigate = useNavigate()
+  const isAdmin  = activeMemberId === null
 
   const [search, setSearch]           = useState('')
   const [sortKey, setSortKey]         = useState<SortKey>('startDate')
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false)
   // [] = no filter; non-empty = show only projects that match any selected group
   const [stakeholderFilter, setStakeholderFilter] = useState<string[]>([])
-  const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false })
   const [jiraImportOpen, setJiraImportOpen] = useState(false)
 
   const filtered = useMemo(() => {
@@ -244,11 +244,6 @@ export function ProjectsPage() {
 
   const unassignedCount = projects.filter(p => p.assignments.length === 0).length
 
-  function handleSave(draft: Omit<Project, 'id' | 'updatedAt'>, id?: string) {
-    if (id) updateProject(id, draft)
-    else    addProject(draft)
-  }
-
   function handleDelete(id: string) {
     if (window.confirm('Delete this project? This cannot be undone.')) deleteProject(id)
   }
@@ -278,7 +273,7 @@ export function ProjectsPage() {
               Import from Jira
             </Button>
             <Button
-              onClick={() => setProjectModal({ open: true, project: undefined })}
+              onClick={() => navigate('/projects/new')}
               className="gap-2"
             >
               <Plus size={15} />
@@ -347,7 +342,7 @@ export function ProjectsPage() {
                 Add your first project to start tracking work across the portfolio.
               </p>
               {isAdmin && (
-                <Button onClick={() => setProjectModal({ open: true, project: undefined })} className="gap-2">
+                <Button onClick={() => navigate('/projects/new')} className="gap-2">
                   <Plus size={15} /> Add Project
                 </Button>
               )}
@@ -374,7 +369,7 @@ export function ProjectsPage() {
           return (
             <div
               key={project.id}
-              onClick={() => setProjectModal({ open: true, project })}
+              onClick={() => navigate(`/projects/${project.id}`)}
               className={cn(
                 'bg-white dark:bg-slate-800/60 border rounded-xl px-5 py-4 flex items-start gap-4 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all cursor-pointer',
                 isUnassigned ? 'border-amber-200 dark:border-amber-800/50' : 'border-slate-200 dark:border-slate-700',
@@ -476,7 +471,7 @@ export function ProjectsPage() {
               {/* Actions — stop propagation so row click doesn't also fire */}
               <div className="flex items-center gap-1 shrink-0 mt-0.5" onClick={e => e.stopPropagation()}>
                 <button
-                  onClick={() => setProjectModal({ open: true, project })}
+                  onClick={() => navigate(`/projects/${project.id}`)}
                   className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
                   title="Edit project"
                 >
@@ -500,14 +495,6 @@ export function ProjectsPage() {
       {/* Jira import dialog */}
       <JiraImportDialog open={jiraImportOpen} onOpenChange={setJiraImportOpen} />
 
-      {/* Project form dialog */}
-      <ProjectFormDialog
-        key={projectModal.project?.id ?? 'new'}
-        open={projectModal.open}
-        onOpenChange={open => setProjectModal(s => ({ ...s, open }))}
-        initial={projectModal.project}
-        onSave={handleSave}
-      />
     </div>
   )
 }

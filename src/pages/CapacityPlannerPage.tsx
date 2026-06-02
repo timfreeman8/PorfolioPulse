@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Palmtree, Trash2, Flag, Search, Printer } from 'lucide-react'
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
 import { Button } from '@/components/ui/button'
@@ -13,11 +13,12 @@ import {
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
-import { PHASE_COLORS, CHART_COLORS, STATUS_COLORS, PRIORITY_COLORS, avatarColor } from '@/lib/colors'
+import { PHASE_COLORS, CHART_COLORS, avatarColor } from '@/lib/colors'
+import { deriveProjectFields } from '@/lib/projectBuilder'
 import { SDLC_ROLES, ROLE_COLORS, DEFAULT_ROLE_COLOR } from '@/lib/roles'
 import { getCurrentQBounds } from '@/lib/fiscal'
 import { cn } from '@/lib/utils'
-import type { Project, ProjectPhase, Member, Team, PtoBlock, ProjectMemberAssignment } from '@/types'
+import type { Project, ProjectPhase, Member, Team, PtoBlock, ProjectMemberAssignment, ProjectPhaseStep } from '@/types'
 
 /**
  * Capacity Planner page — Gantt-style chart of member workload across FY2026.
@@ -945,6 +946,145 @@ function AssignmentBar({
   )
 }
 
+// ─── Phase bar (By Project view, multi-phase projects) ────────────────────
+// When a project has an explicit `phases` array, we render one PhaseBar per
+// phase. Bars are draggable/resizable like AssignmentBar; clicking navigates
+// to the full ProjectDetailPage. Members assigned to each phase are shown in
+// the bar label and tooltip.
+
+function PhaseBar({
+  phase,
+  phaseIndex,
+  project,
+  rowIndex,
+  members,
+}: {
+  phase: ProjectPhaseStep
+  phaseIndex: number
+  project: Project
+  rowIndex: number
+  members: Member[]
+}) {
+  const { updateProject } = usePortfolioStore()
+  const navigate = useNavigate()
+
+  const geo = barGeometry(phase.startDate, phase.endDate)
+  // Use the shared phase palette so colors stay consistent across views
+  const bgColor  = CHART_COLORS.phase[phase.phase] ?? '#60a5fa'
+  // QA and Deployed use lighter backgrounds — dark text reads better on those
+  const darkText = phase.phase === 'QA' || phase.phase === 'Deployed'
+
+  // Resolve assigned member objects for display in the bar and tooltip
+  const phaseMembers = phase.assignments
+    .map(a => ({ a, member: members.find(m => m.id === a.memberId) }))
+    .filter((x): x is { a: typeof x.a; member: Member } => !!x.member)
+
+  // Hooks must be called before any early return
+  const { vLeft, vWidth, isDragging, handleMouseDown } = useBarDrag({
+    leftPx:  geo?.leftPx  ?? 0,
+    widthPx: geo?.widthPx ?? 0,
+    // Click with no drag → open the project detail page
+    onEdit: () => navigate(`/projects/${project.id}`),
+    // Drag commit → update this phase's dates and re-derive root project fields
+    onCommit: (newLeft, newWidth) => {
+      const newPhases = project.phases!.map((ph, i) =>
+        i === phaseIndex
+          ? { ...ph, startDate: xToDate(newLeft), endDate: xToDate(newLeft + newWidth) }
+          : ph
+      )
+      const derived = deriveProjectFields(newPhases)
+      updateProject(project.id, {
+        ...project,
+        ...derived,
+        phases: newPhases,
+      } as Parameters<typeof updateProject>[1])
+    },
+  })
+
+  const tooltipContent = (
+    <div>
+      <p className="text-sm font-semibold leading-snug mb-1">{phase.phase}</p>
+      <p className="text-[11px] text-slate-300">{phase.startDate} → {phase.endDate}</p>
+      <p className="text-[11px] text-slate-300">
+        {phase.percentComplete}% complete · {phase.status}
+      </p>
+      {phaseMembers.length > 0 && (
+        <div className="mt-1 space-y-0.5">
+          {phaseMembers.map(({ a, member }) => (
+            <p key={member.id} className="text-[11px] text-slate-300">
+              {member.name} · {a.part} · {a.allocation}%
+            </p>
+          ))}
+        </div>
+      )}
+      <p className="text-[10px] text-slate-400 mt-1">Drag to move · drag edges to resize · click to edit</p>
+    </div>
+  )
+  const { onMouseEnter, onMouseMove, onMouseLeave, tip } = useTooltip(tooltipContent)
+
+  if (!geo) return null
+
+  // Abbreviated member names for the bar label — initials when space is tight
+  const memberLabel = phaseMembers.map(({ member }) => member.avatarInitials).join(' · ')
+
+  return (
+    <>
+      <div
+        className="absolute group/bar"
+        style={{
+          top:    rowIndex * 28 + 4,
+          left:   vLeft,
+          width:  vWidth,
+          height: 22,
+          zIndex: isDragging ? 20 : undefined,
+        }}
+        onMouseEnter={onMouseEnter}
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
+      >
+        <div
+          className={cn(
+            'w-full h-full rounded-full flex items-center overflow-hidden relative select-none',
+            isDragging ? 'shadow-lg' : 'hover:opacity-90',
+          )}
+          style={{ background: bgColor, cursor: isDragging ? 'grabbing' : 'grab' }}
+          onMouseDown={handleMouseDown}
+        >
+          {/* Left resize zone */}
+          <div className="absolute left-0 top-0 bottom-0 w-4 cursor-ew-resize flex items-center justify-center gap-px shrink-0">
+            <div className="w-px h-3 bg-white/30 rounded-full group-hover/bar:bg-white/60 pointer-events-none transition-colors" />
+            <div className="w-px h-3 bg-white/30 rounded-full group-hover/bar:bg-white/60 pointer-events-none transition-colors" />
+          </div>
+
+          {/* Bar label: phase name · % · member initials */}
+          <span className="flex items-baseline gap-1.5 min-w-0 px-4 relative z-10 select-none">
+            <span className={cn('text-xs font-semibold truncate min-w-0', darkText ? 'text-slate-900' : 'text-white')}>
+              {phase.phase}
+            </span>
+            {phase.percentComplete > 0 && (
+              <span className={cn('text-[10px] font-normal shrink-0', darkText ? 'text-slate-600' : 'text-white/60')}>
+                {phase.percentComplete}%
+              </span>
+            )}
+            {memberLabel && (
+              <span className={cn('text-[10px] font-normal shrink-0', darkText ? 'text-slate-500' : 'text-white/50')}>
+                · {memberLabel}
+              </span>
+            )}
+          </span>
+
+          {/* Right resize zone */}
+          <div className="absolute right-0 top-0 bottom-0 w-4 cursor-ew-resize flex items-center justify-center gap-px shrink-0">
+            <div className="w-px h-3 bg-white/30 rounded-full group-hover/bar:bg-white/60 pointer-events-none transition-colors" />
+            <div className="w-px h-3 bg-white/30 rounded-full group-hover/bar:bg-white/60 pointer-events-none transition-colors" />
+          </div>
+        </div>
+      </div>
+      {tip}
+    </>
+  )
+}
+
 // ─── Project view: one row per project, stacked member bars ───────────────
 
 function PhaseDivider({ phase }: { phase: string }) {
@@ -971,11 +1111,19 @@ function ProjectGanttRow({
   /** Opens the project editor — used for both bar clicks and the assign button */
   onEdit: (p: Project) => void
 }) {
+  // If the project has an explicit phases array, render phase bars instead of
+  // per-member assignment bars. This gives a clearer picture of when each
+  // phase of work happens rather than who is doing what.
+  const phases    = project.phases ?? []
+  const hasPhases = phases.length > 0
+
   const assigned = project.assignments
     .map(a => ({ a, member: members.find(m => m.id === a.memberId) }))
     .filter((x): x is { a: typeof x.a; member: Member } => !!x.member)
 
-  const rowCount = Math.max(assigned.length, 1)
+  // Row height scales to whichever list is longer — phases when present,
+  // else assigned members, with a minimum of one bar height.
+  const rowCount  = hasPhases ? Math.max(phases.length, 1) : Math.max(assigned.length, 1)
   const rowHeight = rowCount * 28 + 8
 
   return (
@@ -1029,22 +1177,30 @@ function ProjectGanttRow({
           <div key={p.label} className="absolute top-0 bottom-0 border-r border-slate-200" style={{ left: p.weekStart * WEEK_PX }} />
         ))}
 
-        {/* Assignment bars — each member's window is individually draggable */}
-        {assigned.map(({ a, member }, i) => (
-          <AssignmentBar
-            key={a.memberId}
-            project={project}
-            assignment={a}
-            member={member}
-            rowIndex={i}
-            onEdit={() => onEdit(project)}
-          />
-        ))}
-
-        {assigned.length === 0 && (
-          <div className="absolute flex items-center px-3" style={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-            <span className="text-xs text-slate-300 italic">No one assigned</span>
-          </div>
+        {/* Phase bars — one bar per phase when project has an explicit phases array.
+            Fall back to per-member assignment bars for legacy single-phase projects. */}
+        {hasPhases ? (
+          phases.map((ph, i) => (
+            <PhaseBar key={ph.id} phase={ph} phaseIndex={i} project={project} rowIndex={i} members={members} />
+          ))
+        ) : (
+          <>
+            {assigned.map(({ a, member }, i) => (
+              <AssignmentBar
+                key={a.memberId}
+                project={project}
+                assignment={a}
+                member={member}
+                rowIndex={i}
+                onEdit={() => onEdit(project)}
+              />
+            ))}
+            {assigned.length === 0 && (
+              <div className="absolute flex items-center px-3" style={{ top: 0, bottom: 0, left: 0, right: 0 }}>
+                <span className="text-xs text-slate-300 italic">No one assigned</span>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1069,84 +1225,6 @@ function TeamDivider({ team }: { team: Team }) {
   )
 }
 
-// ─── Timeline row ─────────────────────────────────────────────────────────
-// Used by the third "Timeline" view — one row per project, single bar that
-// spans the project's start → end date. Colored by priority so critical work
-// is immediately visible in the sea of bars.
-
-const PRIORITY_BAR_COLOR: Record<string, string> = {
-  Critical: 'bg-red-500',
-  High:     'bg-orange-400',
-  Medium:   'bg-indigo-400',
-  Low:      'bg-slate-300',
-}
-
-function TimelineProjectRow({
-  project,
-}: {
-  project: Project
-}) {
-  const geo = barGeometry(project.startDate, project.targetEndDate)
-  const barColor = PRIORITY_BAR_COLOR[project.priority] ?? 'bg-slate-300'
-
-  // Format a short date for the tooltip text shown on hover.
-  function fmt(iso: string) {
-    return iso ? new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'
-  }
-
-  return (
-    <div
-      className="flex border-b border-slate-100 hover:bg-slate-50 transition-colors"
-      style={{ minWidth: LEFT_COL_W + CHART_WIDTH }}
-    >
-      {/* Left column — project name + status/phase/priority badges */}
-      <div
-        className="sticky left-0 z-10 border-r border-slate-200 shrink-0 flex flex-col justify-center px-3 gap-0.5"
-        style={{ width: LEFT_COL_W, minHeight: 48, background: 'var(--gantt-surface)' }}
-      >
-        <p className="text-xs font-semibold text-slate-800 truncate" title={project.name}>
-          {project.name}
-        </p>
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-medium', PRIORITY_COLORS[project.priority])}>
-            {project.priority}
-          </span>
-          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-medium', STATUS_COLORS[project.status])}>
-            {project.status}
-          </span>
-        </div>
-      </div>
-
-      {/* Right column — the single Gantt bar */}
-      <div
-        className="relative flex-1 shrink-0"
-        style={{ width: CHART_WIDTH, minHeight: 48, backgroundImage: WEEK_STRIPE_BG }}
-      >
-        {geo && (
-          <div
-            className={cn(
-              'absolute top-1/2 -translate-y-1/2 rounded-full h-4 opacity-85 cursor-default',
-              barColor,
-            )}
-            style={{ left: geo.leftPx, width: geo.widthPx }}
-            title={`${project.name} · ${fmt(project.startDate)} – ${fmt(project.targetEndDate)}`}
-          />
-        )}
-        {/* Percent complete fill overlay */}
-        {geo && project.percentComplete > 0 && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 rounded-full h-4 bg-white/30 pointer-events-none"
-            style={{
-              left:  geo.leftPx,
-              width: geo.widthPx * (project.percentComplete / 100),
-            }}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ─── Capacity Planner page ────────────────────────────────────────────────
 
 export function PlanningPage() {
@@ -1156,7 +1234,7 @@ export function PlanningPage() {
   const isAdmin = activeMemberId === null
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [view, setView]     = useState<'member' | 'project' | 'timeline'>('member')
+  const [view, setView]     = useState<'member' | 'project'>('member')
   const [search, setSearch] = useState('')
   // People/team/domain multiselect filters — each is independent; all three
   // are ANDed together so a member must pass every active filter to appear.
@@ -1240,8 +1318,9 @@ export function PlanningPage() {
     // per assignment rather than O(M) per assignment via Array.find().
     const memberNameById = new Map(members.map(m => [m.id, m.name.toLowerCase()]))
 
-    const phases = ['Research', 'Discovery', 'Development', 'QA', 'Deployed', 'On Hold'] as const
-    return phases
+    // Use the canonical PHASE_ORDER so grouping always follows SDLC sequence,
+    // not insertion order of the projects array.
+    return PHASE_ORDER
       .map(ph => ({
         phase: ph,
         projects: projects
@@ -1459,15 +1538,6 @@ export function PlanningPage() {
               >
                 Project
               </button>
-              <button
-                onClick={() => setView('timeline')}
-                className={cn(
-                  'px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-                  view === 'timeline' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700',
-                )}
-              >
-                Timeline
-              </button>
             </div>
           </div>
           {/* Calendar headers */}
@@ -1504,7 +1574,7 @@ export function PlanningPage() {
                 </div>
               ))
             )
-          ) : view === 'project' ? (
+          ) : (
             projectsByPhase.map(({ phase, projects: phaseProjects }) => (
               <div key={phase}>
                 <PhaseDivider phase={phase} />
@@ -1518,18 +1588,12 @@ export function PlanningPage() {
                 ))}
               </div>
             ))
-          ) : (
-            // Timeline view — one row per project sorted by start date, bars colored by priority.
-            [...projects]
-              .filter(p => p.startDate && p.targetEndDate)
-              .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))
-              .map(p => <TimelineProjectRow key={p.id} project={p} />)
           )}
         </div>
       </div>
 
-      {/* Shared project form for project and timeline views */}
-      {(view === 'project' || view === 'timeline') && (
+      {/* Project form — opened by clicking a bar in the Project view */}
+      {view === 'project' && (
         <ProjectFormDialog
           key={projectModal.project?.id ?? 'new'}
           open={projectModal.open}
