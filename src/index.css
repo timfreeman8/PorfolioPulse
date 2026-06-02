@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource/poppins/300.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Poppins', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: #4471B7;
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+/*
+ * ── Dark mode overrides for hardcoded Tailwind slate utilities ────────────
+ *
+ * The app uses literal slate-* classes throughout (bg-white, bg-slate-50,
+ * text-slate-900, etc.) rather than semantic tokens. Rather than adding dark:
+ * variants to every class in every file, we override the compiled utilities
+ * here when a .dark ancestor is present. This gives global dark mode support
+ * from a single location.
+ *
+ * oklch values are chosen to match the existing .dark CSS variable palette
+ * defined above (--background, --card, --muted, etc.).
+ */
+
+/* ── Backgrounds ─────────────────────────────────────────────────────────── */
+.dark .bg-white        { background-color: oklch(0.205 0 0); }   /* --card */
+.dark .bg-slate-50     { background-color: oklch(0.175 0 0); }   /* between bg and card */
+.dark .bg-slate-100    { background-color: oklch(0.245 0 0); }   /* --muted-ish */
+.dark .bg-slate-200    { background-color: oklch(0.3 0 0); }
+
+/* ── Text ────────────────────────────────────────────────────────────────── */
+.dark .text-slate-900  { color: oklch(0.96 0 0); }
+.dark .text-slate-800  { color: oklch(0.88 0 0); }
+.dark .text-slate-700  { color: oklch(0.78 0 0); }
+.dark .text-slate-600  { color: oklch(0.68 0 0); }
+.dark .text-slate-500  { color: oklch(0.58 0 0); }
+.dark .text-slate-400  { color: oklch(0.50 0 0); }
+.dark .text-slate-300  { color: oklch(0.42 0 0); }
+
+/* ── Borders ─────────────────────────────────────────────────────────────── */
+.dark .border-slate-200  { border-color: oklch(1 0 0 / 10%); }
+.dark .border-slate-100  { border-color: oklch(1 0 0 / 7%); }
+.dark .divide-slate-100  > * + * { border-color: oklch(1 0 0 / 7%); }
+.dark .divide-slate-200  > * + * { border-color: oklch(1 0 0 / 10%); }
+
+/* ── Hover states ────────────────────────────────────────────────────────── */
+.dark .hover\:bg-white:hover      { background-color: oklch(0.25 0 0); }
+.dark .hover\:bg-slate-50:hover   { background-color: oklch(0.245 0 0); }
+.dark .hover\:bg-slate-100:hover  { background-color: oklch(0.285 0 0); }
+.dark .hover\:bg-red-50:hover     { background-color: oklch(0.22 0.03 15); }
+.dark .hover\:bg-blue-50:hover    { background-color: oklch(0.22 0.03 240); }
+
+/* ── Sticky / fixed elements (headers that use bg-white) ─────────────────── */
+.dark .sticky { background-color: oklch(0.205 0 0); }
+
+/* ── Gantt chart theming ─────────────────────────────────────────────────── */
+/* CSS variables used by CapacityPlannerPage for its Gantt grid. Defined here
+   so dark mode flips automatically without any JS theme detection in the chart. */
+:root {
+  --gantt-surface:  #ffffff;            /* sticky col + row background */
+  --gantt-section:  #f8fafc;            /* team/phase divider row bg   */
+  --gantt-q-even:   #f1f5f9;
+  --gantt-q-odd:    #e2e8f0;
+  --gantt-p-even:   #eff6ff;
+  --gantt-p-odd:    #eef2ff;
+  --gantt-w-even:   #f8fafc;
+  --gantt-w-odd:    #f1f5f9;
+  --gantt-stripe:   rgba(148, 163, 184, 0.07);
+}
+
+.dark {
+  --gantt-surface:  oklch(0.205 0 0);
+  --gantt-section:  oklch(0.175 0 0);
+  --gantt-q-even:   oklch(0.245 0 0);
+  --gantt-q-odd:    oklch(0.22 0 0);
+  --gantt-p-even:   oklch(0.235 0.006 250);
+  --gantt-p-odd:    oklch(0.235 0.006 260);
+  --gantt-w-even:   oklch(0.205 0 0);
+  --gantt-w-odd:    oklch(0.19 0 0);
+  --gantt-stripe:   rgba(255, 255, 255, 0.03);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* The sidebar uses inline style background (#ffffff). The dark CSS variable
+   --sidebar is already set to oklch(0.205 0 0) but the sidebar uses a
+   hardcoded string so we override via the sidebar wrapper class instead. */
