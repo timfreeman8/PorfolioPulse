@@ -507,6 +507,7 @@ const PROJECT_HEADERS = [
   'id', 'name', 'description', 'status', 'phase', 'priority',
   'startDate', 'targetEndDate', 'percentComplete',
   'stakeholders', 'notes', 'initiative', 'blockedBy', 'updatedAt',
+  'estimatedValue', 'valueType', 'actualValue',
 ] as const
 
 export function exportProjectsCsv(projects: Project[], initiatives: Initiative[] = []): string {
@@ -532,6 +533,9 @@ export function exportProjectsCsv(projects: Project[], initiatives: Initiative[]
                        .filter(Boolean)
                        .join(';'),
     updatedAt:       p.updatedAt,
+    estimatedValue:  p.estimatedValue ?? '',
+    valueType:       p.valueType      ?? '',
+    actualValue:     p.actualValue    ?? '',
   }))
   return objectsToCsv([...PROJECT_HEADERS], rows as Record<string, unknown>[])
 }
@@ -579,6 +583,10 @@ export function importProjectsCsv(
       updatedAt:       r.updatedAt       || new Date().toISOString(),
       // Check by id first (old format) then by name (new format) for backward compat.
       assignments:     assignmentsByProjectId.get(r.id) ?? assignmentsByProjectId.get(r.name) ?? [],
+      // Value fields — blank in CSV means undefined (field not set).
+      estimatedValue:  r.estimatedValue ? Number(r.estimatedValue) : undefined,
+      valueType:       (r.valueType || undefined) as Project['valueType'],
+      actualValue:     r.actualValue ? Number(r.actualValue) : undefined,
     }
   })
 }
@@ -773,5 +781,6 @@ export function importFullSnapshot(json: string): PortfolioState {
     intakeRequests: parsed.intakeRequests ?? [],
     escalations:    parsed.escalations    ?? [],
     ptoBlocks:      parsed.ptoBlocks      ?? [],
+    resourceRates:  parsed.resourceRates  ?? [],
   }
 }

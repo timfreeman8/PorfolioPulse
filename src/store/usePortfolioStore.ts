@@ -26,6 +26,7 @@ import type {
   PortfolioState,
   Project,
   PtoBlock,
+  ResourceRate,
   Team,
 } from '@/types'
 
@@ -99,6 +100,15 @@ interface PortfolioActions {
     intakeId: string,
     projectPayload: Omit<Project, 'id' | 'updatedAt'>,
   ) => Project
+
+  // Resource rates
+  /**
+   * Upsert an annual rate for a role. Creates the entry if the role is new,
+   * or updates the existing entry when the role already has a rate.
+   */
+  setResourceRate: (role: string, annualRate: number) => void
+  /** Remove the rate entry for a role (role will show as "no rate defined"). */
+  removeResourceRate: (role: string) => void
 }
 
 // ─── Empty initial state ───────────────────────────────────────────────────
@@ -112,6 +122,7 @@ const EMPTY_STATE: PortfolioState = {
   intakeRequests: [],
   escalations: [],
   ptoBlocks: [],
+  resourceRates: [],
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────
@@ -124,10 +135,16 @@ const EMPTY_STATE: PortfolioState = {
 function migrateState(state: PortfolioState): PortfolioState {
   return {
     ...state,
+    // Backfill resourceRates for stores created before this field existed.
+    resourceRates: state.resourceRates ?? [],
     projects: state.projects.map(p => ({
       ...p,
       // Backfill blockedByIds for records that pre-date this field.
       blockedByIds: p.blockedByIds ?? [],
+      // Backfill value fields for records that pre-date cost/value tracking.
+      estimatedValue: p.estimatedValue ?? undefined,
+      valueType:      p.valueType      ?? undefined,
+      actualValue:    p.actualValue    ?? undefined,
       assignments: p.assignments.map(a => ({
         ...a,
         part: normalizeRoles(a.part),
@@ -554,6 +571,32 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
       const { addProject, updateIntakeRequest } = get()
       updateIntakeRequest(intakeId, { status: 'Approved' })
       return addProject(projectPayload)
+    },
+
+    // ── Resource rates ─────────────────────────────────────────────────────
+    setResourceRate(role, annualRate) {
+      set(s => {
+        // Replace the existing entry for this role, or append a new one.
+        const exists = s.resourceRates.some(r => r.role === role)
+        const next: PortfolioState = {
+          ...s,
+          resourceRates: exists
+            ? s.resourceRates.map(r => r.role === role ? { role, annualRate } : r)
+            : [...s.resourceRates, { role, annualRate }],
+        }
+        persist(next)
+        return next
+      })
+    },
+    removeResourceRate(role) {
+      set(s => {
+        const next: PortfolioState = {
+          ...s,
+          resourceRates: s.resourceRates.filter(r => r.role !== role),
+        }
+        persist(next)
+        return next
+      })
     },
   }),
 )

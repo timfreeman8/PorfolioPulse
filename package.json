@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test": "vitest run --project unit"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -52,6 +53,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "eslint-plugin-storybook": "^10.4.1",
     "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "storybook": "^10.4.1",
     "typescript": "~6.0.2",

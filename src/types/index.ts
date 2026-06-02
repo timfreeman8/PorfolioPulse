@@ -110,6 +110,22 @@ export interface Project {
    * so the field is always present and filterable.
    */
   blockedByIds?: string[]
+  /** Dollar value expected from the project (revenue gain or cost reduction). */
+  estimatedValue?: number
+  /** Whether the estimated value is a revenue gain or a cost reduction. */
+  valueType?: 'Revenue Impact' | 'Cost Savings'
+  /** Actual value realized — populated once the project reaches Complete status. */
+  actualValue?: number
+}
+
+/**
+ * Maps a member role string (e.g. "Software Engineer") to an annual salary cost
+ * in dollars. Used for portfolio-level headcount cost calculations.
+ * Roles are salaried — the rate is fixed regardless of utilization.
+ */
+export interface ResourceRate {
+  role: string
+  annualRate: number
 }
 
 export interface Initiative {
@@ -188,4 +204,6 @@ export interface PortfolioState {
   intakeRequests: IntakeRequest[]
   escalations: Escalation[]
   ptoBlocks: PtoBlock[]
+  /** Role-to-annual-cost mappings for portfolio financial analysis. */
+  resourceRates: ResourceRate[]
 }

@@ -27,9 +27,10 @@
 import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronUp, PackageOpen,
+  ChevronDown, ChevronUp, PackageOpen, DollarSign, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { cn } from '@/lib/utils'
 import {
@@ -54,6 +55,165 @@ import {
   type CsvEntityType,
 } from '@/lib/csv'
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
+
+// ─── Currency helpers ──────────────────────────────────────────────────────
+
+/**
+ * Format a dollar amount in compact notation, e.g. 120000 → "$120K".
+ * Used for the summary line in the Resource Rates section.
+ */
+function fmtCompact(n: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD',
+    notation: 'compact', maximumFractionDigits: 0,
+  }).format(n)
+}
+
+/**
+ * Format a number as a plain dollar amount, e.g. 120000 → "120,000".
+ * Used inside input fields (without $ — the $ is a prefix element).
+ */
+function fmtNumber(n: number): string {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
+}
+
+// ─── Resource Rates section ────────────────────────────────────────────────
+
+/**
+ * ResourceRatesSection — table of unique member roles with editable annual rates.
+ *
+ * Rates are saved to the store on blur (auto-save pattern). Each role row shows
+ * the role name, an annual cost input, and a clear button. Roles without a rate
+ * show a placeholder "—" and an "Add rate" affordance. A summary line at the
+ * bottom shows how many roles have rates and the total headcount cost.
+ */
+function ResourceRatesSection() {
+  const { members, resourceRates, setResourceRate, removeResourceRate } = usePortfolioStore()
+
+  // Collect the unique set of role strings across all members.
+  const uniqueRoles = Array.from(new Set(members.map(m => m.role))).sort()
+
+  // Local state for in-flight edits — maps role → current input string.
+  // We store the raw string so the user can type freely before committing on blur.
+  const [editing, setEditing] = useState<Record<string, string>>({})
+
+  // Build a fast lookup from the store's resourceRates array.
+  const rateByRole = new Map(resourceRates.map(r => [r.role, r.annualRate]))
+
+  // Summary calculations.
+  const rolesWithRate = uniqueRoles.filter(r => rateByRole.has(r))
+  const totalCost = rolesWithRate.reduce((sum, role) => {
+    // Count distinct members with this role for the total cost.
+    const count = members.filter(m => m.role === role).length
+    return sum + (rateByRole.get(role) ?? 0) * count
+  }, 0)
+
+  /** Called when the user changes the input for a role. Tracks raw string only. */
+  function handleChange(role: string, raw: string) {
+    setEditing(prev => ({ ...prev, [role]: raw }))
+  }
+
+  /**
+   * On blur: parse the input value and persist to the store if valid and changed.
+   * Strip commas and dollar signs so users can paste formatted numbers.
+   */
+  function handleBlur(role: string) {
+    const raw = editing[role]
+    if (raw === undefined) return  // untouched field — nothing to save
+    // Clean user input: remove "$", "," and whitespace before parsing.
+    const cleaned = raw.replace(/[$,\s]/g, '')
+    const parsed = Number(cleaned)
+    if (!cleaned || isNaN(parsed) || parsed <= 0) {
+      // Invalid entry — revert display by clearing the editing state for this role.
+      setEditing(prev => { const next = { ...prev }; delete next[role]; return next })
+      return
+    }
+    setResourceRate(role, Math.round(parsed))
+    // Clear the editing override so the display reverts to the formatted store value.
+    setEditing(prev => { const next = { ...prev }; delete next[role]; return next })
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+      {/* Table header */}
+      <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 text-xs font-medium text-slate-500 dark:text-slate-400">
+        <span>Role</span>
+        <span>Annual Rate</span>
+        <span />
+      </div>
+
+      {/* Role rows */}
+      {uniqueRoles.map(role => {
+        const stored = rateByRole.get(role)
+        const hasRate = stored !== undefined
+        // Prefer the in-flight edit value; otherwise show the stored value formatted.
+        const displayValue = editing[role] !== undefined
+          ? editing[role]
+          : (hasRate ? fmtNumber(stored!) : '')
+
+        return (
+          <div
+            key={role}
+            className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 last:border-0"
+          >
+            <span className="text-sm text-slate-700 dark:text-slate-200">{role}</span>
+
+            {/* Annual rate input with $ prefix */}
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-slate-400 dark:text-slate-500">$</span>
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={displayValue}
+                placeholder={hasRate ? '' : 'Add rate'}
+                onChange={e => handleChange(role, e.target.value)}
+                onBlur={() => handleBlur(role)}
+                className={cn(
+                  'h-8 w-32 text-right text-sm',
+                  !hasRate && 'placeholder:text-slate-400 dark:placeholder:text-slate-500 italic',
+                )}
+              />
+            </div>
+
+            {/* Clear button — only shown when a rate is defined */}
+            {hasRate ? (
+              <button
+                type="button"
+                onClick={() => removeResourceRate(role)}
+                title="Clear rate"
+                className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            ) : (
+              /* Placeholder to keep grid alignment consistent */
+              <span className="w-4" />
+            )}
+          </div>
+        )
+      })}
+
+      {/* Summary line */}
+      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="font-medium text-slate-700 dark:text-slate-200">
+            {rolesWithRate.length} of {uniqueRoles.length}
+          </span>
+          {' '}roles have rates defined
+          {totalCost > 0 && (
+            <>
+              {' · '}
+              Total annual headcount cost:{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {fmtCompact(totalCost)}
+              </span>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +289,7 @@ function ImportSection() {
       intakeRequests: store.intakeRequests,
       escalations:    store.escalations,
       ptoBlocks:      store.ptoBlocks,
+      resourceRates:  store.resourceRates,
     }
 
     switch (entityType) {
@@ -375,8 +536,9 @@ export function SettingsPage() {
       projects,
       initiatives,
       intakeRequests,
-      escalations:    store.escalations,
-      ptoBlocks:      store.ptoBlocks,
+      escalations:   store.escalations,
+      ptoBlocks:     store.ptoBlocks,
+      resourceRates: store.resourceRates,
     }
     const ts = new Date().toISOString().slice(0, 10)
     downloadJson(`sat-snapshot-${ts}.json`, exportFullSnapshot(state))
@@ -386,12 +548,26 @@ export function SettingsPage() {
     <div className="p-8 space-y-6 overflow-y-auto h-full">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Data Management</h1>
-        <p className="text-slate-500 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Data Management</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
           Export data to CSV for editing in a spreadsheet, then reimport to update the portfolio.
           Use the JSON snapshot for a full lossless backup.
         </p>
       </div>
+
+      {/* Resource Rates section — above Export */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <DollarSign size={16} className="text-slate-400" />
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Resource Rates</h2>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+          Set annual salary rates per role to enable portfolio-level cost and ROI analysis.
+          Rates are fixed (salaried) — allocation % is used to compute project cost share, not to
+          adjust the base rate. Rates auto-save when you leave the field.
+        </p>
+        <ResourceRatesSection />
+      </section>
 
       {/* Export section */}
       <section>

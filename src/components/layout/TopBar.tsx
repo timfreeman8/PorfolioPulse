@@ -15,6 +15,7 @@
  * the view store, which propagates to all pages that consume it.
  */
 import { useState, useRef, useEffect } from 'react'
+import { NavLink } from 'react-router-dom'
 import { Settings, Bell, ChevronDown, Shield, Search, Menu } from 'lucide-react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
@@ -23,8 +24,14 @@ import { cn } from '@/lib/utils'
 
 const SIDEBAR_BG = 'rgb(15, 82, 162)'
 
-// All nav items in one flat list; evenly spaced via consistent px-5 padding.
-const NAV_ITEMS = ['Our Work', 'Planning', 'People', 'Reports', 'Resources']
+// Top nav links — map label to route. Evenly spaced via consistent px-5 padding.
+const NAV_ITEMS: { label: string; to: string; end?: boolean }[] = [
+  { label: 'Dashboard',   to: '/',           end: true },
+  { label: 'Projects',    to: '/projects' },
+  { label: 'Planning',    to: '/planning' },
+  { label: 'People',      to: '/roster' },
+  { label: 'Analytics',   to: '/analytics' },
+]
 
 export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void }) {
   const { members } = usePortfolioStore()
@@ -84,15 +91,22 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
       </div>
 
       {/* Sub-nav — hidden on mobile; sidebar nav handles navigation there.
-          The md:flex ensures it only appears when the sidebar is in layout flow. */}
+          Active route gets a white bottom border underline to show current location. */}
       <nav className="hidden md:flex items-center h-full pl-2">
-        {NAV_ITEMS.map(link => (
-          <button
-            key={link}
-            className="px-5 h-full text-sm text-blue-200 hover:text-white focus:text-white transition-colors whitespace-nowrap outline-none"
+        {NAV_ITEMS.map(({ label, to, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) => cn(
+              'px-5 h-full text-sm transition-colors whitespace-nowrap outline-none flex items-center border-b-2',
+              isActive
+                ? 'text-white border-white'
+                : 'text-blue-200 hover:text-white border-transparent',
+            )}
           >
-            {link}
-          </button>
+            {label}
+          </NavLink>
         ))}
       </nav>
 

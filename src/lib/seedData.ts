@@ -29,6 +29,7 @@ import type {
   Member,
   PortfolioState,
   Project,
+  ResourceRate,
   Team,
 } from '@/types'
 
@@ -173,6 +174,42 @@ const initiatives: Initiative[] = [
     targetQuarter: 'Q3 2026',
     status: 'Active',
   },
+]
+
+// ─── Resource Rates ───────────────────────────────────────────────────────
+// Annual salary benchmarks for roles that appear in the seed member data.
+// These are round-number approximations used to power portfolio cost analytics.
+// All roles are salaried — costs are fixed regardless of project utilization.
+
+const resourceRates: ResourceRate[] = [
+  { role: 'Software Engineer',                     annualRate: 120000 },
+  { role: 'Senior Software Engineer',              annualRate: 150000 },
+  { role: 'Advanced Software Engineer',            annualRate: 155000 },
+  { role: 'Senior Advanced Software Engineer',     annualRate: 165000 },
+  { role: 'Adv. Software Engineering Manager',     annualRate: 170000 },
+  { role: 'Senior Software Engineering Manager',   annualRate: 180000 },
+  { role: 'Senior Adv. Software Engineering Manager', annualRate: 190000 },
+  { role: 'Product Manager',                       annualRate: 120000 },
+  { role: 'Senior Product Manager',                annualRate: 140000 },
+  { role: 'Product Management Group Manager',      annualRate: 160000 },
+  { role: 'Product Designer',                      annualRate: 110000 },
+  { role: 'Senior Product Designer',               annualRate: 130000 },
+  { role: 'Associate Product Designer',            annualRate: 90000  },
+  { role: 'Senior Product Designer Manager',       annualRate: 150000 },
+  { role: 'Data Engineer',                         annualRate: 125000 },
+  { role: 'Advanced Data Engineer',                annualRate: 145000 },
+  { role: 'SRE/DevOps Engineer',                   annualRate: 130000 },
+  { role: 'Senior SRE/DevOps Engineer',            annualRate: 150000 },
+  { role: 'Adv. SRE/DevOps Engineer',              annualRate: 160000 },
+  { role: 'Quality Engineer',                      annualRate: 110000 },
+  { role: 'Senior Quality Engineer',               annualRate: 130000 },
+  { role: 'Advanced Quality Engineer',             annualRate: 145000 },
+  { role: 'Application Systems Analyst',           annualRate: 100000 },
+  { role: 'Senior Application Systems Analyst',    annualRate: 115000 },
+  { role: 'Associate Application Systems Analyst', annualRate: 85000  },
+  { role: 'Advanced Solutions Architect',          annualRate: 160000 },
+  { role: 'Senior Advanced Solutions Architect',   annualRate: 175000 },
+  { role: 'Developer II',                          annualRate: 105000 },
 ]
 
 // ─── Teams ────────────────────────────────────────────────────────────────
@@ -432,6 +469,7 @@ const projects: Project[] = [
     stakeholders: 'Store Ops, Merchandising',
     notes: 'Core data sync rebuilt. Offline mode in development.',
     updatedAt: '2026-05-28T10:00:00Z',
+    estimatedValue: 4500000, valueType: 'Revenue Impact',
   },
   {
     id: 'p2',
@@ -464,6 +502,7 @@ const projects: Project[] = [
     stakeholders: 'Store Ops, Finance',
     notes: 'API integration complete. UI in development.',
     updatedAt: '2026-05-27T11:00:00Z',
+    estimatedValue: 2800000, valueType: 'Revenue Impact',
   },
   // ── Seamless AX — Little Bird (i1) ───────────────────────────────────
   {
@@ -511,6 +550,7 @@ const projects: Project[] = [
     stakeholders: 'All engineering teams',
     notes: 'Auth token service live. Event bus in QA.',
     updatedAt: '2026-05-27T10:00:00Z',
+    estimatedValue: 3200000, valueType: 'Cost Savings',
   },
   {
     id: 'p7',
@@ -556,6 +596,7 @@ const projects: Project[] = [
     stakeholders: 'Analytics, All domains',
     notes: 'Kafka cluster live. Domain onboarding at 40%.',
     updatedAt: '2026-05-26T09:00:00Z',
+    estimatedValue: 3800000, valueType: 'Revenue Impact',
   },
   // ── Price Execution — ISA (i2) ────────────────────────────────────────
   {
@@ -573,6 +614,7 @@ const projects: Project[] = [
     stakeholders: 'Merchandising, Store Ops',
     notes: 'Rule engine rebuilt. Store sync integration in development.',
     updatedAt: '2026-05-25T11:00:00Z',
+    estimatedValue: 1800000, valueType: 'Cost Savings',
   },
   {
     id: 'p11',
@@ -604,6 +646,7 @@ const projects: Project[] = [
     stakeholders: 'Store Ops, Merchandising',
     notes: 'Mobile app MVP complete. Variance reporting integration in development.',
     updatedAt: '2026-05-24T12:00:00Z',
+    estimatedValue: 2200000, valueType: 'Cost Savings',
   },
   // ── Inventory — DSD (i2) ──────────────────────────────────────────────
   {
@@ -682,6 +725,7 @@ const projects: Project[] = [
     stakeholders: 'Merchandising, Supply Chain',
     notes: 'ML model deployed. Exception workflow in development.',
     updatedAt: '2026-05-26T13:00:00Z',
+    estimatedValue: 5500000, valueType: 'Revenue Impact',
   },
   // ── Ordering — Interface (i2) ─────────────────────────────────────────
   {
@@ -745,6 +789,7 @@ const projects: Project[] = [
     stakeholders: 'All engineering teams, Security',
     notes: 'GitHub Actions standard in place. Security gates being rolled out to all teams.',
     updatedAt: '2026-05-26T11:00:00Z',
+    estimatedValue: 1500000, valueType: 'Cost Savings',
   },
   // ── AP — AP Team (i4) ─────────────────────────────────────────────────
   {
@@ -761,6 +806,7 @@ const projects: Project[] = [
     stakeholders: 'Finance, Procurement',
     notes: 'Invoice matching engine built. Approval workflow in development.',
     updatedAt: '2026-05-22T14:00:00Z',
+    estimatedValue: 2000000, valueType: 'Cost Savings',
   },
   // ── Compliance (i4) ───────────────────────────────────────────────────
   {
@@ -989,7 +1035,11 @@ function buildState(): PortfolioState {
     blockedByIds: p.blockedByIds ?? [],
   }))
 
-  return { domains, teams, members, projects: projectsWithBlockedBy, initiatives, intakeRequests, escalations: [], ptoBlocks: [] }
+  return {
+    domains, teams, members, projects: projectsWithBlockedBy,
+    initiatives, intakeRequests, escalations: [], ptoBlocks: [],
+    resourceRates,
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────

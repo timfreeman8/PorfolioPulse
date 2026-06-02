@@ -21,6 +21,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { X, Check } from 'lucide-react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS } from '@/lib/colors'
@@ -29,6 +32,9 @@ import { cn } from '@/lib/utils'
 import type { Project, ProjectStatus, ProjectPhase, Priority, ProjectMemberAssignment, Member, Initiative } from '@/types'
 
 type ProjectDraft = Omit<Project, 'id' | 'updatedAt'>
+
+/** Valid value types for a project — kept in sync with the Project type union. */
+const VALUE_TYPES: Array<'Revenue Impact' | 'Cost Savings'> = ['Revenue Impact', 'Cost Savings']
 
 const STATUSES: ProjectStatus[] = ['Backlog', 'In Progress', 'Blocked', 'Complete']
 const PHASES: ProjectPhase[] = ['Research', 'Discovery', 'Development', 'QA', 'Deployed', 'On Hold']
@@ -399,6 +405,10 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
   const [notes, setNotes]               = useState(initial?.notes ?? '')
   /** IDs of projects that block this one. Only available in edit mode. */
   const [blockedByIds, setBlockedByIds] = useState<string[]>(initial?.blockedByIds ?? [])
+  // Value tracking fields — all optional.
+  const [valueType,      setValueType]      = useState<'Revenue Impact' | 'Cost Savings' | ''>(initial?.valueType ?? '')
+  const [estimatedValue, setEstimatedValue] = useState<string>(initial?.estimatedValue?.toString() ?? '')
+  const [actualValue,    setActualValue]    = useState<string>(initial?.actualValue?.toString() ?? '')
 
   const [assignments, setAssignments] = useState<ProjectMemberAssignment[]>(
     initial?.assignments ?? (defaultMemberId ? [{ memberId: defaultMemberId, allocation: 50 }] : [])
@@ -422,6 +432,9 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
     setStakeholders(initial?.stakeholders ?? '')
     setNotes(initial?.notes ?? '')
     setBlockedByIds(initial?.blockedByIds ?? [])
+    setValueType(initial?.valueType ?? '')
+    setEstimatedValue(initial?.estimatedValue?.toString() ?? '')
+    setActualValue(initial?.actualValue?.toString() ?? '')
     setAssignments(initial?.assignments ?? (defaultMemberId ? [{ memberId: defaultMemberId, allocation: 50 }] : []))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]) // intentionally omit `initial` — we only want to reset on open, not on every render
@@ -446,12 +459,20 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Parse the value fields — blank strings become undefined.
+    const parsedEstimated = estimatedValue ? Number(estimatedValue.replace(/[$,\s]/g, '')) : undefined
+    const parsedActual    = actualValue    ? Number(actualValue.replace(/[$,\s]/g, ''))    : undefined
+
     const draft: ProjectDraft = {
       assignments, name, description, status, phase, priority,
       initiativeId, startDate, targetEndDate,
       percentComplete, stakeholders, notes,
       // Only persist blockedByIds in edit mode; new projects start with none.
-      blockedByIds: isEdit ? blockedByIds : [],
+      blockedByIds:   isEdit ? blockedByIds : [],
+      // Value fields — only store when meaningful (type must be set for value to count).
+      valueType:      valueType || undefined,
+      estimatedValue: valueType && parsedEstimated && !isNaN(parsedEstimated) ? parsedEstimated : undefined,
+      actualValue:    status === 'Complete' && parsedActual && !isNaN(parsedActual) ? parsedActual : undefined,
     }
     onSave(draft, initial?.id)
     onOpenChange(false)
@@ -696,6 +717,62 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
           <Field label="Notes / Updates">
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Latest status notes…" />
           </Field>
+
+          {/* Value tracking fields — optional, used for financial analytics.
+              estimatedValue is shown only when valueType is set.
+              actualValue is shown only when the project is Complete. */}
+          <Field label="Value Type">
+            <Select
+              value={valueType || '__none__'}
+              onValueChange={v => setValueType(v === '__none__' ? '' : v as 'Revenue Impact' | 'Cost Savings')}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="— None —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— None —</SelectItem>
+                {VALUE_TYPES.map(vt => (
+                  <SelectItem key={vt} value={vt}>{vt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {/* Estimated value — shown only when a value type is selected */}
+          {valueType && (
+            <Field label="Estimated Value">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm text-slate-500">$</span>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={estimatedValue}
+                  onChange={e => setEstimatedValue(e.target.value)}
+                  placeholder="e.g. 500000"
+                  className="text-right"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Dollar amount of expected {valueType.toLowerCase()}.</p>
+            </Field>
+          )}
+
+          {/* Actual value — shown only when the project is Complete */}
+          {status === 'Complete' && (
+            <Field label="Actual Value Realized">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm text-slate-500">$</span>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={actualValue}
+                  onChange={e => setActualValue(e.target.value)}
+                  placeholder="e.g. 450000"
+                  className="text-right"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Actual value delivered after project completion.</p>
+            </Field>
+          )}
 
           {/* Blocked By — only meaningful when editing an existing project.
               Shown for all statuses so dependencies can be set proactively,
