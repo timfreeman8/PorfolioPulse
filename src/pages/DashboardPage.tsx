@@ -24,9 +24,10 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import {
-  Users, FolderKanban, ClipboardList,
+  FolderKanban, ClipboardList,
   ArrowRight, Target, Calendar, ShieldAlert,
   AlertTriangle, CheckCircle2, FolderTree,
+  BookUser, Layers,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -605,7 +606,7 @@ export function DashboardPage() {
           value={projects.length}
           sublabel={`${activeProjects} in progress`}
           to="/projects"
-          icon={FolderKanban}
+          icon={Layers}
           accent="bg-blue-500"
         />
         <NavCard
@@ -613,7 +614,7 @@ export function DashboardPage() {
           value={members.length}
           sublabel={`${teams.length} teams`}
           to="/roster"
-          icon={Users}
+          icon={BookUser}
           accent="bg-sky-500"
         />
         <NavCard
