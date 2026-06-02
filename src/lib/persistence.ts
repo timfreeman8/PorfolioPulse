@@ -30,8 +30,10 @@ function migrateState(raw: any): PortfolioState {
       return m
     })
   }
-  if (!Array.isArray(raw?.escalations)) raw.escalations = []
-  if (!Array.isArray(raw?.ptoBlocks))   raw.ptoBlocks   = []
+  if (!Array.isArray(raw?.escalations))   raw.escalations   = []
+  if (!Array.isArray(raw?.ptoBlocks))     raw.ptoBlocks     = []
+  // Backfill resourceRates for state saved before cost/value tracking was added.
+  if (!Array.isArray(raw?.resourceRates)) raw.resourceRates = []
   return raw as PortfolioState
 }
 

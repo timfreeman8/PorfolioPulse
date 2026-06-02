@@ -928,7 +928,7 @@ function buildState(): PortfolioState {
     projectIds: memberProjectMap.get(m.id) ?? [],
   }))
 
-  return { domains, teams, members, projects, initiatives, intakeRequests, escalations: [], ptoBlocks: [] }
+  return { domains, teams, members, projects, initiatives, intakeRequests, escalations: [], ptoBlocks: [], resourceRates: [] }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────

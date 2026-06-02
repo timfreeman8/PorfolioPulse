@@ -26,7 +26,6 @@ import type {
   PortfolioState,
   Project,
   PtoBlock,
-  ResourceRate,
   Team,
 } from '@/types'
 

@@ -1,6 +1,15 @@
 /**
- * AnalyticsPage — Portfolio-wide analytics with charts and a sortable/filterable
- * project table.
+ * AnalyticsPage — Portfolio-wide analytics with two tabs:
+ *
+ *   Charts tab (default) — four recharts charts and a sortable/filterable
+ *     project table covering phase, status, team capacity, and initiative
+ *     progress. Filters persist across navigation via localStorage.
+ *
+ *   Financial tab — cost vs. value analysis for the portfolio:
+ *     - Summary stat cards (total headcount cost, estimated value, portfolio ROI)
+ *     - Cost by Team horizontal bar chart (member annual rates by team)
+ *     - Value by Initiative stacked bar chart (Revenue Impact vs Cost Savings)
+ *     - Project Financial Table with cost share and ROI columns
  *
  * Dark mode: chart element colors (grid lines, axis ticks, legends, tooltips)
  * are driven by `isDark` from useTheme because recharts doesn't respond to
@@ -312,7 +321,7 @@ function CostByTeamBar({
           width={130}
         />
         <Tooltip
-          formatter={(v: number) => [fmtFull(v), 'Annual Cost']}
+          formatter={(v) => [fmtFull(Number(v)), 'Annual Cost']}
           contentStyle={{
             backgroundColor: isDark ? '#1e293b' : '#ffffff',
             borderColor:     isDark ? '#334155' : '#e2e8f0',
@@ -361,8 +370,8 @@ function ValueByInitiativeBar({
           width={170}
         />
         <Tooltip
-          formatter={(v: number, name: string) => [
-            fmtFull(v),
+          formatter={(v, name) => [
+            fmtFull(Number(v)),
             name === 'revenue' ? 'Revenue Impact' : 'Cost Savings',
           ]}
           contentStyle={{

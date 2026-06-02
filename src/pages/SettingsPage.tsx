@@ -1,13 +1,17 @@
 /**
  * Settings page — data management hub for the SAT portfolio tool.
  *
- * Two core capabilities:
+ * Three sections (top to bottom):
  *
- * 1. EXPORT — Download any entity collection as a CSV file, or export the
+ * 1. RESOURCE RATES — Editable table mapping each unique member role to an
+ *    annual salary rate. Rates auto-save on blur. Used by the Analytics
+ *    Financial tab to calculate portfolio headcount cost and project ROI.
+ *
+ * 2. EXPORT — Download any entity collection as a CSV file, or export the
  *    entire portfolio state as a JSON snapshot. CSVs are designed for human
  *    editing in spreadsheet applications (Excel, Numbers, Google Sheets).
  *
- * 2. IMPORT — Upload a previously-exported CSV or JSON snapshot to replace
+ * 3. IMPORT — Upload a previously-exported CSV or JSON snapshot to replace
  *    the current data. The entity type is auto-detected from the CSV headers,
  *    so there's no need to select it manually. Importing replaces the entity
  *    collection atomically via the store's `hydrate()` action.
@@ -545,7 +549,8 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 overflow-y-auto h-full">
+    <div className="p-8 overflow-y-auto h-full">
+      <div className="max-w-2xl space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Data Management</h1>
@@ -667,6 +672,7 @@ export function SettingsPage() {
           <ImportSection />
         </div>
       </section>
+      </div>
     </div>
   )
 }
