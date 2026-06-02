@@ -171,8 +171,8 @@ function ImportSection() {
         }
       }
       case 'projects': {
-        // Pass current initiatives so initiative names in the CSV resolve to IDs.
-        const imported = importProjectsCsv(csvText, pendingAssignments, current.initiatives)
+        // Pass current initiatives and projects so names resolve to IDs (including blockedBy).
+        const imported = importProjectsCsv(csvText, pendingAssignments, current.initiatives, current.projects)
         // Rebuild member.projectIds from assignments to keep the store consistent.
         const updatedMembers = current.members.map(m => ({
           ...m,

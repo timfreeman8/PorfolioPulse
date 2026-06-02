@@ -104,6 +104,12 @@ export interface Project {
   notes: string
   /** ISO datetime string — used for "recent activity" feed */
   updatedAt: string
+  /**
+   * IDs of other projects that must complete (or unblock) before this one can
+   * proceed. Only relevant when status === 'Blocked', but stored on all projects
+   * so the field is always present and filterable.
+   */
+  blockedByIds?: string[]
 }
 
 export interface Initiative {

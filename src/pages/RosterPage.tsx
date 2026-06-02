@@ -298,7 +298,7 @@ export function RosterPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 overflow-y-auto h-full">
+    <div className="p-4 md:p-8 space-y-6 overflow-y-auto h-full">
 
       {/* Page header */}
       <div>
@@ -343,8 +343,8 @@ export function RosterPage() {
 
       {/* ── Search + filters ───────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Free-text search */}
-        <div className="relative w-72">
+        {/* Free-text search — full width on mobile, fixed width on sm+ */}
+        <div className="relative w-full sm:w-72">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <Input
             value={search}

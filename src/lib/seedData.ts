@@ -983,7 +983,13 @@ function buildState(): PortfolioState {
     projectIds: memberProjectMap.get(m.id) ?? [],
   }))
 
-  return { domains, teams, members, projects, initiatives, intakeRequests, escalations: [], ptoBlocks: [] }
+  // Ensure every seed project has blockedByIds so the field is always present.
+  const projectsWithBlockedBy = projects.map(p => ({
+    ...p,
+    blockedByIds: p.blockedByIds ?? [],
+  }))
+
+  return { domains, teams, members, projects: projectsWithBlockedBy, initiatives, intakeRequests, escalations: [], ptoBlocks: [] }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────

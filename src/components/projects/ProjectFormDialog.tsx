@@ -278,6 +278,89 @@ function InitiativeCombobox({ initiatives, value, onChange }: {
   )
 }
 
+// ─── Blocked-by multi-select ───────────────────────────────────────────────
+// Lists all projects except the one currently being edited. Selected projects
+// are shown as removable red pills to visually reinforce the blocking
+// relationship. Uses the same click-outside pattern as MemberMultiSelect.
+
+function BlockedByMultiSelect({ allProjects, selectedIds, onToggle }: {
+  allProjects: Project[]
+  selectedIds: string[]
+  onToggle: (projectId: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen]     = useState(false)
+  const ref                 = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [])
+
+  const selectedProjects = allProjects.filter(p => selectedIds.includes(p.id))
+  const filtered = allProjects.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-10 bg-white cursor-text"
+        onClick={() => setOpen(true)}
+      >
+        {/* Selected blocking projects rendered as red removable chips */}
+        {selectedProjects.map(p => (
+          <span key={p.id} className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-red-600 text-white rounded-full text-xs font-medium shrink-0">
+            {p.name}
+            <button
+              type="button"
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onToggle(p.id) }}
+              className="hover:bg-red-700 rounded-full p-0.5 transition-colors"
+            >
+              <X size={9} />
+            </button>
+          </span>
+        ))}
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder={selectedProjects.length === 0 ? 'Search projects…' : ''}
+          className="flex-1 min-w-[100px] text-sm outline-none bg-transparent placeholder:text-slate-400"
+        />
+      </div>
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-slate-400">No projects found</p>
+          ) : filtered.map(p => {
+            const selected = selectedIds.includes(p.id)
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { onToggle(p.id); setSearch('') }}
+                className={cn(
+                  'w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-slate-50 transition-colors',
+                  selected && 'text-red-700 bg-red-50 hover:bg-red-50',
+                )}
+              >
+                {p.name}
+                {selected && <Check size={13} className="text-red-600" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Field wrapper ─────────────────────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -300,7 +383,7 @@ interface Props {
 }
 
 export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId, onSave }: Props) {
-  const { initiatives, members } = usePortfolioStore()
+  const { initiatives, members, projects } = usePortfolioStore()
   const isEdit = !!initial
 
   const [name, setName]                 = useState(initial?.name ?? '')
@@ -314,6 +397,8 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
   const [percentComplete, setPercent]   = useState(initial?.percentComplete ?? 0)
   const [stakeholders, setStakeholders] = useState(initial?.stakeholders ?? '')
   const [notes, setNotes]               = useState(initial?.notes ?? '')
+  /** IDs of projects that block this one. Only available in edit mode. */
+  const [blockedByIds, setBlockedByIds] = useState<string[]>(initial?.blockedByIds ?? [])
 
   const [assignments, setAssignments] = useState<ProjectMemberAssignment[]>(
     initial?.assignments ?? (defaultMemberId ? [{ memberId: defaultMemberId, allocation: 50 }] : [])
@@ -336,6 +421,7 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
     setPercent(initial?.percentComplete ?? 0)
     setStakeholders(initial?.stakeholders ?? '')
     setNotes(initial?.notes ?? '')
+    setBlockedByIds(initial?.blockedByIds ?? [])
     setAssignments(initial?.assignments ?? (defaultMemberId ? [{ memberId: defaultMemberId, allocation: 50 }] : []))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]) // intentionally omit `initial` — we only want to reset on open, not on every render
@@ -364,6 +450,8 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
       assignments, name, description, status, phase, priority,
       initiativeId, startDate, targetEndDate,
       percentComplete, stakeholders, notes,
+      // Only persist blockedByIds in edit mode; new projects start with none.
+      blockedByIds: isEdit ? blockedByIds : [],
     }
     onSave(draft, initial?.id)
     onOpenChange(false)
@@ -377,6 +465,18 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
   const assignedMembers = assignments
     .map(a => ({ assignment: a, member: members.find(m => m.id === a.memberId) }))
     .filter(x => x.member)
+
+  // All projects except the current one — used to populate the Blocked By picker.
+  // Excludes self so a project cannot be listed as blocking itself.
+  const otherProjects = projects.filter(p => p.id !== initial?.id)
+
+  function toggleBlockedBy(projectId: string) {
+    setBlockedByIds(prev =>
+      prev.includes(projectId)
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -596,6 +696,22 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
           <Field label="Notes / Updates">
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Latest status notes…" />
           </Field>
+
+          {/* Blocked By — only meaningful when editing an existing project.
+              Shown for all statuses so dependencies can be set proactively,
+              but particularly relevant when status === 'Blocked'. */}
+          {isEdit && (
+            <Field label="Blocked By">
+              <BlockedByMultiSelect
+                allProjects={otherProjects}
+                selectedIds={blockedByIds}
+                onToggle={toggleBlockedBy}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Select any projects that must complete before this one can proceed.
+              </p>
+            </Field>
+          )}
 
           </div>
 

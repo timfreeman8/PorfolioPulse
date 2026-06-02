@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# PortfolioPulse
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Portfolio planning and capacity visibility tool for Store Technology teams.
 
-Currently, two official plugins are available:
+Built for engineering managers and team leads who need real-time visibility into who is working on what, how much capacity is available, and what's coming through the pipeline.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Roster** — Domain → Team → Member hierarchy with capacity bars and over-capacity highlighting
+- **Capacity Planner** — Gantt-style timeline view of all projects across the current fiscal year
+- **Projects** — Full project tracking with status, phase, priority, assignments, and initiative links
+- **Initiatives** — Strategic themes that projects roll up to, with aggregate progress bars
+- **Intake** — Submit, review, approve, and convert incoming requests into projects
+- **Analytics** — Charts and filterable table across the full portfolio (filters persist between sessions)
+- **Escalations** — Track active blockers that need leadership attention
+- **Print Report** — Print-optimized quarter capacity report at `/print`
+- **Data Management** — Export/import via CSV (roster, projects, assignments, initiatives, intake) or full JSON snapshot
+- **Dark mode** — Full dark mode toggle in the sidebar
+- **No backend required** — All data persisted in localStorage
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Layer | Technology |
+|---|---|
+| Build tool | Vite |
+| UI framework | React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Components | shadcn/ui |
+| State | Zustand |
+| Routing | React Router v6 |
+| Charts | Recharts |
+| Persistence | localStorage |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Getting Started
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The app loads with seed data on first launch (3 domains, ~8 teams, ~30 members, projects, initiatives, and intake requests).
 
+To start fresh, open the browser console and run:
 ```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+localStorage.clear(); location.reload()
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## Data Model
+
+```
+Portfolio
+└── Domain (e.g. "Store Experience")
+    └── Team (e.g. "POS Engineering")
+        └── Member → Projects → Initiative
+```
+
+---
+
+## CSV Import/Export
+
+Go to **Settings → Data Management** to export any entity as CSV or download a full JSON snapshot. The recommended import order:
+
+1. `roster.csv` — domains + teams + members in one file
+2. `initiatives.csv`
+3. `assignments.csv` — upload before projects so assignments attach correctly
+4. `projects.csv`
+5. `intake.csv`
+
+Or use **Export Full Snapshot → JSON** for a lossless backup that restores everything in one step.
+
+---
+
+## Build
+
+```bash
+npm run build
 ```

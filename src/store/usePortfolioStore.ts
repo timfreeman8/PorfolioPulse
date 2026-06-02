@@ -126,6 +126,8 @@ function migrateState(state: PortfolioState): PortfolioState {
     ...state,
     projects: state.projects.map(p => ({
       ...p,
+      // Backfill blockedByIds for records that pre-date this field.
+      blockedByIds: p.blockedByIds ?? [],
       assignments: p.assignments.map(a => ({
         ...a,
         part: normalizeRoles(a.part),
@@ -332,6 +334,9 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
     // ── Projects ───────────────────────────────────────────────────────────
     addProject(payload) {
       const project: Project = {
+        // Default blockedByIds to [] so the field is always present even when
+        // callers (e.g. intake conversion) don't supply it explicitly.
+        blockedByIds: [],
         id: uid(),
         updatedAt: new Date().toISOString(),
         ...payload,
@@ -392,7 +397,15 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
       set(s => {
         const next: PortfolioState = {
           ...s,
-          projects: s.projects.filter(p => p.id !== id),
+          projects: s.projects
+            .filter(p => p.id !== id)
+            // Remove the deleted project from any other project's blockedByIds
+            // so there are no dangling references in the store.
+            .map(p =>
+              p.blockedByIds?.includes(id)
+                ? { ...p, blockedByIds: p.blockedByIds.filter(bid => bid !== id) }
+                : p
+            ),
           members: s.members.map(m => ({
             ...m,
             projectIds: m.projectIds.filter(pid => pid !== id),

@@ -572,7 +572,7 @@ export function DashboardPage() {
   const pendingRequests = intakeRequests.filter(r => r.status === 'Pending Review').length
 
   return (
-    <div className="px-8 pt-8 pb-8 space-y-6 overflow-y-auto h-full">
+    <div className="px-4 pt-6 pb-8 md:px-8 md:pt-8 space-y-6 overflow-y-auto h-full">
       {/* ── Header ────────────────────────────────────────────────────── */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>

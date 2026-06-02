@@ -414,6 +414,19 @@ export function ProjectsPage() {
                   <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{project.description}</p>
                 )}
 
+                {/* Blocked-by attribution — shown only when the project is Blocked
+                    and at least one blocking project has been identified. Renders
+                    project names (resolved from store) separated by commas. */}
+                {project.status === 'Blocked' && (project.blockedByIds?.length ?? 0) > 0 && (
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                    Blocked by:{' '}
+                    {project.blockedByIds!
+                      .map(id => projects.find(p => p.id === id)?.name)
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                )}
+
                 {/* Stakeholder group tags — highlight the active filter chip */}
                 {parseStakeholders(project.stakeholders).length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap" onClick={e => e.stopPropagation()}>

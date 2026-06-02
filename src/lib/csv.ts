@@ -500,14 +500,19 @@ export function importMembersCsv(csv: string, teams: Team[] = [], domains: Domai
 // Assignments are NOT included here — they live in a separate assignments.csv.
 // Initiative name is exported instead of the raw initiativeId for readability.
 
+// `blockedBy` stores the blocking project names as a semicolon-delimited string
+// (matching the multi-value convention used for memberIds/teamIds elsewhere).
+// Import resolves names back to project IDs using the full projects array.
 const PROJECT_HEADERS = [
   'id', 'name', 'description', 'status', 'phase', 'priority',
   'startDate', 'targetEndDate', 'percentComplete',
-  'stakeholders', 'notes', 'initiative', 'updatedAt',
+  'stakeholders', 'notes', 'initiative', 'blockedBy', 'updatedAt',
 ] as const
 
 export function exportProjectsCsv(projects: Project[], initiatives: Initiative[] = []): string {
   const initiativeById = new Map(initiatives.map(i => [i.id, i.name]))
+  // Build a name lookup for resolving blockedByIds → names for the CSV column.
+  const projectNameById = new Map(projects.map(p => [p.id, p.name]))
   const rows = projects.map(p => ({
     id:              p.id,
     name:            p.name,
@@ -520,7 +525,12 @@ export function exportProjectsCsv(projects: Project[], initiatives: Initiative[]
     percentComplete: p.percentComplete,
     stakeholders:    p.stakeholders,
     notes:           p.notes,
-    initiative:      initiativeById.get(p.initiativeId) ?? '',  // name instead of id
+    initiative:      initiativeById.get(p.initiativeId) ?? '',    // name instead of id
+    // Serialize blockedByIds as semicolon-separated project names for readability.
+    blockedBy:       (p.blockedByIds ?? [])
+                       .map(id => projectNameById.get(id) ?? '')
+                       .filter(Boolean)
+                       .join(';'),
     updatedAt:       p.updatedAt,
   }))
   return objectsToCsv([...PROJECT_HEADERS], rows as Record<string, unknown>[])
@@ -530,13 +540,28 @@ export function importProjectsCsv(
   csv: string,
   assignmentsByProjectId: Map<string, ProjectMemberAssignment[]>,
   initiatives: Initiative[] = [],
+  allProjects: Project[] = [],
 ): Project[] {
   const initiativeByName = new Map(initiatives.map(i => [i.name.toLowerCase(), i.id]))
+  // Build a case-insensitive name → id lookup so blockedBy names can be resolved.
+  const projectIdByName  = new Map(allProjects.map(p => [p.name.toLowerCase(), p.id]))
+
   return csvToObjects(csv).map(r => {
     // Resolve initiative name → id; fall back to treating the value as a raw id
     // so files with the old initiativeId column still import correctly.
     const rawInitiative = r.initiative || r.initiativeId || ''
     const initiativeId  = initiativeByName.get(rawInitiative.toLowerCase()) ?? rawInitiative
+
+    // Resolve semicolon-separated blocking project names → IDs.
+    // Unrecognised names are silently dropped so stale CSV data doesn't corrupt
+    // the store with dangling references.
+    const blockedByIds = (r.blockedBy || '')
+      .split(';')
+      .map((name: string) => name.trim())
+      .filter(Boolean)
+      .map((name: string) => projectIdByName.get(name.toLowerCase()) ?? '')
+      .filter(Boolean)
+
     return {
       id:              r.id              || crypto.randomUUID(),
       name:            r.name            || '',
@@ -550,6 +575,7 @@ export function importProjectsCsv(
       stakeholders:    r.stakeholders    || '',
       notes:           r.notes           || '',
       initiativeId,
+      blockedByIds,
       updatedAt:       r.updatedAt       || new Date().toISOString(),
       // Check by id first (old format) then by name (new format) for backward compat.
       assignments:     assignmentsByProjectId.get(r.id) ?? assignmentsByProjectId.get(r.name) ?? [],
