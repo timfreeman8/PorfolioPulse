@@ -8,6 +8,13 @@
  *   3. Domain sections — one collapsible section per domain, each containing
  *      one sub-section per team, each team showing a grid of member cards.
  *
+ * Team panel (new):
+ *   Clicking a team sub-header opens an inline panel directly below that header
+ *   that shows the team's description, avg allocation, member count, and a
+ *   "View all members →" list linking to individual member profiles.
+ *   Only one panel is open at a time; clicking the same header again collapses
+ *   it; clicking a different header switches focus.
+ *
  * Member cards surface the key capacity signals at a glance:
  *   - Avatar, name, role, team name
  *   - Q allocation % computed fresh from the current fiscal quarter
@@ -20,8 +27,11 @@
  */
 
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Users, Search, SearchX, TrendingUp, AlertTriangle, Zap, UserCheck } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import {
+  Users, Search, SearchX, TrendingUp, AlertTriangle, Zap, UserCheck,
+  ChevronDown, ChevronRight,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
 import { FilterChip } from '@/components/ui/filter-chip'
@@ -29,7 +39,7 @@ import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { memberQuarterAllocation, getCurrentQBounds } from '@/lib/fiscal'
 import { avatarColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import type { Member, Project } from '@/types'
+import type { Member, Project, Team } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -199,6 +209,103 @@ function MemberCard({ member, teamName, onClick }: MemberCardProps) {
   )
 }
 
+// ─── Team detail panel ─────────────────────────────────────────────────────
+
+/**
+ * TeamPanel — inline expandable panel that appears below a team sub-header
+ * when the user clicks it. Shows team description, avg allocation, member
+ * count, and a linked list of member names. The panel is intentionally compact
+ * so it sits comfortably above the card grid without taking over the page.
+ */
+interface TeamPanelProps {
+  team: Team
+  /** All members of this team (already filtered to this team's memberIds). */
+  teamMembers: Member[]
+}
+
+function TeamPanel({ team, teamMembers }: TeamPanelProps) {
+  const { projects } = usePortfolioStore()
+
+  // Average allocation across team members for the current quarter.
+  const avgAlloc = useMemo(() => {
+    if (teamMembers.length === 0) return 0
+    const total = teamMembers.reduce(
+      (sum, m) => sum + memberQuarterAllocation(m.id, projects),
+      0,
+    )
+    return Math.round(total / teamMembers.length)
+  }, [teamMembers, projects])
+
+  // Color allocation number red/amber/green to match the Roster capacity signals.
+  const allocColor =
+    avgAlloc > 100 ? 'text-red-600 dark:text-red-400' :
+    avgAlloc > 80  ? 'text-amber-600 dark:text-amber-400' :
+    'text-green-600 dark:text-green-400'
+
+  return (
+    <div className={cn(
+      'mb-3 rounded-xl border border-blue-200 dark:border-blue-800',
+      'bg-blue-50/60 dark:bg-blue-950/20 p-4',
+      // Subtle entrance animation — the panel mounts fresh each open so the
+      // browser always runs the transition from the initial state.
+      'animate-in fade-in slide-in-from-top-1 duration-150',
+    )}>
+      {/* Team meta row: description + quick stats */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          {team.description ? (
+            <p className="text-sm text-slate-600 dark:text-slate-300">{team.description}</p>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 italic">No description.</p>
+          )}
+        </div>
+
+        {/* Quick stats pill row */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{teamMembers.length}</span>
+            {' '}member{teamMembers.length !== 1 ? 's' : ''}
+          </span>
+          <span className="text-slate-300 dark:text-slate-600 select-none">·</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Avg alloc{' '}
+            <span className={cn('font-semibold', allocColor)}>{avgAlloc}%</span>
+          </span>
+        </div>
+      </div>
+
+      {/* "View all members" link list — each name navigates to the member profile */}
+      {teamMembers.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">
+            View all members
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {teamMembers.map(m => (
+              <Link
+                key={m.id}
+                to={`/members/${m.id}`}
+                className={cn(
+                  'text-sm text-blue-600 dark:text-blue-400',
+                  'hover:text-blue-800 dark:hover:text-blue-200',
+                  'hover:underline transition-colors',
+                  'flex items-center gap-1',
+                )}
+                // Stop propagation so clicking a member link does not also
+                // re-trigger the team header toggle that wraps this panel.
+                onClick={e => e.stopPropagation()}
+              >
+                {m.name}
+                <ChevronRight size={10} className="opacity-60" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Allocation filter type ────────────────────────────────────────────────
 
 type AllocFilter = 'all' | 'at-risk' | 'over'
@@ -212,6 +319,15 @@ export function RosterPage() {
   const [search, setSearch]               = useState('')
   const [selectedDomains, setSelectedDomains] = useState<string[]>([])
   const [allocFilter, setAllocFilter]     = useState<AllocFilter>('all')
+
+  // openTeamId — the currently expanded team panel; null = all closed.
+  // Clicking the same team header collapses it; clicking a different one
+  // switches focus so only one panel is ever open at a time.
+  const [openTeamId, setOpenTeamId] = useState<string | null>(null)
+
+  const toggleTeamPanel = (teamId: string) => {
+    setOpenTeamId(prev => (prev === teamId ? null : teamId))
+  }
 
   // ── Stats — computed over all members, not the filtered subset ───────────
   // We compute these once and rely on the fiscal helper's own caching.
@@ -273,7 +389,9 @@ export function RosterPage() {
           .filter(t => t.domainId === d.id)
           .map(t => ({
             team: t,
-            // Only include members that pass the search/alloc filter
+            // All members of this team, regardless of filters — used by TeamPanel.
+            allMembers: members.filter(m => t.memberIds.includes(m.id)),
+            // Only include members that pass the search/alloc filter for the card grid.
             members: members.filter(m => t.memberIds.includes(m.id) && matchesMember(m)),
           }))
           // Drop teams that have no matching members after filtering
@@ -426,32 +544,82 @@ export function RosterPage() {
                 </div>
 
                 <div className="space-y-5">
-                  {domainTeams.map(({ team, members: teamMembers }) => (
-                    <div key={team.id}>
-                      {/* Team sub-header */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <Users size={13} className="text-slate-400 dark:text-slate-500 shrink-0" />
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                          {team.name}
-                        </span>
-                        <span className="text-xs text-slate-400 dark:text-slate-500">
-                          · {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
+                  {domainTeams.map(({ team, members: teamMembers, allMembers }) => {
+                    const isOpen = openTeamId === team.id
 
-                      {/* Member card grid — responsive: 1 → 2 → 3 columns */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {teamMembers.map(m => (
-                          <MemberCard
-                            key={m.id}
-                            member={m}
-                            teamName={team.name}
-                            onClick={() => navigate(`/members/${m.id}`)}
+                    return (
+                      <div key={team.id}>
+                        {/* Team sub-header — clickable to toggle the detail panel.
+                            Uses button semantics so keyboard nav and screen readers
+                            treat it as an interactive control. */}
+                        <button
+                          onClick={() => toggleTeamPanel(team.id)}
+                          className={cn(
+                            'w-full flex items-center gap-2 mb-3 text-left group',
+                            'rounded-md px-1 -mx-1 py-0.5',
+                            // Subtle hover/active tint to hint it's clickable
+                            'hover:bg-slate-100 dark:hover:bg-slate-800/60',
+                            'transition-colors',
+                          )}
+                          aria-expanded={isOpen}
+                        >
+                          {/* Chevron rotates to indicate open/closed state */}
+                          <span className={cn(
+                            'transition-transform duration-150 text-slate-400 dark:text-slate-500',
+                            isOpen && 'rotate-90',
+                          )}>
+                            <ChevronRight size={13} />
+                          </span>
+                          <Users size={13} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                          <span className={cn(
+                            'text-sm font-medium transition-colors',
+                            isOpen
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100',
+                          )}>
+                            {team.name}
+                          </span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            · {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}
+                          </span>
+                          {/* "Click to expand" hint — visible only on hover when closed */}
+                          {!isOpen && (
+                            <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                              Team details
+                            </span>
+                          )}
+                          {isOpen && (
+                            // Collapse hint when panel is open — shows a down-pointing chevron
+                            <ChevronDown size={11} className="ml-auto text-blue-400 dark:text-blue-500" />
+                          )}
+                        </button>
+
+                        {/* Team detail panel — mounts/unmounts on toggle so the
+                            animate-in class always replays the entrance animation. */}
+                        {isOpen && (
+                          <TeamPanel
+                            team={team}
+                            // Pass all team members (not the filtered subset) so the
+                            // panel always shows the full member list regardless of
+                            // the active search / allocation filter.
+                            teamMembers={allMembers}
                           />
-                        ))}
+                        )}
+
+                        {/* Member card grid — responsive: 1 → 2 → 3 columns */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {teamMembers.map(m => (
+                            <MemberCard
+                              key={m.id}
+                              member={m}
+                              teamName={team.name}
+                              onClick={() => navigate(`/members/${m.id}`)}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )

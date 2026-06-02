@@ -21,7 +21,6 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   FolderTree,
-  Users,
   BookUser,
   Target,
   ClipboardList,
@@ -50,7 +49,6 @@ const NAV_ITEMS = [
   { to: '/initiatives', label: 'Initiatives', icon: Target },
   { to: '/projects',    label: 'Projects',    icon: Layers },
   { to: '/roster',      label: 'Roster',      icon: BookUser },
-  { to: '/teams',       label: 'Teams',       icon: Users },
   { to: '/planning',    label: 'Planning',    icon: Calendar },
   { to: '/analytics',   label: 'Analytics',   icon: BarChart3 },
   { to: '/pipeline',    label: 'Pipeline',    icon: ClipboardList },

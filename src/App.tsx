@@ -24,7 +24,6 @@ import { AppLayout } from '@/components/layout/AppLayout'
 const DashboardPage  = lazy(() => import('@/pages/DashboardPage').then(m  => ({ default: m.DashboardPage  })))
 const PortfolioPage  = lazy(() => import('@/pages/PortfolioPage').then(m  => ({ default: m.PortfolioPage  })))
 const RosterPage     = lazy(() => import('@/pages/RosterPage').then(m     => ({ default: m.RosterPage     })))
-const TeamsPage      = lazy(() => import('@/pages/TeamsDetailPage').then(m => ({ default: m.TeamsPage      })))
 const InitiativesPage = lazy(() => import('@/pages/InitiativesPage').then(m => ({ default: m.InitiativesPage })))
 const PipelinePage   = lazy(() => import('@/pages/IntakePage').then(m     => ({ default: m.PipelinePage   })))
 const AnalyticsPage  = lazy(() => import('@/pages/AnalyticsPage').then(m  => ({ default: m.AnalyticsPage  })))
@@ -73,7 +72,8 @@ export default function App() {
             <Route path="analytics"   element={<AnalyticsPage />} />
             <Route path="planning"    element={<PlanningPage />} />
             <Route path="escalations" element={<EscalationsPage />} />
-            <Route path="teams"       element={<TeamsPage />} />
+            {/* /teams redirects to /roster — old bookmarks and nav links are preserved */}
+            <Route path="teams"       element={<Navigate to="/roster" replace />} />
             <Route path="settings"    element={<SettingsPage />} />
             {/* Legacy redirects so old bookmarks still work */}
             <Route path="capacity"    element={<Navigate to="/planning" replace />} />
