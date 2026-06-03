@@ -58,6 +58,8 @@ interface PortfolioActions {
   addTeam: (payload: Omit<Team, 'id' | 'memberIds'>) => Team
   updateTeam: (id: string, patch: Partial<Omit<Team, 'id'>>) => void
   deleteTeam: (id: string) => void
+  /** Persist a new display order for teams within a single domain. */
+  reorderDomainTeams: (domainId: string, orderedTeamIds: string[]) => void
 
   // Members
   addMember: (payload: Omit<Member, 'id' | 'projectIds'>) => Member
@@ -229,6 +231,24 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
         return next
       })
       return team
+    },
+    reorderDomainTeams(domainId, orderedTeamIds) {
+      set(s => {
+        // Find the indices in the global teams array that belong to this domain,
+        // then swap in the reordered list at those same slots so teams from other
+        // domains are unaffected.
+        const slots = s.teams
+          .map((t, i) => ({ t, i }))
+          .filter(({ t }) => t.domainId === domainId)
+          .map(({ i }) => i)
+        const byId = new Map(s.teams.map(t => [t.id, t]))
+        const reordered = orderedTeamIds.map(id => byId.get(id)!).filter(Boolean)
+        const newTeams = [...s.teams]
+        reordered.forEach((team, idx) => { newTeams[slots[idx]] = team })
+        const next = { ...s, teams: newTeams }
+        persist(next)
+        return next
+      })
     },
     reorderTeamMembers(teamId, orderedMemberIds) {
       set(s => {

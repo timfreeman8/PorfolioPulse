@@ -30,7 +30,7 @@ import { memberQuarterAllocation } from '@/lib/fiscal'
 import {
   DndContext, DragOverlay, closestCenter, pointerWithin,
   PointerSensor, useSensor, useSensors,
-  useDraggable, useDroppable,
+  useDroppable,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import {
@@ -82,17 +82,30 @@ function collisionDetection(args: Parameters<typeof closestCenter>[0]) {
   const dragType = (args.active.data.current as any)?.type
 
   if (dragType === 'domain') {
-    // Domain reorder: only consider other domain sortable items.
+    // Domain reorder: only consider other domain sortable items (data.type === 'domain').
+    // This prevents domain drags from accidentally colliding with team or member sortables.
     return closestCenter({
       ...args,
-      droppableContainers: args.droppableContainers.filter(c => {
-        const id = String(c.id)
-        return !id.startsWith('teamdrop:') && !id.startsWith('domaindrop:') && !id.startsWith('teamdrag:')
-      }),
+      droppableContainers: args.droppableContainers.filter(c =>
+        (c.data.current as any)?.type === 'domain'
+      ),
     })
   }
 
-  // Member and team drags: explicit drop zones take priority over sortable items.
+  if (dragType === 'team') {
+    // Team drags: domaindrop: header zones take priority (cross-domain move),
+    // then fall back to team sortable items only (within-domain reorder).
+    const zoneHits = pointerWithin(args).filter(c => String(c.id).startsWith('domaindrop:'))
+    if (zoneHits.length > 0) return zoneHits
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter(c =>
+        (c.data.current as any)?.type === 'team'
+      ),
+    })
+  }
+
+  // Member drags: teamdrop:/domaindrop: zones first, then closestCenter.
   const zoneHits = pointerWithin(args).filter(c => {
     const id = String(c.id)
     return id.startsWith('teamdrop:') || id.startsWith('domaindrop:')
@@ -279,15 +292,18 @@ function TeamSection({
     .map(id => members.find(m => m.id === id))
     .filter(Boolean) as Member[]
 
-  // ── Team drag handle ─────────────────────────────────────────────────
-  // Makes the team draggable so it can be dropped on a different domain.
+  // ── Team sortable ─────────────────────────────────────────────────────
+  // useSortable covers both within-domain reorder (via SortableContext in DomainCard)
+  // and cross-domain move (drag handle → drop on domaindrop: zone in handleDragEnd).
   const {
     attributes: teamDragAttrs,
     listeners: teamDragListeners,
-    setNodeRef: setTeamDragRef,
+    setNodeRef: setTeamSortRef,
+    transform,
+    transition,
     isDragging: isTeamDragging,
-  } = useDraggable({
-    id: `teamdrag:${team.id}`,
+  } = useSortable({
+    id: team.id,
     data: { type: 'team', teamId: team.id, fromDomainId: team.domainId },
   })
 
@@ -306,14 +322,13 @@ function TeamSection({
     return projects.filter(p => p.assignments.some(a => a.memberId === member.id) && p.status === 'In Progress').length
   }
 
-  // The header div serves dual purpose: ref for the member drop zone AND
-  // it contains the team drag grip button (separate refs, same DOM area).
+  // Outer div gets the sortable ref + transform so it physically moves during drag.
+  // Inner header div keeps the member-drop zone ref (separate concerns).
   return (
     <div
-      className={cn(
-        'border border-slate-200 rounded-xl overflow-hidden transition-opacity',
-        isTeamDragging && 'opacity-40',
-      )}
+      ref={setTeamSortRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isTeamDragging ? 0.4 : 1 }}
+      className="border border-slate-200 rounded-xl overflow-hidden"
     >
       {/* Team header — drop zone for member moves + contains team drag grip */}
       <div
@@ -326,14 +341,13 @@ function TeamSection({
           memberIsOver && 'ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30',
         )}
       >
-        {/* Team grip — drag to move team to a different domain */}
+        {/* Team grip — drag to reorder within domain or move to a different domain */}
         <button
-          ref={setTeamDragRef}
           {...teamDragAttrs}
           {...teamDragListeners}
           className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing shrink-0 touch-none"
           tabIndex={-1}
-          title="Drag to move team to a different domain"
+          title="Drag to reorder within domain, or drop on another domain header to move"
         >
           <GripVertical size={14} />
         </button>
@@ -526,7 +540,7 @@ function DomainCard({
         </div>
       </div>
 
-      {/* Team list */}
+      {/* Team list — SortableContext enables within-domain drag-to-reorder */}
       {expanded && (
         <div className="px-5 pb-4 pt-1 bg-slate-50 space-y-2">
           {domainTeams.length === 0 ? (
@@ -535,20 +549,22 @@ function DomainCard({
               <button onClick={onAddTeam} className="text-blue-500 hover:underline">Add one</button>
             </p>
           ) : (
-            domainTeams.map(team => (
-              <TeamSection
-                key={team.id}
-                team={team}
-                expanded={expandedTeams.has(team.id)}
-                activeDragType={activeDragType}
-                onToggle={() => toggleTeam(team.id)}
-                onEdit={() => setModal({ type: 'team', mode: 'edit', team })}
-                onDelete={() => setDeleteTarget({ type: 'team', id: team.id, name: team.name })}
-                onAddMember={() => setModal({ type: 'member', mode: 'add', teamId: team.id })}
-                onEditMember={member => setModal({ type: 'member', mode: 'edit', member })}
-                onDeleteMember={member => setDeleteTarget({ type: 'member', id: member.id, name: member.name })}
-              />
-            ))
+            <SortableContext items={domainTeams.map(t => t.id)} strategy={verticalListSortingStrategy}>
+              {domainTeams.map(team => (
+                <TeamSection
+                  key={team.id}
+                  team={team}
+                  expanded={expandedTeams.has(team.id)}
+                  activeDragType={activeDragType}
+                  onToggle={() => toggleTeam(team.id)}
+                  onEdit={() => setModal({ type: 'team', mode: 'edit', team })}
+                  onDelete={() => setDeleteTarget({ type: 'team', id: team.id, name: team.name })}
+                  onAddMember={() => setModal({ type: 'member', mode: 'add', teamId: team.id })}
+                  onEditMember={member => setModal({ type: 'member', mode: 'edit', member })}
+                  onDeleteMember={member => setDeleteTarget({ type: 'member', id: member.id, name: member.name })}
+                />
+              ))}
+            </SortableContext>
           )}
         </div>
       )}
@@ -716,7 +732,7 @@ export function PortfolioPage() {
   const {
     domains, teams, members,
     addDomain, updateDomain, deleteDomain, reorderDomains,
-    addTeam, updateTeam, deleteTeam,
+    addTeam, updateTeam, deleteTeam, reorderDomainTeams,
     addMember, updateMember, deleteMember,
     reorderTeamMembers,
   } = usePortfolioStore()
@@ -819,12 +835,25 @@ export function PortfolioPage() {
       }
     } else if (activeData?.type === 'team') {
       // ── Team drop ──────────────────────────────────────────────────
-      // Dropped on a domain header — move the team to that domain.
-      if (!overId.startsWith('domaindrop:')) return
-      const toDomainId   = overId.replace('domaindrop:', '')
+      const teamId       = activeData.teamId as string
       const fromDomainId = activeData.fromDomainId as string
-      if (toDomainId === fromDomainId) return
-      updateTeam(activeData.teamId as string, { domainId: toDomainId })
+
+      if (overId.startsWith('domaindrop:')) {
+        // Dropped on a domain header — cross-domain move.
+        const toDomainId = overId.replace('domaindrop:', '')
+        if (toDomainId === fromDomainId) return
+        updateTeam(teamId, { domainId: toDomainId })
+      } else {
+        // Dropped on another team — within-domain reorder.
+        const overTeam = teams.find(t => t.id === overId)
+        if (!overTeam || overTeam.domainId !== fromDomainId) return
+        const domainTeams = teams.filter(t => t.domainId === fromDomainId)
+        const oldIndex = domainTeams.findIndex(t => t.id === teamId)
+        const newIndex = domainTeams.findIndex(t => t.id === overId)
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          reorderDomainTeams(fromDomainId, arrayMove(domainTeams.map(t => t.id), oldIndex, newIndex))
+        }
+      }
     } else if (activeData?.type === 'domain') {
       // ── Domain reorder ─────────────────────────────────────────────
       // Both active.id and over.id are raw domain IDs (no prefix).
@@ -893,7 +922,7 @@ export function PortfolioPage() {
     ? members.find(m => m.id === activeDragId) ?? null
     : null
   const draggedTeam = activeDragType === 'team'
-    ? teams.find(t => `teamdrag:${t.id}` === activeDragId) ?? null
+    ? teams.find(t => t.id === activeDragId) ?? null
     : null
   // Domain sortable uses domain.id directly as the drag ID.
   const draggedDomain = activeDragType === 'domain'
