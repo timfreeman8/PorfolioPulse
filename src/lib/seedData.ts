@@ -248,8 +248,8 @@ const rawTeams: Omit<Team, 'memberIds'>[] = [
   { id: 't2',  domainId: 'd1', name: 'RedBull',           description: 'Core services integration and advanced engineering.',                                         techLead: 'Manoj Suman' },
   { id: 't3',  domainId: 'd1', name: 'SAT-Data',          description: 'Data engineering and product management for SAT data platforms.',                             techLead: 'David Russell' },
   // ── Seamless AX (d2) ───────────────────────────────────────────────
-  { id: 't4',  domainId: 'd2', name: 'IRIS',              description: 'Associate-facing IRIS platform for real-time store data and task management.',                techLead: 'Saigayathri Depuru' },
-  { id: 't5',  domainId: 'd2', name: 'Cookie Monster',    description: 'Associate checkout and transaction experience products.',                                      techLead: 'Peter Schreck' },
+  { id: 't4',  domainId: 'd2', name: 'IRIS',              description: 'Increasing revenue through intelligent selling.',                                              techLead: 'Saigayathri Depuru' },
+  { id: 't5',  domainId: 'd2', name: 'Cookie Monster',    description: 'Associate Performance, Search, Our Service Guarantee',                                        techLead: 'Ethan Dunham' },
   { id: 't6',  domainId: 'd2', name: 'Little Bird',       description: 'Digital shelf label and Little Bird platform engineering.',                                    techLead: 'Drake Woodring' },
   { id: 't7',  domainId: 'd2', name: 'Blade Runners',     description: 'Backend API and middleware engineering for Seamless AX services.',                            techLead: 'Veerendra Madinedi' },
   { id: 't8',  domainId: 'd2', name: 'HomeBase',          description: 'HomeBase associate scheduling and management platform.',                                       techLead: 'Samuel Powell' },
@@ -332,16 +332,16 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm20', teamIds: ['t5'],  name: 'Samuel Bryant',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SBr' },
   { id: 'm21', teamIds: ['t5'],  name: 'Ethan Dunham',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'ED' },
   { id: 'm23', teamIds: ['t5', 't8'],  name: 'Taylor Rose',              role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'TR' },
-  { id: 'm24', teamIds: ['t5'],  name: 'Sydney Baker-Kuethe',           role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'SBK' },
+  { id: 'm24', teamIds: ['t35'], name: 'Sydney Baker-Kuethe',           role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'SBK' },
   // ── Seamless AX — Little Bird (t6) ─────────────────────────────────
   { id: 'm25', teamIds: ['t6'],  name: 'Jalen Bracey',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'JB' },
   { id: 'm26', teamIds: ['t6'],  name: 'Drake Woodring',                role: 'Advanced Software Engineer',            reportsTo: 'Mark Valentine',          capacity: 85, avatarInitials: 'DW' },
-  { id: 'm27', teamIds: ['t6'],  name: 'Brian Schummer',                role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'BS' },
+  { id: 'm27', teamIds: ['t6', 't20'], name: 'Brian Schummer',           role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'BS' },
   // ── Seamless AX — Blade Runners (t7) ───────────────────────────────
   { id: 'm28', teamIds: ['t7'],  name: 'Veerendra Madinedi',            role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'VM' },
   { id: 'm29', teamIds: ['t7'],  name: 'Michael Ortega',                role: 'Software Engineer',                     reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'MO' },
   // ── Seamless AX — HomeBase (t8) ────────────────────────────────────
-  { id: 'm30', teamIds: ['t8'],  name: 'Samuel Powell',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SPo' },
+  { id: 'm30', teamIds: ['t7', 't8'], name: 'Samuel Powell',             role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SP' },
   // ── Seamless AX — Data Goblins (t9) ────────────────────────────────
   { id: 'm31', teamIds: ['t9'],  name: 'Dakota Kuczenski',              role: 'Software Engineer',                     reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'DK' },
   // ── Seamless AX — QuickSales (t10) ─────────────────────────────────
