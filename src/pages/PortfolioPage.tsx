@@ -346,7 +346,10 @@ function TeamSection({
           <Users size={13} className="text-blue-600 dark:text-blue-300" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-slate-800">{team.name}</span>
+          <p className="text-sm font-medium text-slate-800">{team.name}</p>
+          {team.description && (
+            <p className="text-xs text-slate-400 truncate">{team.description}</p>
+          )}
         </div>
         {/* bg-slate-100/text-slate-600 — covered by global dark overrides */}
         <ColorBadge className="bg-slate-100 text-slate-600">
