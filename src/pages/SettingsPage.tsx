@@ -698,7 +698,7 @@ export function SettingsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
               onClick={() => {
                 if (!confirm('Replace all data with the sample dataset? This cannot be undone.')) return
                 const s = store as unknown as { hydrate: (s: PortfolioState) => void }
@@ -725,7 +725,7 @@ export function SettingsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
               onClick={() => {
                 if (!confirm('Delete all data permanently? The page will reload empty.')) return
                 clearState()
