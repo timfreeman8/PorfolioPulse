@@ -190,7 +190,14 @@ function MemberRow({
         {member.avatarInitials.slice(0, 2)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-800">{member.name}</p>
+        <p className="text-sm font-medium text-slate-800">
+          {member.name}
+          {member.teamIds.length > 1 && (
+            <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300 text-[10px] font-bold leading-none">
+              {member.teamIds.length}
+            </span>
+          )}
+        </p>
         <p className="text-xs text-slate-400">{member.role}{member.reportsTo ? ` · ${member.reportsTo}` : ''}</p>
       </div>
       <CapacityBar alloc={alloc} capacity={member.capacity} />
