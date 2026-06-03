@@ -331,7 +331,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   // ── Seamless AX — Cookie Monster (t5) ──────────────────────────────
   { id: 'm20', teamIds: ['t5'],  name: 'Samuel Bryant',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SBr' },
   { id: 'm21', teamIds: ['t5'],  name: 'Ethan Dunham',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'ED' },
-  { id: 'm23', teamIds: ['t5'],  name: 'Taylor Rose',                   role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'TR' },
+  { id: 'm23', teamIds: ['t5', 't8'],  name: 'Taylor Rose',              role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'TR' },
   { id: 'm24', teamIds: ['t5'],  name: 'Sydney Baker-Kuethe',           role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'SBK' },
   // ── Seamless AX — Little Bird (t6) ─────────────────────────────────
   { id: 'm25', teamIds: ['t6'],  name: 'Jalen Bracey',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'JB' },
