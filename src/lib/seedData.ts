@@ -1131,16 +1131,22 @@ function buildState(): PortfolioState {
  * Call once at app startup. Checks localStorage and hydrates the store only
  * when no persisted state exists — so existing user data is never overwritten.
  */
-export function seedIfEmpty(hydrate: (state: PortfolioState) => void): void {
-  if (loadState() !== null) return          // already seeded — do nothing
+/**
+ * Returns the full seed state with every project guaranteed to have a phases
+ * array. Used by seedIfEmpty on first launch and by the Settings "Load Sample
+ * Data" reset button.
+ */
+export function buildSeedState(): PortfolioState {
   const state = buildState()
-  // Ensure every project has a phases array. Projects like p30 that define
-  // phases explicitly are left untouched; all others are auto-converted to a
-  // single-phase plan from their root-level fields.
-  hydrate({
+  return {
     ...state,
     projects: state.projects.map(p =>
       p.phases ? p : { ...p, phases: legacyToPhases(p) }
     ),
-  })
+  }
+}
+
+export function seedIfEmpty(hydrate: (state: PortfolioState) => void): void {
+  if (loadState() !== null) return          // already seeded — do nothing
+  hydrate(buildSeedState())
 }

@@ -31,7 +31,7 @@
 import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronUp, PackageOpen, DollarSign, X,
+  ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,8 @@ import {
   detectCsvEntityType,
   type CsvEntityType,
 } from '@/lib/csv'
+import { buildSeedState } from '@/lib/seedData'
+import { clearState } from '@/lib/persistence'
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
 
 // ─── Currency helpers ──────────────────────────────────────────────────────
@@ -670,6 +672,71 @@ export function SettingsPage() {
             </p>
           </div>
           <ImportSection />
+        </div>
+      </section>
+
+      {/* Danger Zone — reset and clear actions */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <AlertCircle size={16} className="text-red-400" />
+          <h2 className="text-base font-semibold text-red-700">Danger Zone</h2>
+        </div>
+        <div className="border border-red-200 rounded-xl divide-y divide-red-100">
+
+          {/* Load sample data */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <RotateCcw size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Load Sample Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Replaces all current data with the built-in sample dataset. Use this to reset
+                  to a known good state for testing.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50"
+              onClick={() => {
+                if (!confirm('Replace all data with the sample dataset? This cannot be undone.')) return
+                const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                s.hydrate(buildSeedState())
+              }}
+            >
+              <RotateCcw size={13} />
+              Load Sample Data
+            </Button>
+          </div>
+
+          {/* Clear all data */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Trash2 size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Clear All Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Permanently deletes everything — all members, projects, teams, and initiatives.
+                  The app will reload empty so you can start from scratch.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50"
+              onClick={() => {
+                if (!confirm('Delete all data permanently? The page will reload empty.')) return
+                clearState()
+                window.location.reload()
+              }}
+            >
+              <Trash2 size={13} />
+              Clear All Data
+            </Button>
+          </div>
+
         </div>
       </section>
       </div>
