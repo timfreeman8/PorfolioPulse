@@ -318,7 +318,6 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm8',  teamIds: ['t2'],  name: 'Manoj Suman',                   role: 'Advanced Software Engineer',            reportsTo: 'Samer Sarrouh',           capacity: 80, avatarInitials: 'MS' },
   // ── Core Services — SAT-Data (t3) ──────────────────────────────────
   { id: 'm9',  teamIds: ['t3'],  name: 'Nathaniel Montgomery',           role: 'Data Engineer',                         reportsTo: 'Samer Sarrouh',           capacity: 80, avatarInitials: 'NM' },
-  { id: 'm10', teamIds: ['t3'],  name: 'Jean Olasov',                   role: 'Senior Product Manager',                reportsTo: 'Samer Sarrouh',           capacity: 75, avatarInitials: 'JO' },
   { id: 'm11', teamIds: ['t3'],  name: 'David Russell',                  role: 'Advanced Data Engineer',                reportsTo: 'Samer Sarrouh',           capacity: 85, avatarInitials: 'DR' },
   // ── Seamless AX — IRIS (t4) ────────────────────────────────────────
   { id: 'm12', teamIds: ['t4'],  name: 'Saigayathri Depuru',            role: 'Sr Software Engineer',                  reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'SD' },
@@ -332,7 +331,6 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   // ── Seamless AX — Cookie Monster (t5) ──────────────────────────────
   { id: 'm20', teamIds: ['t5'],  name: 'Samuel Bryant',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SBr' },
   { id: 'm21', teamIds: ['t5'],  name: 'Ethan Dunham',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'ED' },
-  { id: 'm22', teamIds: ['t5'],  name: 'Peter Schreck',                 role: 'Advanced Software Engineer',            reportsTo: 'Mark Valentine',          capacity: 85, avatarInitials: 'PS' },
   { id: 'm23', teamIds: ['t5'],  name: 'Taylor Rose',                   role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'TR' },
   { id: 'm24', teamIds: ['t5'],  name: 'Sydney Baker-Kuethe',           role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'SBK' },
   // ── Seamless AX — Little Bird (t6) ─────────────────────────────────
@@ -438,7 +436,6 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm96', teamIds: ['t32'], name: 'Nikhil Aggarwal',               role: 'Senior Product Manager',                reportsTo: 'Stephen Lay',             capacity: 75, avatarInitials: 'NA' },
   { id: 'm97', teamIds: ['t32'], name: 'Thaddeus Fark',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Stephen Lay',           capacity: 80, avatarInitials: 'TFa' },
   { id: 'm98', teamIds: ['t32'], name: 'Justin Palmer',                 role: 'Advanced Site Reliability/Devops Engineer', reportsTo: 'Stephen Lay',         capacity: 85, avatarInitials: 'JP' },
-  { id: 'm99', teamIds: ['t32'], name: 'Zhengchao Zhu',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Stephen Lay',           capacity: 80, avatarInitials: 'ZZ' },
   // ── L3 Support — SAT Support (t33) ─────────────────────────────────
   { id: 'm100', teamIds: ['t33'], name: 'Troy Cooper',                  role: 'Release Manager',                       reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'TC' },
   { id: 'm101', teamIds: ['t33'], name: 'Alexander Dick',               role: 'Senior Application Systems Analyst',    reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'AD' },
@@ -536,7 +533,6 @@ const projects: Project[] = [
     assignments: [
       { memberId: 'm20', part: 'Product Management',       allocation: 50, startDate: '2026-02-01', endDate: '2026-10-31' },
       { memberId: 'm21', part: 'Frontend', allocation: 60, startDate: '2026-02-01', endDate: '2026-10-31' },
-      { memberId: 'm22', part: 'Backend',  allocation: 70, startDate: '2026-02-01', endDate: '2026-10-31' },
       { memberId: 'm23', part: 'UI Design',   allocation: 50, startDate: '2026-02-01', endDate: '2026-07-31' },
       { memberId: 'm24', part: 'UI Design',   allocation: 40, startDate: '2026-02-01', endDate: '2026-07-31' },
     ],
@@ -825,7 +821,6 @@ const projects: Project[] = [
     assignments: [
       { memberId: 'm97', part: 'DevOps',   allocation: 80, startDate: '2025-10-01', endDate: '2026-09-30' },
       { memberId: 'm98', part: 'Security', allocation: 80, startDate: '2025-10-01', endDate: '2026-09-30' },
-      { memberId: 'm99', part: 'DevOps',   allocation: 70, startDate: '2025-10-01', endDate: '2026-09-30' },
     ],
     name: 'SAT DevSecOps CI/CD Pipeline',
     description: 'Secure, standardized CI/CD pipeline with automated SAST/DAST scanning, SBOM generation, and policy gates.',
@@ -972,7 +967,6 @@ const projects: Project[] = [
         percentComplete: 100,
         notes: 'User research complete. Requirements doc signed off.',
         assignments: [
-          { memberId: 'm10', part: 'Product Management', allocation: 50 },
           { memberId: 'm19', part: 'UX Research',        allocation: 70 },
         ],
       },
@@ -1025,7 +1019,6 @@ const projects: Project[] = [
       valueType: 'Revenue Impact',
       // Merged union of all phase assignments (min startDate / max endDate per member)
       assignments: [
-        { memberId: 'm10', part: 'Product Management', allocation: 50, startDate: '2026-02-02', endDate: '2026-04-04' },
         { memberId: 'm19', part: 'UX Research',        allocation: 70, startDate: '2026-02-02', endDate: '2026-04-04' },
         { memberId: 'm6',  part: 'Backend',            allocation: 70, startDate: '2026-04-07', endDate: '2026-09-26' },
         { memberId: 'm7',  part: 'Frontend',           allocation: 70, startDate: '2026-04-07', endDate: '2026-08-01' },
