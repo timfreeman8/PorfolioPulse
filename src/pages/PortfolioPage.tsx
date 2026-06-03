@@ -174,7 +174,7 @@ function MemberRow({
         <GripVertical size={14} />
       </button>
       <div className={cn('flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
-        {member.avatarInitials}
+        {member.avatarInitials.slice(0, 2)}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800">{member.name}</p>
@@ -207,7 +207,7 @@ function MemberDragPreview({ member }: { member: Member }) {
     <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-blue-300 shadow-lg opacity-90 pointer-events-none">
       <GripVertical size={14} className="text-slate-400" />
       <div className={cn('flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
-        {member.avatarInitials}
+        {member.avatarInitials.slice(0, 2)}
       </div>
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-800">{member.name}</p>

@@ -149,7 +149,7 @@ function MemberCard({ member, teamName, onClick }: MemberCardProps) {
           avatarBg,
           avatarText,
         )}>
-          {member.avatarInitials}
+          {member.avatarInitials.slice(0, 2)}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">

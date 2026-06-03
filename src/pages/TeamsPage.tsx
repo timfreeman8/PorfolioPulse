@@ -56,7 +56,7 @@ function MemberCard({ member, onClick }: { member: Member; onClick: () => void }
       {/* Top row: avatar + name + chevron */}
       <div className="flex items-center gap-3">
         <div className={cn('flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
-          {member.avatarInitials}
+          {member.avatarInitials.slice(0, 2)}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-900 text-sm">{member.name}</p>

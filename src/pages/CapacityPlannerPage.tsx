@@ -738,7 +738,7 @@ function MemberGanttRow({
           <div className="flex items-center gap-2">
             {/* Avatar color is derived from the member's name for consistent identity across views */}
             <div className={cn('w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
-              {member.avatarInitials}
+              {member.avatarInitials.slice(0, 2)}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-slate-800 truncate">{member.name}</p>

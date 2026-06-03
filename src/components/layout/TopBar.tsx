@@ -195,7 +195,7 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
                     avatarColor(activeMember.name).text,
                   )}
                 >
-                  {activeMember.avatarInitials}
+                  {activeMember.avatarInitials.slice(0, 2)}
                 </div>
                 {/* First name — hidden on very small screens to keep the header compact */}
                 <span className="hidden sm:block text-sm font-medium">{activeMember.name.split(' ')[0]}</span>
@@ -263,7 +263,7 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
                             bg, text,
                           )}
                         >
-                          {m.avatarInitials}
+                          {m.avatarInitials.slice(0, 2)}
                         </div>
                         <div className="text-left min-w-0">
                           <div className="font-medium truncate">{m.name}</div>

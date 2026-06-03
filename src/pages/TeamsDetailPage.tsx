@@ -57,7 +57,7 @@ function MemberRow({ member, projects, onNavigate }: {
       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left group border-b border-slate-100 last:border-0"
     >
       <div className={cn('w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
-        {member.avatarInitials}
+        {member.avatarInitials.slice(0, 2)}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-800">{member.name}</p>

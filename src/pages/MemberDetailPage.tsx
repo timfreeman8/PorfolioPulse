@@ -208,7 +208,7 @@ export function MemberDetailPage() {
       <div className="bg-white border border-slate-200 rounded-xl px-8 py-6">
         <div className="flex items-center gap-5">
           <div className={cn('flex items-center justify-center w-16 h-16 rounded-full text-2xl font-bold shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
-            {member.avatarInitials}
+            {member.avatarInitials.slice(0, 2)}
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-slate-900">{member.name}</h1>

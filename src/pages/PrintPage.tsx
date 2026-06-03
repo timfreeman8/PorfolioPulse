@@ -252,7 +252,7 @@ export function PrintPage() {
                                 colors.text,
                               )}
                             >
-                              {m.avatarInitials}
+                              {m.avatarInitials.slice(0, 2)}
                             </div>
                           </td>
 
