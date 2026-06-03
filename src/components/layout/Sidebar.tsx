@@ -30,7 +30,6 @@ import {
   ChevronRight,
   ShieldAlert,
   Layers,
-  Settings,
   Sun,
   Moon,
 } from 'lucide-react'
@@ -53,7 +52,6 @@ const NAV_ITEMS = [
   { to: '/analytics',   label: 'Analytics',   icon: BarChart3 },
   { to: '/pipeline',    label: 'Pipeline',    icon: ClipboardList },
   { to: '/escalations', label: 'Escalations', icon: ShieldAlert },
-  { to: '/settings',    label: 'Settings',    icon: Settings },
 ]
 
 interface SidebarProps {

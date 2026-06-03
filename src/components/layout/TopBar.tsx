@@ -15,7 +15,7 @@
  * the view store, which propagates to all pages that consume it.
  */
 import { useState, useRef, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { Settings, Bell, ChevronDown, Shield, Search, Menu } from 'lucide-react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
@@ -138,13 +138,15 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
         >
           <Bell size={18} />
         </button>
-        {/* Settings icon hidden on mobile — accessible via the sidebar Settings link */}
-        <button
-          className="hidden sm:flex p-2 text-blue-200 hover:text-white transition-colors"
+        {/* Settings link — styled to match the Admin mode picker button */}
+        <Link
+          to="/settings"
+          className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-blue-100 hover:text-white transition-colors"
           title="Settings"
         >
           <Settings size={18} />
-        </button>
+          <span className="hidden sm:block text-sm font-medium">Settings</span>
+        </Link>
 
         {/* ── User / Admin mode picker ──────────────────────────────────────
             Clicking opens a dropdown listing all members plus an Admin option.
