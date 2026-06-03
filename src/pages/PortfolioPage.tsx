@@ -193,7 +193,7 @@ function MemberRow({
         <p className="text-sm font-medium text-slate-800">
           {member.name}
           {member.teamIds.length > 1 && (
-            <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300 text-[10px] font-bold leading-none">
+            <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300 text-[10px] font-bold leading-none align-top relative -top-0.5">
               {member.teamIds.length}
             </span>
           )}
