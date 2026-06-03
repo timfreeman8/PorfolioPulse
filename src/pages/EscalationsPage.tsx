@@ -172,7 +172,7 @@ export function EscalationsPage() {
   const resolved = escalations.filter(e => e.status === 'Resolved')
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 space-y-6 overflow-y-auto h-full">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Escalations</h1>

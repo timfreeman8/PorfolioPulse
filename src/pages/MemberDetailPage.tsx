@@ -195,7 +195,7 @@ export function MemberDetailPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 space-y-6 overflow-y-auto h-full">
       {/* Back nav */}
       <button
         onClick={() => navigate('/roster')}

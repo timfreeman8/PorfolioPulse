@@ -151,7 +151,7 @@ export function RosterPage() {
   const totalMembers = members.length
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 space-y-6 overflow-y-auto h-full">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Roster</h1>

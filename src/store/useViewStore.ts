@@ -14,6 +14,14 @@
  */
 import { create } from 'zustand'
 
+const THEME_KEY = 'sat-theme'
+
+/** Toggle the `.dark` class on <html> and persist the preference. */
+function applyDark(dark: boolean) {
+  document.documentElement.classList.toggle('dark', dark)
+  localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light')
+}
+
 interface ViewState {
   /** null = Admin (full access). A Member id = User mode for that person. */
   activeMemberId: string | null
@@ -22,12 +30,29 @@ interface ViewState {
   /** Whether the global cmd+K command palette is currently open. */
   searchOpen: boolean
   setSearchOpen: (open: boolean) => void
+
+  /** Dark mode flag — shared here so all components re-render together. */
+  isDark: boolean
+  toggleDark: () => void
 }
 
-export const useViewStore = create<ViewState>((set) => ({
-  activeMemberId: null,
-  setActiveMember: (id) => set({ activeMemberId: id }),
+export const useViewStore = create<ViewState>((set, get) => {
+  // Apply on store init so the class is set before first render.
+  const initialDark = localStorage.getItem(THEME_KEY) === 'dark'
+  applyDark(initialDark)
 
-  searchOpen: false,
-  setSearchOpen: (open) => set({ searchOpen: open }),
-}))
+  return {
+    activeMemberId: null,
+    setActiveMember: (id) => set({ activeMemberId: id }),
+
+    searchOpen: false,
+    setSearchOpen: (open) => set({ searchOpen: open }),
+
+    isDark: initialDark,
+    toggleDark: () => {
+      const next = !get().isDark
+      applyDark(next)
+      set({ isDark: next })
+    },
+  }
+})

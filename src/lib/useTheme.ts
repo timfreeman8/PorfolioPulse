@@ -1,55 +1,16 @@
 /**
- * useTheme — manages the global dark/light mode setting.
+ * useTheme — thin wrapper around the Zustand view store's dark-mode state.
  *
- * Persists the preference in localStorage under "sat-theme" and toggles
- * the `dark` class on <html> so Tailwind's dark-mode overrides activate.
+ * Keeping the theme in the Zustand store means every component that calls
+ * useTheme() is subscribed to the same reactive value, so toggling dark mode
+ * in any one component (e.g. Sidebar) immediately re-renders all others
+ * (e.g. TopBar) without any extra wiring.
  *
  * Usage:
  *   const { isDark, toggle } = useTheme()
- *
- * The initial state is derived from localStorage on first call. Components
- * that call useTheme() re-render when the setting changes because the hook
- * uses React state internally.
- *
- * Note: this is a simple module-level singleton rather than a React context.
- * The class toggle on <html> is global so multiple callers stay in sync via
- * the same localStorage key — no provider wrapper required.
  */
-import { useEffect, useState } from 'react'
-
-const STORAGE_KEY = 'sat-theme'
-
-function readPreference(): boolean {
-  return localStorage.getItem(STORAGE_KEY) === 'dark'
-}
-
-function applyTheme(dark: boolean) {
-  if (dark) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
-}
+import { useViewStore } from '@/store/useViewStore'
 
 export function useTheme() {
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    const stored = readPreference()
-    // Apply immediately (before first render) to avoid flash.
-    applyTheme(stored)
-    return stored
-  })
-
-  // Keep <html> in sync if isDark changes after first render.
-  useEffect(() => { applyTheme(isDark) }, [isDark])
-
-  function toggle() {
-    setIsDark(prev => {
-      const next = !prev
-      localStorage.setItem(STORAGE_KEY, next ? 'dark' : 'light')
-      applyTheme(next)
-      return next
-    })
-  }
-
-  return { isDark, toggle }
+  return useViewStore(s => ({ isDark: s.isDark, toggle: s.toggleDark }))
 }

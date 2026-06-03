@@ -19,10 +19,14 @@ import { NavLink, Link } from 'react-router-dom'
 import { Settings, Bell, ChevronDown, Shield, Search, Menu } from 'lucide-react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
+import { useTheme } from '@/lib/useTheme'
 import { avatarColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 
-const SIDEBAR_BG = 'rgb(15, 82, 162)'
+// Light mode: Kroger brand blue. Dark mode: dark navy that reads well against
+// the dark page background while keeping the header visually distinct.
+const TOPBAR_BG_LIGHT = 'rgb(15, 82, 162)'
+const TOPBAR_BG_DARK  = '#0a1628'          // Very dark navy — keeps blue brand, near-black
 
 // Top nav links — map label to route. Evenly spaced via consistent px-5 padding.
 const NAV_ITEMS: { label: string; to: string; end?: boolean }[] = [
@@ -36,6 +40,8 @@ const NAV_ITEMS: { label: string; to: string; end?: boolean }[] = [
 export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void }) {
   const { members } = usePortfolioStore()
   const { activeMemberId, setActiveMember, setSearchOpen } = useViewStore()
+  // isDark drives the header background and nav link colors below.
+  const { isDark } = useTheme()
   const [open, setOpen] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
 
@@ -56,8 +62,12 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
 
   return (
     <header
-      className="flex items-center shrink-0 h-14 px-4 border-b border-blue-900 z-30"
-      style={{ background: SIDEBAR_BG }}
+      className="flex items-center shrink-0 h-14 px-4 border-b z-30"
+      style={{
+        background: isDark ? TOPBAR_BG_DARK : TOPBAR_BG_LIGHT,
+        // Keep border subtle in both modes: dark blue in light, near-black in dark.
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgb(30,58,138)',
+      }}
     >
       {/* ── Hamburger (mobile only) ────────────────────────────────────────
           Tapping this fires onMobileMenuToggle (lifted up to AppLayout) which
@@ -91,7 +101,9 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
       </div>
 
       {/* Sub-nav — hidden on mobile; sidebar nav handles navigation there.
-          Active route gets a white bottom border underline to show current location. */}
+          Active route gets a white bottom border underline to show current location.
+          In dark mode inactive links shift to slate-400 so they read well against
+          the dark navy header background. */}
       <nav className="hidden md:flex items-center h-full pl-2">
         {NAV_ITEMS.map(({ label, to, end }) => (
           <NavLink
@@ -102,7 +114,9 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
               'px-5 h-full text-sm transition-colors whitespace-nowrap outline-none flex items-center border-b-2',
               isActive
                 ? 'text-white border-white'
-                : 'text-blue-200 hover:text-white border-transparent',
+                : isDark
+                  ? 'text-slate-400 hover:text-white border-transparent'
+                  : 'text-blue-200 hover:text-white border-transparent',
             )}
           >
             {label}
@@ -114,18 +128,31 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
       <div className="flex-1" />
 
       {/* ── Search hint button ─────────────────────────────────────────────────
-          Clicking opens the command palette; the ⌘K badge reminds users of the
-          keyboard shortcut. Hidden on very small screens to save space —
-          the shortcut still works globally via the SearchModal's keydown hook. */}
+          White background makes the input visually pop from the header.
+          In dark mode we use a semi-transparent white so it reads against the
+          dark navy, with text adjusted to match. Width is fixed so the button
+          always looks like an input field rather than an icon-only trigger.   */}
       <button
         onClick={() => setSearchOpen(true)}
-        className="hidden sm:flex items-center gap-2 mr-2 px-3 py-1.5 rounded-md bg-blue-700/60 hover:bg-blue-700 text-blue-200 hover:text-white transition-colors text-sm"
+        className="hidden sm:flex items-center gap-2 mr-3 px-3 py-1.5 rounded-md w-56 transition-colors text-sm"
+        style={{
+          background: isDark ? 'rgba(255,255,255,0.08)' : 'white',
+        }}
         title="Search (⌘K)"
         aria-label="Open search"
       >
-        <Search size={14} className="shrink-0" aria-hidden />
-        <span className="text-xs text-blue-300">Search…</span>
-        <kbd className="ml-1 hidden md:inline-flex items-center px-1 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-900/60 text-blue-300 border border-blue-600">
+        <Search size={14} className="shrink-0 text-slate-400" aria-hidden />
+        <span className="text-xs flex-1 text-left text-slate-400">
+          Search…
+        </span>
+        <kbd
+          className="hidden md:inline-flex items-center px-1 py-0.5 rounded text-[10px] font-mono font-medium"
+          style={{
+            background: isDark ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
+            color:      isDark ? '#94a3b8' : '#64748b',
+            border:     `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#e2e8f0'}`,
+          }}
+        >
           ⌘K
         </kbd>
       </button>

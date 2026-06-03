@@ -694,7 +694,7 @@ export function AnalyticsPage() {
   }, [projects, members, teams, rateByRole, finSortKey, finSortDir])
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 space-y-6 overflow-y-auto h-full">
       {/* Header + tab bar */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Portfolio Analytics</h1>

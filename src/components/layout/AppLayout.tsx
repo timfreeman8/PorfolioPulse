@@ -30,7 +30,9 @@ export function AppLayout() {
       <TopBar onMobileMenuToggle={() => setMobileOpen(o => !o)} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-        <main className="flex-1 overflow-y-auto">
+        {/* overscroll-y-none prevents the page from rubberbanding / showing blank
+            space when the user scrolls past the end of a page's content.        */}
+        <main className="flex-1 overflow-y-auto overscroll-y-none">
           <Outlet />
         </main>
       </div>

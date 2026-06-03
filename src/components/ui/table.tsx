@@ -23,7 +23,9 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b [&_tr]:bg-slate-50", className)}
+      // [&_tr]:bg-slate-50 generates a compound Tailwind selector that the global
+      // .dark .bg-slate-50 override cannot match, so we add the dark variant here.
+      className={cn("[&_tr]:border-b [&_tr]:bg-slate-50 dark:[&_tr]:bg-slate-800/40", className)}
       {...props}
     />
   )
@@ -70,7 +72,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-4 text-left align-middle text-xs font-medium whitespace-nowrap text-slate-500 [&:has([role=checkbox])]:pr-0",
+        "h-10 px-4 text-left align-middle text-xs font-medium whitespace-nowrap text-slate-500 dark:text-slate-400 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

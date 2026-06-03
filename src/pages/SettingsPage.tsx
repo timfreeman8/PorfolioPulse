@@ -443,8 +443,8 @@ function ImportSection() {
         className={cn(
           'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
           dragging
-            ? 'border-blue-400 bg-blue-50'
-            : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40',
+            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/25'
+            : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40 dark:hover:bg-blue-900/15',
         )}
       >
         <Upload size={24} className="mx-auto mb-2 text-slate-400" />
@@ -464,8 +464,8 @@ function ImportSection() {
         <div className={cn(
           'flex gap-3 p-4 rounded-lg border',
           result.ok
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : 'bg-red-50 border-red-200 text-red-800',
+            ? 'bg-green-50 dark:bg-green-900/25 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/25 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
         )}>
           {result.ok
             ? <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-green-600" />
@@ -580,16 +580,16 @@ export function SettingsPage() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Download size={16} className="text-slate-400" />
-          <h2 className="text-base font-semibold text-slate-800">Export</h2>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Export</h2>
         </div>
 
         {/* Export All shortcut — downloads all CSVs in one click */}
-        <div className="mb-4 flex items-center justify-between gap-4 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
+        <div className="mb-4 flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/25 border border-blue-200 dark:border-blue-800 rounded-xl px-5 py-4">
           <div className="flex items-start gap-3">
-            <PackageOpen size={16} className="text-blue-500 mt-0.5 shrink-0" />
+            <PackageOpen size={16} className="text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-medium text-blue-900">Export All CSVs</p>
-              <p className="text-xs text-blue-600 mt-0.5">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Export All CSVs</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
                 Downloads all 5 entity files in one click — ready to edit and reimport.
               </p>
             </div>
@@ -598,7 +598,7 @@ export function SettingsPage() {
             variant="outline"
             size="sm"
             onClick={handleExportAll}
-            className="shrink-0 gap-1.5 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+            className="shrink-0 gap-1.5 text-xs border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
           >
             <Download size={13} />
             Export All
@@ -634,12 +634,12 @@ export function SettingsPage() {
         </div>
 
         {/* Full JSON snapshot — separate from individual CSVs */}
-        <div className="mt-4 flex items-center justify-between gap-4 bg-violet-50 border border-violet-200 rounded-xl px-5 py-4">
+        <div className="mt-4 flex items-center justify-between gap-4 bg-violet-50 dark:bg-violet-900/25 border border-violet-200 dark:border-violet-800 rounded-xl px-5 py-4">
           <div className="flex items-start gap-3">
-            <Database size={16} className="text-violet-500 mt-0.5 shrink-0" />
+            <Database size={16} className="text-violet-500 dark:text-violet-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-medium text-violet-900">Full Snapshot (JSON)</p>
-              <p className="text-xs text-violet-600 mt-0.5">
+              <p className="text-sm font-medium text-violet-900 dark:text-violet-200">Full Snapshot (JSON)</p>
+              <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
                 Exports the entire portfolio state in one file. Import it to fully restore the app — no ordering concerns.
               </p>
             </div>
@@ -648,7 +648,7 @@ export function SettingsPage() {
             variant="outline"
             size="sm"
             onClick={handleFullJsonExport}
-            className="shrink-0 gap-1.5 text-xs border-violet-300 text-violet-700 hover:bg-violet-100"
+            className="shrink-0 gap-1.5 text-xs border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50"
           >
             <Download size={13} />
             Download JSON

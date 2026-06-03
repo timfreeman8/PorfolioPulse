@@ -210,17 +210,17 @@ function ProjectsOverview() {
       <CardContent className="flex-1 space-y-3">
         {/* Blocked alert — prominent if any projects are blocked */}
         {blockedCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800 rounded-lg">
             <AlertTriangle size={14} className="text-red-500 shrink-0" />
-            <span className="text-sm font-medium text-red-700">
+            <span className="text-sm font-medium text-red-700 dark:text-red-300">
               {blockedCount} project{blockedCount > 1 ? 's' : ''} blocked
             </span>
           </div>
         )}
         {completeCount > 0 && blockedCount === 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/25 border border-green-100 dark:border-green-800 rounded-lg">
             <CheckCircle2 size={14} className="text-green-500 shrink-0" />
-            <span className="text-sm font-medium text-green-700">
+            <span className="text-sm font-medium text-green-700 dark:text-green-300">
               {completeCount} project{completeCount > 1 ? 's' : ''} complete
             </span>
           </div>
@@ -329,24 +329,24 @@ function CapacityCard() {
       <CardContent className="flex-1 space-y-1">
         {/* Summary alert */}
         {overCount > 0 ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg mb-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800 rounded-lg mb-2">
             <AlertTriangle size={13} className="text-red-500 shrink-0" />
-            <span className="text-xs font-medium text-red-700">
+            <span className="text-xs font-medium text-red-700 dark:text-red-300">
               {overCount} member{overCount > 1 ? 's' : ''} over capacity
               {amberCount > 0 && `, ${amberCount} near limit`}
             </span>
           </div>
         ) : amberCount > 0 ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg mb-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/25 border border-amber-100 dark:border-amber-800 rounded-lg mb-2">
             <AlertTriangle size={13} className="text-amber-500 shrink-0" />
-            <span className="text-xs font-medium text-amber-700">
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
               {amberCount} member{amberCount > 1 ? 's' : ''} near capacity
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg mb-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/25 border border-green-100 dark:border-green-800 rounded-lg mb-2">
             <CheckCircle2 size={13} className="text-green-500 shrink-0" />
-            <span className="text-xs font-medium text-green-700">All members within capacity</span>
+            <span className="text-xs font-medium text-green-700 dark:text-green-300">All members within capacity</span>
           </div>
         )}
 
