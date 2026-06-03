@@ -12,5 +12,12 @@
 import { useViewStore } from '@/store/useViewStore'
 
 export function useTheme() {
-  return useViewStore(s => ({ isDark: s.isDark, toggle: s.toggleDark }))
+  // Two separate selectors instead of one returning a new object — React 18's
+  // useSyncExternalStore requires the snapshot to be a stable (===) reference.
+  // Returning `{ isDark, toggle }` from a single selector creates a new object
+  // every call, which React 18 treats as a constant change → infinite loop.
+  // Selecting primitives/stable-function-refs separately avoids that.
+  const isDark  = useViewStore(s => s.isDark)
+  const toggle  = useViewStore(s => s.toggleDark)
+  return { isDark, toggle }
 }
