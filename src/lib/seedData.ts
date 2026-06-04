@@ -1,14 +1,13 @@
 /**
  * Seed data — real SAT organization data.
  *
- * Source: SAT-Seed-Data.csv (imported June 2026).
+ * Source: org-roster-2026-06-04.csv (imported June 2026).
  * Previous fictitious dataset is archived in: seedData.archive.ts.
  *
  * Structure:
- *   - 17 domains (16 functional + SAT Leadership)
- *   - 38 teams (37 functional + Store Technology Leadership)
- *   - 140 members sourced from roster-input.xlsx (June 2026) plus 3 fictional
- *     placeholders kept to avoid breaking project assignments
+ *   - 9 domains (8 functional + SAT Leadership)
+ *   - 35 teams (34 functional + Store Technology Leadership)
+ *   - 136 members sourced from org-roster-2026-06-04.csv (June 2026)
  *   - 29 representative projects — use Jira import or add via UI for real project data
  *   - 5 strategic initiatives covering the main SAT program areas
  *   - 5 sample intake requests representative of real SAT work requests
@@ -16,12 +15,15 @@
  * Reporting chain (top-down):
  *   James Clendenen (CIO, not in roster)
  *     └── Ryan Schreck (Sr Store & Associate Technology Director)
- *           ├── Benjamin Cook  → AP, Compliance, Labor & Productivity, Architecture
- *           ├── Bridget Klare  → Price Execution, Inventory, Production, Ordering
- *           ├── Stephen Lay    → DevSecOps, L3 Support
- *           ├── Samer Sarrouh  → Core Services
- *           ├── Akila Sethuraman → QAOps
- *           └── Mike Silverman → Seamless AX, KPF, Store Ops Technology, Labor & Shrink Tech
+ *           ├── Benjamin Cook  → Labor & Shrink Technology (d5): AP, Compliance,
+ *           │                    Labor & Productivity; also Architecture
+ *           ├── Bridget Klare  → Store Ops Technology (d4): FAST, Warrior Squad, DSL,
+ *           │                    Inventorious, DSD, Freddy Kroger, Little Einsteins,
+ *           │                    Interface, Code Busters
+ *           ├── Stephen Lay    → DevSecOps (d11): SAT DevSecOps, SAT Support
+ *           ├── Samer Sarrouh  → Core Services (d1)
+ *           ├── Akila Sethuraman → QAOps (d10)
+ *           └── Mike Silverman → Seamless AX (d2), Alt Profit/KPF (d3)
  */
 
 import { loadState } from '@/lib/persistence'
@@ -57,45 +59,21 @@ const domains: Domain[] = [
   },
   {
     id: 'd3',
-    name: 'KPF',
-    description: 'Kroger Personal Finance technology: credit card, gift cards, and money services.',
-    owner: 'Mike Silverman',
+    name: 'Alt Profit (KPF)',
+    description: 'Alternative profit technology: Kroger Personal Finance credit card, gift cards, and money services.',
+    owner: 'Michael Holcak',
   },
   {
     id: 'd4',
     name: 'Store Ops Technology',
-    description: 'Store operations technology products including Codebusters and cross-team initiatives.',
-    owner: 'Mike Silverman',
+    description: 'Store operations technology: FAST, Warrior Squad, inventory cycle count, DSD, ordering, price execution, and digital shelf labels.',
+    owner: 'Bridget Klare',
   },
   {
     id: 'd5',
     name: 'Labor & Shrink Technology',
-    description: 'Technology for labor management and shrink reduction: Inventorious and FAST platforms.',
-    owner: 'Mike Silverman',
-  },
-  {
-    id: 'd6',
-    name: 'Price Execution',
-    description: 'In-store price execution systems and the ISA (Intelligent Shelf Availability) platform.',
-    owner: 'Bridget Klare',
-  },
-  {
-    id: 'd7',
-    name: 'Inventory',
-    description: 'Inventory management systems: Inventorious cycle-count platform and DSD receiving.',
-    owner: 'Bridget Klare',
-  },
-  {
-    id: 'd8',
-    name: 'Production',
-    description: 'Production technology for deli, bakery, and prepared foods: Warrior Squad, FAST, Freddy Kroger, and Boat.',
-    owner: 'Bridget Klare',
-  },
-  {
-    id: 'd9',
-    name: 'Ordering',
-    description: 'Store ordering systems: demand-driven replenishment, vendor interfaces, and order management.',
-    owner: 'Bridget Klare',
+    description: 'Labor and shrink technology: accounts payable, compliance, and labor productivity systems.',
+    owner: 'Benjamin Cook',
   },
   {
     id: 'd10',
@@ -106,32 +84,8 @@ const domains: Domain[] = [
   {
     id: 'd11',
     name: 'DevSecOps',
-    description: 'Security-first developer operations: CI/CD pipelines, security tooling, and platform DevOps.',
+    description: 'Security-first developer operations: CI/CD pipelines, security tooling, platform DevOps, and production support.',
     owner: 'Stephen Lay',
-  },
-  {
-    id: 'd12',
-    name: 'L3 Support',
-    description: 'Level 3 technical support for all SAT applications and production systems.',
-    owner: 'Stephen Lay',
-  },
-  {
-    id: 'd13',
-    name: 'AP',
-    description: 'Accounts payable technology and financial systems engineering.',
-    owner: 'Benjamin Cook',
-  },
-  {
-    id: 'd14',
-    name: 'Compliance',
-    description: 'Regulatory compliance technology, audit systems, and reporting.',
-    owner: 'Benjamin Cook',
-  },
-  {
-    id: 'd15',
-    name: 'Labor & Productivity',
-    description: 'Labor scheduling, productivity tracking, and workforce management technology.',
-    owner: 'Benjamin Cook',
   },
   {
     id: 'd16',
@@ -253,51 +207,44 @@ const rawTeams: Omit<Team, 'memberIds'>[] = [
   { id: 't6',  domainId: 'd2', name: 'Little Bird',       description: 'Digital shelf label and Little Bird platform engineering.',                                    techLead: 'Drake Woodring' },
   { id: 't7',  domainId: 'd2', name: 'Blade Runners',     description: 'Backend API and middleware engineering for Seamless AX services.',                            techLead: 'Veerendra Madinedi' },
   { id: 't8',  domainId: 'd2', name: 'HomeBase',          description: 'HomeBase associate scheduling and management platform.',                                       techLead: 'Samuel Powell' },
-  { id: 't9',  domainId: 'd2', name: 'Data Goblins',      description: 'Data analytics and reporting for the Seamless AX product suite.',                             techLead: 'Dakota Kuczenski' },
-  { id: 't10', domainId: 'd2', name: 'QuickSales',        description: 'Quick sales and accelerated checkout experience engineering.',                                 techLead: 'Ramya Priya Gajulavarthy' },
-  { id: 't11', domainId: 'd2', name: 'KPF Product',       description: 'Product management for KPF financial products within the Seamless AX portfolio.',             techLead: 'Elizabeth Garrick' },
-  { id: 't12', domainId: 'd2', name: 'Seamless AX Platform', description: 'Engineering leadership, SRE, and platform services for the Seamless AX portfolio.',       techLead: 'Mark Valentine' },
-  // ── KPF (d3) ───────────────────────────────────────────────────────
-  { id: 't13', domainId: 'd3', name: 'Credit Card',       description: 'Kroger Personal Finance credit card technology and associate-facing experiences.',            techLead: 'Azyadeth Francois' },
+  { id: 't9',  domainId: 'd2', name: 'Data Goblins',      description: 'Metrics that matter (MTM) and MAGIC applications.',                                           techLead: 'Dakota Kuczenski' },
+  { id: 't10', domainId: 'd2', name: 'QuickSales',        description: 'Executive sales reporting.',                                                                   techLead: 'Ramya Priya Gajulavarthy' },
+  // t11 KPF Product dissolved — PMs distributed to Credit Card, Gift Cards, Money Services teams
+  { id: 't12', domainId: 'd2', name: 'Seamless AX Leadership', description: 'Engineering, design and product leadership for the Seamless AX domain.',                techLead: 'Mark Valentine' },
+  { id: 't39', domainId: 'd2', name: 'In Store Communications', description: 'In-store communications technology and associate-facing notification systems.',         techLead: 'Chris Uhl' },
+  // ── Alt Profit / KPF (d3) ──────────────────────────────────────────
+  { id: 't13', domainId: 'd3', name: 'Credit Card',       description: 'Kroger Personal Finance credit card technology and customer-facing experiences.',             techLead: 'Dina Daniels-Purtee' },
   { id: 't14', domainId: 'd3', name: 'Gift Cards',        description: 'Gift card program technology and system integrations.',                                        techLead: 'Christopher Rabineau' },
-  { id: 't15', domainId: 'd3', name: 'Money Services',    description: 'Money services and financial products technology.',                                            techLead: 'Ronan Rooney' },
+  { id: 't15', domainId: 'd3', name: 'Money Services',    description: 'Money services and financial products technology.',                                            techLead: 'Elizabeth Garrick' },
   // ── Store Ops Technology (d4) ──────────────────────────────────────
-  { id: 't16', domainId: 'd4', name: 'Codebusters',       description: 'Store operations coding and configuration tooling.',                                           techLead: 'Dana Perry' },
-  { id: 't17', domainId: 'd4', name: 'Store Ops Projects', description: 'Cross-team store operations UX design and multi-product initiatives.',                       techLead: 'Makayla Long' },
+  // t16 Codebusters and t17 Store Ops Projects dissolved; designer (m44/m45) reassigned
+  { id: 't19', domainId: 'd4', name: 'FAST',              description: 'FAST production efficiency and labor forecasting systems.',                                    techLead: 'Rene Garcia' },
+  { id: 't20', domainId: 'd4', name: 'DSL',               description: 'Digital Shelf Labels — in-store price execution and label management systems.',               techLead: 'Brandon Bischof' },
+  { id: 't21', domainId: 'd4', name: 'Inventorious',      description: 'Inventorious inventory cycle-count and accuracy platform.',                                    techLead: 'Chris Johnson' },
+  { id: 't22', domainId: 'd4', name: 'DSD',               description: 'Direct Store Delivery receiving and vendor management systems.',                               techLead: 'Rajkiran Mooga' },
+  { id: 't25', domainId: 'd4', name: 'Freddy Kroger',     description: 'Freddy Kroger production management and store operations platform.',                          techLead: 'Ryan Ware' },
+  { id: 't27', domainId: 'd4', name: 'Little Einsteins',  description: 'Intelligent demand-driven ordering and automated replenishment.',                              techLead: 'Thomas Pessler' },
+  { id: 't28', domainId: 'd4', name: 'Interface',         description: 'Vendor interface and ordering system integrations.',                                           techLead: 'Rajiv Nair' },
+  { id: 't29', domainId: 'd4', name: 'Code Busters',      description: 'Order management, code compliance, and ordering workflow systems.',                            techLead: 'Prajay Shakya' },
+  { id: 't23', domainId: 'd4', name: 'Warrior Squad',     description: 'Production planning and deli/bakery operational technology.',                                  techLead: 'Sireesha Yarlagadda' },
+  { id: 't40', domainId: 'd4', name: 'Store Ops Technology Leadership', description: 'Store Ops Technology director and design leadership.',                           techLead: 'Bridget Klare' },
   // ── Labor & Shrink Technology (d5) ─────────────────────────────────
-  { id: 't18', domainId: 'd5', name: 'Inventorious',      description: 'Inventorious labor and shrink technology design.',                                             techLead: 'Taral Kulkarni' },
-  { id: 't19', domainId: 'd5', name: 'FAST',              description: 'FAST labor optimization and scheduling technology design.',                                    techLead: 'Erik Olsen' },
-  // ── Price Execution (d6) ───────────────────────────────────────────
-  { id: 't20', domainId: 'd6', name: 'ISA',               description: 'Intelligent Shelf Availability — in-store price execution and compliance systems.',           techLead: 'Brandon Bischof' },
-  // ── Inventory (d7) ─────────────────────────────────────────────────
-  { id: 't21', domainId: 'd7', name: 'Inventorious',      description: 'Inventorious inventory cycle-count and accuracy platform.',                                    techLead: 'Chris Johnson' },
-  { id: 't22', domainId: 'd7', name: 'DSD',               description: 'Direct Store Delivery receiving and vendor management systems.',                               techLead: 'Rajkiran Mooga' },
-  // ── Production (d8) ────────────────────────────────────────────────
-  { id: 't23', domainId: 'd8', name: 'Warrior Squad',     description: 'Production planning and deli/bakery operational technology.',                                  techLead: 'Sireesha Yarlagadda' },
-  { id: 't24', domainId: 'd8', name: 'FAST',              description: 'FAST production efficiency and labor forecasting systems.',                                    techLead: 'Andrew Hughes' },
-  { id: 't25', domainId: 'd8', name: 'Freddy Kroger',     description: 'Freddy Kroger production management and store operations platform.',                          techLead: 'Ryan Ware' },
-  { id: 't26', domainId: 'd8', name: 'Boat',              description: 'Boat production platform engineering.',                                                        techLead: 'Nicholas Meese' },
-  // ── Ordering (d9) ──────────────────────────────────────────────────
-  { id: 't27', domainId: 'd9', name: 'Little Einsteins',  description: 'Intelligent demand-driven ordering and automated replenishment.',                              techLead: 'Thomas Pessler' },
-  { id: 't28', domainId: 'd9', name: 'Interface',         description: 'Vendor interface and ordering system integrations.',                                           techLead: 'Rajiv Nair' },
-  { id: 't29', domainId: 'd9', name: 'Code Busters',      description: 'Order management, code compliance, and ordering workflow systems.',                            techLead: 'Prajay Shakya' },
+  // t18 Inventorious (d5 design) dissolved; designer (m46) reassigned to t21.
+  // t24 FAST and t26 Boat dissolved into t19 FAST (Store Ops d4).
+  { id: 't34', domainId: 'd5', name: 'AP',               description: 'Accounts payable automation and financial systems.',                                            techLead: 'Aaron Crawford' },
+  { id: 't35', domainId: 'd5', name: 'Compliance',        description: 'Regulatory compliance technology, audit systems, reporting, SPA and Recalls applications.',   techLead: 'Sandeep Singh' },
+  { id: 't36', domainId: 'd5', name: 'Labor & Productivity', description: 'Labor scheduling, productivity tracking, and workforce management.',                       techLead: 'Kirk Benson' },
+  { id: 't41', domainId: 'd5', name: 'Labor & Shrink Technology Leadership', description: 'Labor & Shrink Technology director and design leadership.',                 techLead: 'Benjamin Cook' },
   // ── QAOps (d10) ────────────────────────────────────────────────────
   { id: 't30', domainId: 'd10', name: 'DEX SWAT',         description: 'Digital experience SWAT team for rapid quality response across SAT products.',                techLead: 'Muhammad Irfan' },
   { id: 't31', domainId: 'd10', name: 'DEX QAOps Mavericks', description: 'DEX quality operations and test automation excellence.',                                   techLead: 'Binoy Baby Kaliyadan' },
   // ── DevSecOps (d11) ────────────────────────────────────────────────
   { id: 't32', domainId: 'd11', name: 'SAT DevSecOps',    description: 'Security-first DevOps: CI/CD pipelines, vulnerability scanning, and platform security.',     techLead: 'Justin Palmer' },
-  // ── L3 Support (d12) ───────────────────────────────────────────────
-  { id: 't33', domainId: 'd12', name: 'SAT Support',      description: 'Level 3 technical support for all SAT production systems.',                                   techLead: 'Troy Cooper' },
-  // ── AP (d13) ───────────────────────────────────────────────────────
-  { id: 't34', domainId: 'd13', name: 'AP',               description: 'Accounts payable automation and financial systems.',                                           techLead: 'Aaron Crawford' },
-  // ── Compliance (d14) ───────────────────────────────────────────────
-  { id: 't35', domainId: 'd14', name: 'Compliance',       description: 'Regulatory compliance technology, audit systems, and reporting.',                              techLead: 'Sandeep Singh' },
-  // ── Labor & Productivity (d15) ─────────────────────────────────────
-  { id: 't36', domainId: 'd15', name: 'Labor & Productivity', description: 'Labor scheduling, productivity tracking, and workforce management.',                      techLead: 'Kirk Benson' },
+  { id: 't33', domainId: 'd11', name: 'SAT Support',      description: 'Level 3 technical support for all SAT production systems.',                                   techLead: 'Troy Cooper' },
   // ── Architecture (d16) ─────────────────────────────────────────────
   { id: 't37', domainId: 'd16', name: 'Architecture',     description: 'Enterprise solutions architecture and technical strategy across the SAT portfolio.',           techLead: 'Jonathan Franz' },
   // ── SAT Leadership (d17) ───────────────────────────────────────────
-  { id: 't38', domainId: 'd17', name: 'Store Technology Leadership', description: 'Portfolio lead and L5 directors spanning all SAT domains.', techLead: 'Ryan Schreck' },
+  { id: 't38', domainId: 'd17', name: 'Store Technology Leadership', description: 'Portfolio lead and L5 directors spanning all SAT domains.',                        techLead: 'Ryan Schreck' },
 ]
 
 // ─── Members ──────────────────────────────────────────────────────────────
@@ -326,8 +273,9 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm15', teamIds: ['t4'],  name: 'Avinash Prakash',               role: 'Advanced Software Engineer',            reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'AP' },
   { id: 'm16', teamIds: ['t4'],  name: 'Bhargavi Tammina',              role: 'Senior Quality Engineer',               reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'BT' },
   { id: 'm17', teamIds: ['t4'],  name: 'Mary Kathryn Strang',           role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'MKS' },
-  { id: 'm18', teamIds: ['t4'],  name: 'Chris Uhl',                     role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'CU' },
   { id: 'm19', teamIds: ['t4'],  name: 'Daniel Henning',                role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'DH' },
+  // ── Seamless AX — In Store Communications (t39) ────────────────────
+  { id: 'm18', teamIds: ['t39'], name: 'Chris Uhl',                     role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'CU' },
   // ── Seamless AX — Cookie Monster (t5) ──────────────────────────────
   { id: 'm20', teamIds: ['t5'],  name: 'Samuel Bryant',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SBr' },
   { id: 'm21', teamIds: ['t5'],  name: 'Ethan Dunham',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'ED' },
@@ -341,35 +289,35 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm28', teamIds: ['t7'],  name: 'Veerendra Madinedi',            role: 'Sr Software Engineer',                  reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'VM' },
   { id: 'm29', teamIds: ['t7'],  name: 'Michael Ortega',                role: 'Software Engineer',                     reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'MO' },
   // ── Seamless AX — HomeBase (t8) ────────────────────────────────────
-  { id: 'm30', teamIds: ['t7', 't8'], name: 'Samuel Powell',             role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SP' },
+  { id: 'm30', teamIds: ['t6', 't7', 't8'], name: 'Samuel Powell',       role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'SP' },
   // ── Seamless AX — Data Goblins (t9) ────────────────────────────────
   { id: 'm31', teamIds: ['t9'],  name: 'Dakota Kuczenski',              role: 'Software Engineer',                     reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'DK' },
   // ── Seamless AX — QuickSales (t10) ─────────────────────────────────
   { id: 'm32', teamIds: ['t10'], name: 'Ramya Priya Gajulavarthy',      role: 'Sr Software Engineer',                  reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'RG' },
-  // ── Seamless AX — KPF Product (t11) — PMs supporting KPF products ─
-  { id: 'm33', teamIds: ['t11'], name: 'Dina Daniels-Purtee',           role: 'Product Manager',                       reportsTo: 'Michael Holcak',          capacity: 75, avatarInitials: 'DD' },
-  { id: 'm34', teamIds: ['t11'], name: 'Elizabeth Garrick',             role: 'Senior Product Manager',                reportsTo: 'Michael Holcak',          capacity: 75, avatarInitials: 'EG' },
-  { id: 'm35', teamIds: ['t11'], name: 'Cheryl Smith',                  role: 'Senior Product Manager',                reportsTo: 'Michael Holcak',          capacity: 75, avatarInitials: 'CS' },
+  // ── Alt Profit / KPF — PMs distributed to their product teams ──────
+  { id: 'm33', teamIds: ['t13'], name: 'Dina Daniels-Purtee',           role: 'Product Manager',                       reportsTo: 'Michael Holcak',          capacity: 75, avatarInitials: 'DD' },
+  { id: 'm34', teamIds: ['t15'], name: 'Elizabeth Garrick',             role: 'Senior Product Manager',                reportsTo: 'Michael Holcak',          capacity: 75, avatarInitials: 'EG' },
+  { id: 'm35', teamIds: ['t14'], name: 'Cheryl Smith',                  role: 'Senior Product Manager',                reportsTo: 'Michael Holcak',          capacity: 75, avatarInitials: 'CS' },
   // ── Seamless AX — Platform / Managers (t12) ────────────────────────
-  { id: 'm36', teamIds: ['t12'], name: 'Grayson Murphy',                role: 'Site Reliability & Devops Engineer',    reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'GM' },
-  { id: 'm37', teamIds: ['t12'], name: 'Timothy Freeman',               role: 'Sr Product Designer Manager',           reportsTo: 'Mike Silverman',          capacity: 70, avatarInitials: 'TF' },
+  { id: 'm36', teamIds: ['t33'], name: 'Grayson Murphy',                role: 'Site Reliability & Devops Engineer',    reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'GM' },
+  { id: 'm37', teamIds: ['t12', 't40', 't41'], name: 'Timothy Freeman', role: 'Sr Product Designer Manager',           reportsTo: 'Mike Silverman',          capacity: 70, avatarInitials: 'TF' },
   { id: 'm38', teamIds: ['t12'], name: 'Michael Holcak',                role: 'Product Management Group Manager',      reportsTo: 'Mike Silverman',          capacity: 70, avatarInitials: 'MH' },
   { id: 'm39', teamIds: ['t12'], name: 'Venkata Sanjay Penmetsa',       role: 'Advanced Software Engineering Manager', reportsTo: 'Mike Silverman',          capacity: 70, avatarInitials: 'VP' },
   { id: 'm40', teamIds: ['t12'], name: 'Mark Valentine',                role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Mike Silverman',  capacity: 65, avatarInitials: 'MV' },
-  // ── Seamless AX — Platform (t12) — Jinru Liu ───────────────────────
-  { id: 'm140', teamIds: ['t12'], name: 'Jinru Liu',                    role: 'Advanced Software Engineer',            reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'JL' },
-  // ── KPF — Credit Card (t13) ────────────────────────────────────────
-  { id: 'm41', teamIds: ['t13'], name: 'Azyadeth Francois',             role: 'Associate Product Designer',            reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'AF' },
+  // ── Seamless AX — Cookie Monster (t5) — Jinru Liu ─────────────────
+  { id: 'm140', teamIds: ['t5'],  name: 'Jinru Liu',                    role: 'Advanced Software Engineer',            reportsTo: 'Mark Valentine',          capacity: 80, avatarInitials: 'JL' },
+  // ── Seamless AX — Cookie Monster (t5) additions ───────────────────
+  { id: 'm41', teamIds: ['t5'],  name: 'Azyadeth Francois',             role: 'Associate Product Designer',            reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'AF' },
   // ── KPF — Gift Cards (t14) ─────────────────────────────────────────
   { id: 'm42', teamIds: ['t14'], name: 'Christopher Rabineau',          role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'CR' },
-  // ── KPF — Money Services (t15) ─────────────────────────────────────
-  { id: 'm43', teamIds: ['t15'], name: 'Ronan Rooney',                  role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'RRo' },
-  // ── Store Ops Technology — Codebusters (t16) ───────────────────────
-  { id: 'm44', teamIds: ['t16'], name: 'Dana Perry',                    role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'DP' },
-  // ── Store Ops Technology — Store Ops Projects (t17) ────────────────
-  { id: 'm45', teamIds: ['t17'], name: 'Makayla Long',                  role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'ML' },
-  // ── Labor & Shrink Technology — Inventorious (t18) ─────────────────
-  { id: 'm46', teamIds: ['t18'], name: 'Taral Kulkarni',                role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'TK' },
+  // ── Labor & Shrink Technology — Compliance (t35) additions ─────────
+  { id: 'm43', teamIds: ['t35'], name: 'Ronan Rooney',                  role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'RRo' },
+  // ── Store Ops Technology — Code Busters (t29) ─────────────────────
+  { id: 'm44', teamIds: ['t29'], name: 'Dana Perry',                    role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'DP' },
+  // ── Store Ops Technology — Freddy Kroger (t25) ─────────────────────
+  { id: 'm45', teamIds: ['t25'], name: 'Makayla Long',                  role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'ML' },
+  // ── Store Ops Technology — Inventorious (t21) ──────────────────────
+  { id: 'm46', teamIds: ['t21'], name: 'Taral Kulkarni',                role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'TK' },
   // ── Labor & Shrink Technology — FAST (t19) ─────────────────────────
   { id: 'm47', teamIds: ['t19'], name: 'Erik Olsen',                    role: 'Senior Product Designer',               reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'EO' },
   // ── Price Execution — ISA (t20) ────────────────────────────────────
@@ -379,13 +327,13 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm51', teamIds: ['t20'], name: 'Jonathan Sims',                 role: 'Senior Application Systems Analyst',    reportsTo: 'Brandon Bischof',         capacity: 80, avatarInitials: 'JSi' },
   { id: 'm52', teamIds: ['t20'], name: 'Jacob Wolfe',                   role: 'Software Engineer',                     reportsTo: 'Brandon Bischof',         capacity: 80, avatarInitials: 'JW' },
   { id: 'm53', teamIds: ['t20'], name: 'Amy Hardesty',                  role: 'Senior Product Manager',                reportsTo: 'Bridget Klare',           capacity: 75, avatarInitials: 'AH' },
-  { id: 'm54', teamIds: ['t20'], name: 'Brandon Bischof',               role: 'Sr Software Engineering Manager',       reportsTo: 'Bridget Klare',           capacity: 70, avatarInitials: 'BB' },
+  { id: 'm54', teamIds: ['t20', 't40'], name: 'Brandon Bischof',         role: 'Sr Software Engineering Manager',       reportsTo: 'Bridget Klare',           capacity: 70, avatarInitials: 'BB' },
   // ── Inventory — Inventorious (t21) ─────────────────────────────────
   { id: 'm55', teamIds: ['t21'], name: 'Chris Johnson',                 role: 'Advanced Software Engineer',            reportsTo: 'Robert Carlson',          capacity: 85, avatarInitials: 'CJ' },
   { id: 'm56', teamIds: ['t21'], name: 'Sai Sunnyhith Nandamuri',       role: 'Advanced Software Engineer',            reportsTo: 'Robert Carlson',          capacity: 85, avatarInitials: 'SN' },
   { id: 'm57', teamIds: ['t21'], name: 'Trevor Osborne',                role: 'Software Engineer',                     reportsTo: 'Robert Carlson',          capacity: 80, avatarInitials: 'TO' },
   { id: 'm58', teamIds: ['t21'], name: 'Paula Thornton',                role: 'Advanced Software Engineer',            reportsTo: 'Robert Carlson',          capacity: 85, avatarInitials: 'PT' },
-  { id: 'm59', teamIds: ['t21'], name: 'Robert Carlson',                role: 'Advanced Software Engineering Manager', reportsTo: 'Bridget Klare',           capacity: 70, avatarInitials: 'RC' },
+  { id: 'm59', teamIds: ['t21', 't22', 't40'], name: 'Robert Carlson',   role: 'Advanced Software Engineering Manager', reportsTo: 'Bridget Klare',           capacity: 70, avatarInitials: 'RC' },
   { id: 'm60', teamIds: ['t21'], name: 'Saravanan Jayavelu',            role: 'Senior Product Manager',                reportsTo: 'Benjamin Cook',           capacity: 75, avatarInitials: 'SJ' },
   // ── Inventory — DSD (t22) ──────────────────────────────────────────
   { id: 'm61', teamIds: ['t22'], name: 'Sascha Diotte',                 role: 'Senior Application Systems Analyst',    reportsTo: 'Robert Carlson',          capacity: 80, avatarInitials: 'SDi' },
@@ -395,29 +343,28 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   // ── Production — Warrior Squad (t23) ───────────────────────────────
   { id: 'm65', teamIds: ['t23'], name: 'Jason Cruz',                    role: 'Software Engineer',                     reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'JC' },
   { id: 'm66', teamIds: ['t23'], name: 'Sireesha Yarlagadda',           role: 'Sr Software Engineer',                  reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'SY' },
-  { id: 'm67', teamIds: ['t23'], name: 'Rene Garcia',                   role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Bridget Klare',  capacity: 70, avatarInitials: 'RG' },
-  // ── Production — FAST (t24) ────────────────────────────────────────
-  { id: 'm68', teamIds: ['t24'], name: 'Ashanti Holmes',                role: 'Software Engineer',                     reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'AHo' },
-  { id: 'm69', teamIds: ['t24'], name: 'Andrew Hughes',                 role: 'Advanced Software Engineer',            reportsTo: 'Rene Garcia',             capacity: 85, avatarInitials: 'AHu' },
-  { id: 'm70', teamIds: ['t24'], name: 'Kalyani Satyavolu',             role: 'Advanced Quality Engineer',             reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'KS' },
-  // ── Production — Freddy Kroger (t25) ───────────────────────────────
+  { id: 'm67', teamIds: ['t19', 't23', 't25', 't40'], name: 'Rene Garcia', role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Bridget Klare', capacity: 70, avatarInitials: 'RG' },
+  // ── Store Ops Technology — FAST (t19) — former t24/t26 members ─────
+  { id: 'm68', teamIds: ['t19'], name: 'Ashanti Holmes',                role: 'Software Engineer',                     reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'AHo' },
+  { id: 'm69', teamIds: ['t19'], name: 'Andrew Hughes',                 role: 'Advanced Software Engineer',            reportsTo: 'Rene Garcia',             capacity: 85, avatarInitials: 'AHu' },
+  { id: 'm70', teamIds: ['t19'], name: 'Kalyani Satyavolu',             role: 'Advanced Quality Engineer',             reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'KS' },
+  { id: 'm74', teamIds: ['t19'], name: 'Nicholas Meese',                role: 'Sr Software Engineer',                  reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'NMe' },
+  // ── Store Ops Technology — Freddy Kroger (t25) ─────────────────────
   { id: 'm71', teamIds: ['t25'], name: 'Rohith Kaveri',                 role: 'Sr Software Engineer',                  reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'RKa' },
   { id: 'm72', teamIds: ['t25'], name: 'Ryan Ware',                     role: 'Advanced Software Engineer',            reportsTo: 'Rene Garcia',             capacity: 85, avatarInitials: 'RW' },
   { id: 'm73', teamIds: ['t25'], name: 'Sarah Proscia',                 role: 'Senior Product Manager',                reportsTo: 'Bridget Klare',           capacity: 75, avatarInitials: 'SPr' },
-  // ── Production — Boat (t26) ────────────────────────────────────────
-  { id: 'm74', teamIds: ['t26'], name: 'Nicholas Meese',                role: 'Sr Software Engineer',                  reportsTo: 'Rene Garcia',             capacity: 80, avatarInitials: 'NMe' },
   // ── Ordering — Little Einsteins (t27) ──────────────────────────────
   { id: 'm75', teamIds: ['t27'], name: 'Douglas Montgomery',            role: 'Software Engineer',                     reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'DM' },
-  { id: 'm76', teamIds: ['t27'], name: 'Thomas Pessler',                role: 'Advanced Software Engineer',            reportsTo: 'Michele Trammell',        capacity: 85, avatarInitials: 'TP' },
+  { id: 'm76', teamIds: ['t28'], name: 'Thomas Pessler',                role: 'Advanced Software Engineer',            reportsTo: 'Michele Trammell',        capacity: 85, avatarInitials: 'TP' },
   { id: 'm77', teamIds: ['t27'], name: 'Thomas Thole',                  role: 'Software Engineer',                     reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'TT' },
-  { id: 'm78', teamIds: ['t27'], name: 'Michele Trammell',              role: 'Advanced Software Engineering Manager', reportsTo: 'Bridget Klare',           capacity: 70, avatarInitials: 'MT' },
+  { id: 'm78', teamIds: ['t27', 't28', 't29', 't40'], name: 'Michele Trammell', role: 'Advanced Software Engineering Manager', reportsTo: 'Bridget Klare',    capacity: 70, avatarInitials: 'MT' },
   // ── Ordering — Interface (t28) ─────────────────────────────────────
   { id: 'm79', teamIds: ['t28'], name: 'Rajiv Nair',                    role: 'Sr Software Engineer',                  reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'RN' },
   { id: 'm80', teamIds: ['t28'], name: 'Sarah Sizemore',                role: 'Sr Software Engineer',                  reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'SS' },
-  { id: 'm81', teamIds: ['t28'], name: 'Michael Parthenakis',           role: 'Senior Product Manager',                reportsTo: 'Bridget Klare',           capacity: 75, avatarInitials: 'MPa' },
+  { id: 'm81', teamIds: ['t19'], name: 'Michael Parthenakis',           role: 'Senior Product Manager',                reportsTo: 'Bridget Klare',           capacity: 75, avatarInitials: 'MPa' },
   // ── Ordering — Code Busters (t29) ──────────────────────────────────
   { id: 'm82', teamIds: ['t29'], name: 'Conrad Payne',                  role: 'Senior Application Systems Analyst',    reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'CP' },
-  { id: 'm83', teamIds: ['t29'], name: 'David Satterfield',             role: 'Site Reliability & Devops Engineer',    reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'DS' },
+  { id: 'm83', teamIds: ['t28'], name: 'David Satterfield',             role: 'Site Reliability & Devops Engineer',    reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'DS' },
   { id: 'm84', teamIds: ['t29'], name: 'Prajay Shakya',                 role: 'Advanced Software Engineer',            reportsTo: 'Michele Trammell',        capacity: 80, avatarInitials: 'PS' },
   { id: 'm85', teamIds: ['t29'], name: 'Mary Kania',                    role: 'Product Manager',                       reportsTo: 'Bridget Klare',           capacity: 75, avatarInitials: 'MK' },
   // ── QAOps — DEX SWAT (t30) ─────────────────────────────────────────
@@ -444,26 +391,25 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm104', teamIds: ['t33'], name: 'Caitlyn Spears',               role: 'Application Systems Analyst',           reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'CSp' },
   { id: 'm105', teamIds: ['t33'], name: 'William Brinkley',             role: 'Associate Application Systems Analyst', reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'WB' },
   // ── AP — AP (t34) ──────────────────────────────────────────────────
-  { id: 'm106', teamIds: ['t34'], name: 'Aaron Crawford',               role: 'Advanced Software Engineering Manager', reportsTo: 'Benjamin Cook',           capacity: 70, avatarInitials: 'AC' },
+  { id: 'm106', teamIds: ['t34', 't41'], name: 'Aaron Crawford',         role: 'Advanced Software Engineering Manager', reportsTo: 'Benjamin Cook',           capacity: 70, avatarInitials: 'AC' },
   { id: 'm107', teamIds: ['t34'], name: 'Nickolas Carter',              role: 'Senior Application Systems Analyst',    reportsTo: 'Aaron Crawford',          capacity: 80, avatarInitials: 'NC' },
   { id: 'm108', teamIds: ['t34'], name: 'Quentin Center',               role: 'Associate Application Systems Analyst', reportsTo: 'Aaron Crawford',          capacity: 80, avatarInitials: 'QC' },
   { id: 'm109', teamIds: ['t34'], name: 'Karen Grimme-Reedy',           role: 'Associate Application Systems Analyst', reportsTo: 'Aaron Crawford',          capacity: 80, avatarInitials: 'KG' },
   { id: 'm110', teamIds: ['t34'], name: 'Terrence Lewis',               role: 'Application Systems Analyst',           reportsTo: 'Aaron Crawford',          capacity: 80, avatarInitials: 'TL' },
   { id: 'm111', teamIds: ['t34'], name: 'Richard Soller',               role: 'Application Systems Analyst',           reportsTo: 'Aaron Crawford',          capacity: 80, avatarInitials: 'RS' },
   // ── Compliance — Compliance (t35) ──────────────────────────────────
-  { id: 'm112', teamIds: ['t35'], name: 'Sandeep Singh',                role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Benjamin Cook',   capacity: 65, avatarInitials: 'SSi' },
+  { id: 'm112', teamIds: ['t35', 't41'], name: 'Sandeep Singh',          role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Benjamin Cook',   capacity: 65, avatarInitials: 'SSi' },
   { id: 'm113', teamIds: ['t35'], name: 'Sai Cholitha Anne',            role: 'Senior Quality Engineer',               reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'SA' },
   { id: 'm114', teamIds: ['t35'], name: 'Jake Filut',                   role: 'Software Engineer',                     reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'JF' },
   { id: 'm115', teamIds: ['t35'], name: 'Dennis Frey',                  role: 'Software Engineer',                     reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'DFr' },
   { id: 'm116', teamIds: ['t35'], name: 'Krishna Kiran Kumar Gurram',   role: 'Advanced Software Engineer',            reportsTo: 'Sandeep Singh',           capacity: 85, avatarInitials: 'KKG' },
   { id: 'm117', teamIds: ['t35'], name: 'Divya Poreddy',                role: 'Sr Software Engineer',                  reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'DPo' },
   { id: 'm118', teamIds: ['t35'], name: 'Erik Tschopp',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'ET' },
-  { id: 'm119', teamIds: ['t35'], name: 'Jill Gilbert',                 role: 'Senior Product Manager',                reportsTo: 'Benjamin Cook',           capacity: 75, avatarInitials: 'JGi' },
   // ── Labor & Productivity — Labor & Productivity (t36) ──────────────
   { id: 'm120', teamIds: ['t36'], name: 'Kirk Benson',                  role: 'Advanced Software Engineer',            reportsTo: 'Deanna Williams',         capacity: 85, avatarInitials: 'KB' },
   { id: 'm121', teamIds: ['t36'], name: 'Jyothi Ritti',                 role: 'Senior Product Manager',                reportsTo: 'Deanna Williams',         capacity: 75, avatarInitials: 'JR' },
-  { id: 'm122', teamIds: ['t36'], name: 'Laura Redden',                 role: 'Senior Product Manager',                reportsTo: 'Benjamin Cook',           capacity: 75, avatarInitials: 'LR' },
-  { id: 'm123', teamIds: ['t36'], name: 'Bidisha Roy',                  role: 'Product Manager',                       reportsTo: 'Benjamin Cook',           capacity: 75, avatarInitials: 'BR' },
+  { id: 'm122', teamIds: ['t34'], name: 'Laura Redden',                 role: 'Senior Product Manager',                reportsTo: 'Benjamin Cook',           capacity: 75, avatarInitials: 'LR' },
+  { id: 'm123', teamIds: ['t35'], name: 'Bidisha Roy',                  role: 'Product Manager',                       reportsTo: 'Benjamin Cook',           capacity: 75, avatarInitials: 'BR' },
   // ── Architecture — Architecture (t37) ──────────────────────────────
   { id: 'm124', teamIds: ['t37'], name: 'Bilal Asghar',                 role: 'Advanced Solutions Architect',          reportsTo: 'Benjamin Cook',           capacity: 80, avatarInitials: 'BA' },
   { id: 'm125', teamIds: ['t37'], name: 'Greg Bolanos',                 role: 'Advanced Solutions Architect',          reportsTo: 'Benjamin Cook',           capacity: 80, avatarInitials: 'GB' },
@@ -475,12 +421,12 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   // Executive and director-level leaders. Ryan Schreck is the portfolio lead
   // reporting to James Clendenen (CIO, not in roster).
   { id: 'm130', teamIds: ['t38'], name: 'Ryan Schreck',                 role: 'Sr Store & Associate Technology Director', reportsTo: 'James Clendenen',       capacity: 60, avatarInitials: 'RSc' },
-  { id: 'm131', teamIds: ['t38'], name: 'Benjamin Cook',                role: 'Labor & Shrink Technology Director',    reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'BC' },
-  { id: 'm132', teamIds: ['t38'], name: 'Bridget Klare',                role: 'Store Ops Technology Director',         reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'BKl' },
+  { id: 'm131', teamIds: ['t38', 't41'], name: 'Benjamin Cook',         role: 'Labor & Shrink Technology Director',    reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'BC' },
+  { id: 'm132', teamIds: ['t38', 't40'], name: 'Bridget Klare',         role: 'Store Ops Technology Director',         reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'BKl' },
   { id: 'm133', teamIds: ['t38'], name: 'Stephen Lay',                  role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Ryan Schreck',    capacity: 65, avatarInitials: 'SL' },
   { id: 'm134', teamIds: ['t38'], name: 'Samer Sarrouh',                role: 'Sr Advanced Data Engineering Manager',  reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'SSa' },
   { id: 'm135', teamIds: ['t38'], name: 'Akila Sethuraman',             role: 'Advanced QA Manager',                   reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'AS' },
-  { id: 'm136', teamIds: ['t38'], name: 'Mike Silverman',               role: 'Product Management Group Manager',      reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'MS' },
+  { id: 'm136', teamIds: ['t38', 't12'], name: 'Mike Silverman',        role: 'Product Management Group Manager',      reportsTo: 'Ryan Schreck',            capacity: 65, avatarInitials: 'MS' },
   // ── Labor & Productivity — Labor & Productivity (t36) additions ────
   { id: 'm137', teamIds: ['t36'], name: 'Deanna Williams',              role: 'Advanced Software Engineer',            reportsTo: 'Benjamin Cook',           capacity: 80, avatarInitials: 'DW' },
   // ── AP — AP (t34) additions ────────────────────────────────────────
@@ -496,23 +442,76 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
 
 const projects: Project[] = [
   // ── Seamless AX — IRIS (i1) ───────────────────────────────────────────
-  {
-    id: 'p1',
-    assignments: [
-      { memberId: 'm12', part: 'Backend',      allocation: 50, startDate: '2025-10-01', endDate: '2026-09-30' },
-      { memberId: 'm14', part: 'Backend',      allocation: 40, startDate: '2025-10-01', endDate: '2026-09-30' },
-      { memberId: 'm15', part: 'Backend',      allocation: 40, startDate: '2025-10-01', endDate: '2026-09-30' },
-      { memberId: 'm19', part: 'UI Design',       allocation: 30, startDate: '2025-10-01', endDate: '2026-06-30' },
-    ],
-    name: 'IRIS Platform v2',
-    description: 'Major version upgrade to the IRIS associate platform with improved real-time data sync and offline support.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i1', priority: 'Critical',
-    startDate: '2025-10-01', targetEndDate: '2026-09-30', percentComplete: 55,
-    stakeholders: 'Store Ops, Merchandising',
-    notes: 'Core data sync rebuilt. Offline mode in development.',
-    updatedAt: '2026-05-28T10:00:00Z',
-    estimatedValue: 4500000, valueType: 'Revenue Impact',
-  },
+  // Three phases: Discovery (requirements + UX) → Development → QA.
+  // Discovery is complete; Development is ~55% done; QA begins Aug 2026.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p1',
+        phase: 'Discovery',
+        startDate: '2025-10-01',
+        endDate:   '2025-12-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Platform architecture finalized. Offline-sync approach signed off by Store Ops.',
+        assignments: [
+          { memberId: 'm19', part: 'UX Research', allocation: 30 },
+        ],
+      },
+      {
+        id: 'ph2-p1',
+        phase: 'Development',
+        startDate: '2026-01-01',
+        endDate:   '2026-07-31',
+        status: 'In Progress',
+        percentComplete: 55,
+        notes: 'Core data sync rebuilt. Offline mode in development.',
+        assignments: [
+          { memberId: 'm12', part: 'Backend',   allocation: 50 },
+          { memberId: 'm14', part: 'Backend',   allocation: 40 },
+          { memberId: 'm15', part: 'Backend',   allocation: 40 },
+          { memberId: 'm19', part: 'UI Design', allocation: 30 },
+        ],
+      },
+      {
+        id: 'ph3-p1',
+        phase: 'QA',
+        startDate: '2026-08-01',
+        endDate:   '2026-09-30',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Test plan drafted. Awaiting development handoff.',
+        assignments: [
+          { memberId: 'm12', part: 'Backend', allocation: 30 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p1',
+      name: 'IRIS Platform v2',
+      description: 'Major version upgrade to the IRIS associate platform with improved real-time data sync and offline support.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'Critical',
+      initiativeId: 'i1',
+      startDate: '2025-10-01',
+      targetEndDate: '2026-09-30',
+      percentComplete: 55,
+      stakeholders: 'Store Ops, Merchandising',
+      notes: 'Core data sync rebuilt. Offline mode in development.',
+      updatedAt: '2026-05-28T10:00:00Z',
+      estimatedValue: 4500000, valueType: 'Revenue Impact',
+      // Root assignments union all phases; per-member date windows reflect their actual span.
+      assignments: [
+        { memberId: 'm19', part: 'UX Research & Design', allocation: 30, startDate: '2025-10-01', endDate: '2026-07-31' },
+        { memberId: 'm12', part: 'Backend',              allocation: 50, startDate: '2026-01-01', endDate: '2026-09-30' },
+        { memberId: 'm14', part: 'Backend',              allocation: 40, startDate: '2026-01-01', endDate: '2026-07-31' },
+        { memberId: 'm15', part: 'Backend',              allocation: 40, startDate: '2026-01-01', endDate: '2026-07-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   {
     id: 'p2',
     assignments: [
@@ -528,39 +527,143 @@ const projects: Project[] = [
     updatedAt: '2026-05-25T09:00:00Z',
   },
   // ── Seamless AX — Cookie Monster (i1) ────────────────────────────────
-  {
-    id: 'p3',
-    assignments: [
-      { memberId: 'm20', part: 'Product Management',       allocation: 50, startDate: '2026-02-01', endDate: '2026-10-31' },
-      { memberId: 'm21', part: 'Frontend', allocation: 60, startDate: '2026-02-01', endDate: '2026-10-31' },
-      { memberId: 'm23', part: 'UI Design',   allocation: 50, startDate: '2026-02-01', endDate: '2026-07-31' },
-      { memberId: 'm24', part: 'UI Design',   allocation: 40, startDate: '2026-02-01', endDate: '2026-07-31' },
-    ],
-    name: 'Cookie Monster Associate Checkout',
-    description: 'New associate-facing checkout experience replacing legacy POS integration with a modern API-driven flow.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i1', priority: 'High',
-    startDate: '2026-02-01', targetEndDate: '2026-10-31', percentComplete: 35,
-    stakeholders: 'Store Ops, Finance',
-    notes: 'API integration complete. UI in development.',
-    updatedAt: '2026-05-27T11:00:00Z',
-    estimatedValue: 2800000, valueType: 'Revenue Impact',
-  },
+  // Three phases: Discovery (UX + requirements) → Development → QA & Deploy.
+  // Discovery shipped Mar 2026; Development is ~25% done; QA queued for Oct.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p3',
+        phase: 'Discovery',
+        startDate: '2026-02-01',
+        endDate:   '2026-03-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'UX research and API contract defined. Wireframes approved by Store Ops.',
+        assignments: [
+          { memberId: 'm20', part: 'Product Management', allocation: 50 },
+          { memberId: 'm23', part: 'UX Research',        allocation: 50 },
+          { memberId: 'm24', part: 'UI Design',          allocation: 40 },
+        ],
+      },
+      {
+        id: 'ph2-p3',
+        phase: 'Development',
+        startDate: '2026-04-01',
+        endDate:   '2026-09-30',
+        status: 'In Progress',
+        percentComplete: 25,
+        notes: 'API integration complete. Frontend checkout flow in development.',
+        assignments: [
+          { memberId: 'm20', part: 'Product Management', allocation: 50 },
+          { memberId: 'm21', part: 'Frontend',           allocation: 60 },
+          { memberId: 'm23', part: 'UI Design',          allocation: 50 },
+          { memberId: 'm24', part: 'UI Design',          allocation: 40 },
+        ],
+      },
+      {
+        id: 'ph3-p3',
+        phase: 'QA',
+        startDate: '2026-10-01',
+        endDate:   '2026-10-31',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Test cases drafted. Awaiting development completion.',
+        assignments: [],
+      },
+    ]
+    const project: Project = {
+      id: 'p3',
+      name: 'Cookie Monster Associate Checkout',
+      description: 'New associate-facing checkout experience replacing legacy POS integration with a modern API-driven flow.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'High',
+      initiativeId: 'i1',
+      startDate: '2026-02-01',
+      targetEndDate: '2026-10-31',
+      percentComplete: 35,
+      stakeholders: 'Store Ops, Finance',
+      notes: 'API integration complete. UI in development.',
+      updatedAt: '2026-05-27T11:00:00Z',
+      estimatedValue: 2800000, valueType: 'Revenue Impact',
+      assignments: [
+        { memberId: 'm20', part: 'Product Management', allocation: 50, startDate: '2026-02-01', endDate: '2026-09-30' },
+        { memberId: 'm23', part: 'UX Research & Design', allocation: 50, startDate: '2026-02-01', endDate: '2026-09-30' },
+        { memberId: 'm24', part: 'UI Design',           allocation: 40, startDate: '2026-02-01', endDate: '2026-09-30' },
+        { memberId: 'm21', part: 'Frontend',             allocation: 60, startDate: '2026-04-01', endDate: '2026-09-30' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Seamless AX — Little Bird (i1) ───────────────────────────────────
-  {
-    id: 'p4',
-    assignments: [
-      { memberId: 'm25', part: 'Backend', allocation: 70, startDate: '2025-11-01', endDate: '2026-07-31' },
-      { memberId: 'm26', part: 'Backend', allocation: 80, startDate: '2025-11-01', endDate: '2026-07-31' },
-      { memberId: 'm27', part: 'UI Design',  allocation: 50, startDate: '2025-11-01', endDate: '2026-05-31' },
-    ],
-    name: 'Digital Shelf Label Rollout',
-    description: 'Enterprise rollout of digital shelf labels across 200 pilot stores with firmware and CMS integration.',
-    status: 'In Progress', phase: 'QA', initiativeId: 'i1', priority: 'High',
-    startDate: '2025-11-01', targetEndDate: '2026-07-31', percentComplete: 70,
-    stakeholders: 'Merchandising, Store Ops',
-    notes: '150 stores complete. Final 50 stores in QA.',
-    updatedAt: '2026-05-26T10:00:00Z',
-  },
+  // Three phases: Research → Development & Integration → QA & Rollout.
+  // Research and Development are done; QA covers the final 50 stores.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p4',
+        phase: 'Research',
+        startDate: '2025-11-01',
+        endDate:   '2025-12-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Firmware vendor selected. CMS integration spec approved.',
+        assignments: [
+          { memberId: 'm27', part: 'UX Research', allocation: 50 },
+        ],
+      },
+      {
+        id: 'ph2-p4',
+        phase: 'Development',
+        startDate: '2026-01-01',
+        endDate:   '2026-05-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'CMS integration complete. Firmware deployed to 150 stores.',
+        assignments: [
+          { memberId: 'm25', part: 'Backend',   allocation: 70 },
+          { memberId: 'm26', part: 'Backend',   allocation: 80 },
+          { memberId: 'm27', part: 'UI Design', allocation: 50 },
+        ],
+      },
+      {
+        id: 'ph3-p4',
+        phase: 'QA',
+        startDate: '2026-06-01',
+        endDate:   '2026-07-31',
+        status: 'In Progress',
+        percentComplete: 50,
+        notes: 'Final 50 stores in QA. Label sync validation underway.',
+        assignments: [
+          { memberId: 'm25', part: 'Backend', allocation: 50 },
+          { memberId: 'm26', part: 'Backend', allocation: 60 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p4',
+      name: 'Digital Shelf Label Rollout',
+      description: 'Enterprise rollout of digital shelf labels across 200 pilot stores with firmware and CMS integration.',
+      status: 'In Progress',
+      phase: 'QA',
+      priority: 'High',
+      initiativeId: 'i1',
+      startDate: '2025-11-01',
+      targetEndDate: '2026-07-31',
+      percentComplete: 83,   // avg of [100, 100, 50] across three phases
+      stakeholders: 'Merchandising, Store Ops',
+      notes: '150 stores complete. Final 50 stores in QA.',
+      updatedAt: '2026-05-26T10:00:00Z',
+      assignments: [
+        { memberId: 'm27', part: 'UX Research & Design', allocation: 50, startDate: '2025-11-01', endDate: '2026-05-31' },
+        { memberId: 'm25', part: 'Backend',              allocation: 70, startDate: '2025-11-01', endDate: '2026-07-31' },
+        { memberId: 'm26', part: 'Backend',              allocation: 80, startDate: '2025-11-01', endDate: '2026-07-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Seamless AX — Blade Runners (i1) ─────────────────────────────────
   {
     id: 'p5',
@@ -577,22 +680,74 @@ const projects: Project[] = [
     updatedAt: '2026-05-24T14:00:00Z',
   },
   // ── Core Services — SpaceForce (i5) ──────────────────────────────────
-  {
-    id: 'p6',
-    assignments: [
-      { memberId: 'm1', part: 'Backend',      allocation: 60, startDate: '2025-09-01', endDate: '2026-08-31' },
-      { memberId: 'm3', part: 'Architecture', allocation: 40, startDate: '2025-09-01', endDate: '2026-08-31' },
-      { memberId: 'm4', part: 'SRE',          allocation: 50, startDate: '2025-09-01', endDate: '2026-08-31' },
-    ],
-    name: 'SAT Core Platform Services',
-    description: 'Build and maintain foundational shared services: auth tokens, event bus, and config management for SAT products.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i5', priority: 'Critical',
-    startDate: '2025-09-01', targetEndDate: '2026-08-31', percentComplete: 65,
-    stakeholders: 'All engineering teams',
-    notes: 'Auth token service live. Event bus in QA.',
-    updatedAt: '2026-05-27T10:00:00Z',
-    estimatedValue: 3200000, valueType: 'Cost Savings',
-  },
+  // Three phases: Discovery → Development → QA & Hardening.
+  // Discovery complete; auth token service live; event bus now in QA hardening.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p6',
+        phase: 'Discovery',
+        startDate: '2025-09-01',
+        endDate:   '2025-11-30',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Service catalog defined. Auth, event-bus, and config management scoped.',
+        assignments: [
+          { memberId: 'm3', part: 'Architecture', allocation: 40 },
+        ],
+      },
+      {
+        id: 'ph2-p6',
+        phase: 'Development',
+        startDate: '2025-12-01',
+        endDate:   '2026-06-30',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Auth token service live. Event bus built and deployed to staging.',
+        assignments: [
+          { memberId: 'm1', part: 'Backend',      allocation: 60 },
+          { memberId: 'm3', part: 'Architecture', allocation: 40 },
+          { memberId: 'm4', part: 'SRE',          allocation: 50 },
+        ],
+      },
+      {
+        id: 'ph3-p6',
+        phase: 'QA',
+        startDate: '2026-07-01',
+        endDate:   '2026-08-31',
+        status: 'In Progress',
+        percentComplete: 30,
+        notes: 'Event bus load testing underway. Config management hardening in progress.',
+        assignments: [
+          { memberId: 'm1', part: 'Backend', allocation: 40 },
+          { memberId: 'm4', part: 'SRE',     allocation: 60 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p6',
+      name: 'SAT Core Platform Services',
+      description: 'Build and maintain foundational shared services: auth tokens, event bus, and config management for SAT products.',
+      status: 'In Progress',
+      phase: 'QA',
+      priority: 'Critical',
+      initiativeId: 'i5',
+      startDate: '2025-09-01',
+      targetEndDate: '2026-08-31',
+      percentComplete: 77,   // avg of [100, 100, 30] across three phases
+      stakeholders: 'All engineering teams',
+      notes: 'Auth token service live. Event bus in QA hardening.',
+      updatedAt: '2026-05-27T10:00:00Z',
+      estimatedValue: 3200000, valueType: 'Cost Savings',
+      assignments: [
+        { memberId: 'm3', part: 'Architecture', allocation: 40, startDate: '2025-09-01', endDate: '2026-06-30' },
+        { memberId: 'm1', part: 'Backend',      allocation: 60, startDate: '2025-12-01', endDate: '2026-08-31' },
+        { memberId: 'm4', part: 'SRE',          allocation: 50, startDate: '2025-12-01', endDate: '2026-08-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   {
     id: 'p7',
     assignments: [
@@ -624,71 +779,280 @@ const projects: Project[] = [
     updatedAt: '2026-05-23T13:00:00Z',
   },
   // ── Core Services — SAT-Data (i5) ─────────────────────────────────────
-  {
-    id: 'p9',
-    assignments: [
-      { memberId: 'm9',  part: 'Data', allocation: 70, startDate: '2025-10-01', endDate: '2026-08-31' },
-      { memberId: 'm11', part: 'Data', allocation: 80, startDate: '2025-10-01', endDate: '2026-08-31' },
-    ],
-    name: 'SAT Data Pipeline Modernization',
-    description: 'Replace batch ETL with streaming data pipelines for real-time analytics across all SAT domains.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i5', priority: 'Critical',
-    startDate: '2025-10-01', targetEndDate: '2026-08-31', percentComplete: 60,
-    stakeholders: 'Analytics, All domains',
-    notes: 'Kafka cluster live. Domain onboarding at 40%.',
-    updatedAt: '2026-05-26T09:00:00Z',
-    estimatedValue: 3800000, valueType: 'Revenue Impact',
-  },
+  // Three phases: Discovery & Design → Development → Domain Rollout.
+  // Kafka cluster is live; rolling out to domains one by one (40% done).
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p9',
+        phase: 'Discovery',
+        startDate: '2025-10-01',
+        endDate:   '2025-12-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Streaming architecture chosen (Kafka). Domain data contracts defined.',
+        assignments: [
+          { memberId: 'm9', part: 'Data Architecture', allocation: 70 },
+        ],
+      },
+      {
+        id: 'ph2-p9',
+        phase: 'Development',
+        startDate: '2026-01-01',
+        endDate:   '2026-06-30',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Kafka cluster live. Core pipeline framework built and validated.',
+        assignments: [
+          { memberId: 'm9',  part: 'Data', allocation: 70 },
+          { memberId: 'm11', part: 'Data', allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph3-p9',
+        phase: 'Deployed',
+        startDate: '2026-07-01',
+        endDate:   '2026-08-31',
+        status: 'In Progress',
+        percentComplete: 40,
+        notes: 'Domain onboarding at 40%. Seamless AX and Core Services onboarded; others in progress.',
+        assignments: [
+          { memberId: 'm9',  part: 'Data', allocation: 50 },
+          { memberId: 'm11', part: 'Data', allocation: 60 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p9',
+      name: 'SAT Data Pipeline Modernization',
+      description: 'Replace batch ETL with streaming data pipelines for real-time analytics across all SAT domains.',
+      status: 'In Progress',
+      phase: 'Deployed',
+      priority: 'Critical',
+      initiativeId: 'i5',
+      startDate: '2025-10-01',
+      targetEndDate: '2026-08-31',
+      percentComplete: 80,   // avg of [100, 100, 40] across three phases
+      stakeholders: 'Analytics, All domains',
+      notes: 'Kafka cluster live. Domain onboarding at 40%.',
+      updatedAt: '2026-05-26T09:00:00Z',
+      estimatedValue: 3800000, valueType: 'Revenue Impact',
+      assignments: [
+        { memberId: 'm9',  part: 'Data', allocation: 70, startDate: '2025-10-01', endDate: '2026-08-31' },
+        { memberId: 'm11', part: 'Data', allocation: 80, startDate: '2026-01-01', endDate: '2026-08-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Price Execution — ISA (i2) ────────────────────────────────────────
-  {
-    id: 'p10',
-    assignments: [
-      { memberId: 'm49', part: 'Analysis', allocation: 70, startDate: '2025-11-01', endDate: '2026-08-31' },
-      { memberId: 'm50', part: 'Analysis', allocation: 60, startDate: '2025-11-01', endDate: '2026-08-31' },
-      { memberId: 'm52', part: 'Backend',  allocation: 60, startDate: '2025-11-01', endDate: '2026-08-31' },
-      { memberId: 'm48', part: 'QA',       allocation: 50, startDate: '2026-03-01', endDate: '2026-08-31' },
-    ],
-    name: 'ISA Price Engine v3',
-    description: 'Next-generation price execution engine for real-time shelf compliance and automated correction workflows.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i2', priority: 'High',
-    startDate: '2025-11-01', targetEndDate: '2026-08-31', percentComplete: 55,
-    stakeholders: 'Merchandising, Store Ops',
-    notes: 'Rule engine rebuilt. Store sync integration in development.',
-    updatedAt: '2026-05-25T11:00:00Z',
-    estimatedValue: 1800000, valueType: 'Cost Savings',
-  },
-  {
-    id: 'p11',
-    assignments: [
-      { memberId: 'm51', part: 'Analysis',   allocation: 80, startDate: '2026-02-01', endDate: '2026-09-30' },
-      { memberId: 'm54', part: 'Engineering', allocation: 30, startDate: '2026-02-01', endDate: '2026-09-30' },
-    ],
-    name: 'ISA Compliance Reporting',
-    description: 'Automated price compliance reporting across all stores with drill-down by department and item.',
-    status: 'In Progress', phase: 'QA', initiativeId: 'i2', priority: 'Medium',
-    startDate: '2026-02-01', targetEndDate: '2026-09-30', percentComplete: 75,
-    stakeholders: 'Compliance, Finance',
-    notes: 'Reports functional. Performance tuning in QA.',
-    updatedAt: '2026-05-20T10:00:00Z',
-  },
+  // Three phases: Research & Requirements → Development → QA.
+  // Requirements locked down Jan 2026; rule engine rebuilt; store sync in dev.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p10',
+        phase: 'Research',
+        startDate: '2025-11-01',
+        endDate:   '2026-01-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Compliance rule taxonomy documented. Store sync data contract finalized.',
+        assignments: [
+          { memberId: 'm49', part: 'Analysis', allocation: 70 },
+          { memberId: 'm50', part: 'Analysis', allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph2-p10',
+        phase: 'Development',
+        startDate: '2026-02-01',
+        endDate:   '2026-06-30',
+        status: 'In Progress',
+        percentComplete: 55,
+        notes: 'Rule engine rebuilt. Store sync integration in development.',
+        assignments: [
+          { memberId: 'm49', part: 'Analysis', allocation: 70 },
+          { memberId: 'm50', part: 'Analysis', allocation: 60 },
+          { memberId: 'm52', part: 'Backend',  allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph3-p10',
+        phase: 'QA',
+        startDate: '2026-07-01',
+        endDate:   '2026-08-31',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'QA test plan drafted. Awaiting development handoff.',
+        assignments: [
+          { memberId: 'm48', part: 'QA',      allocation: 50 },
+          { memberId: 'm52', part: 'Backend', allocation: 30 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p10',
+      name: 'ISA Price Engine v3',
+      description: 'Next-generation price execution engine for real-time shelf compliance and automated correction workflows.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'High',
+      initiativeId: 'i2',
+      startDate: '2025-11-01',
+      targetEndDate: '2026-08-31',
+      percentComplete: 55,
+      stakeholders: 'Merchandising, Store Ops',
+      notes: 'Rule engine rebuilt. Store sync integration in development.',
+      updatedAt: '2026-05-25T11:00:00Z',
+      estimatedValue: 1800000, valueType: 'Cost Savings',
+      assignments: [
+        { memberId: 'm49', part: 'Analysis', allocation: 70, startDate: '2025-11-01', endDate: '2026-06-30' },
+        { memberId: 'm50', part: 'Analysis', allocation: 60, startDate: '2025-11-01', endDate: '2026-06-30' },
+        { memberId: 'm52', part: 'Backend',  allocation: 60, startDate: '2026-02-01', endDate: '2026-08-31' },
+        { memberId: 'm48', part: 'QA',       allocation: 50, startDate: '2026-07-01', endDate: '2026-08-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
+  // ── Price Execution — ISA Compliance (i2) ─────────────────────────────
+  // Three phases: Research & Spec → Development → QA.
+  // Reports are functional; performance-tuning QA is in progress.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p11',
+        phase: 'Research',
+        startDate: '2026-02-01',
+        endDate:   '2026-03-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Compliance reporting requirements documented. Data model approved.',
+        assignments: [
+          { memberId: 'm51', part: 'Analysis', allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph2-p11',
+        phase: 'Development',
+        startDate: '2026-04-01',
+        endDate:   '2026-07-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'All reports built and deployed to staging. Drill-down views complete.',
+        assignments: [
+          { memberId: 'm51', part: 'Analysis',   allocation: 80 },
+          { memberId: 'm54', part: 'Engineering', allocation: 30 },
+        ],
+      },
+      {
+        id: 'ph3-p11',
+        phase: 'QA',
+        startDate: '2026-08-01',
+        endDate:   '2026-09-30',
+        status: 'In Progress',
+        percentComplete: 50,
+        notes: 'Reports functional. Performance tuning underway for large-store queries.',
+        assignments: [
+          { memberId: 'm51', part: 'Analysis',   allocation: 60 },
+          { memberId: 'm54', part: 'Engineering', allocation: 30 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p11',
+      name: 'ISA Compliance Reporting',
+      description: 'Automated price compliance reporting across all stores with drill-down by department and item.',
+      status: 'In Progress',
+      phase: 'QA',
+      priority: 'Medium',
+      initiativeId: 'i2',
+      startDate: '2026-02-01',
+      targetEndDate: '2026-09-30',
+      percentComplete: 75,
+      stakeholders: 'Compliance, Finance',
+      notes: 'Reports functional. Performance tuning in QA.',
+      updatedAt: '2026-05-20T10:00:00Z',
+      assignments: [
+        { memberId: 'm51', part: 'Analysis',    allocation: 80, startDate: '2026-02-01', endDate: '2026-09-30' },
+        { memberId: 'm54', part: 'Engineering', allocation: 30, startDate: '2026-04-01', endDate: '2026-09-30' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Inventory — Inventorious (i2) ─────────────────────────────────────
-  {
-    id: 'p12',
-    assignments: [
-      { memberId: 'm55', part: 'Backend',  allocation: 80, startDate: '2025-12-01', endDate: '2026-09-30' },
-      { memberId: 'm56', part: 'Backend',  allocation: 75, startDate: '2025-12-01', endDate: '2026-09-30' },
-      { memberId: 'm57', part: 'Frontend', allocation: 60, startDate: '2026-01-01', endDate: '2026-09-30' },
-      { memberId: 'm58', part: 'Backend',  allocation: 70, startDate: '2025-12-01', endDate: '2026-09-30' },
-    ],
-    name: 'Inventorious Cycle Count Platform',
-    description: 'Mobile-first cycle count platform replacing paper-based counting with real-time variance tracking.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i2', priority: 'High',
-    startDate: '2025-12-01', targetEndDate: '2026-09-30', percentComplete: 50,
-    stakeholders: 'Store Ops, Merchandising',
-    notes: 'Mobile app MVP complete. Variance reporting integration in development.',
-    updatedAt: '2026-05-24T12:00:00Z',
-    estimatedValue: 2200000, valueType: 'Cost Savings',
-  },
+  // Three phases: Discovery & UX → Development → QA & Rollout.
+  // Mobile MVP shipped; variance reporting integration is in active development.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p12',
+        phase: 'Discovery',
+        startDate: '2025-12-01',
+        endDate:   '2026-01-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Mobile UX flows designed. Variance calculation rules defined with Store Ops.',
+        assignments: [
+          { memberId: 'm57', part: 'UX Design', allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph2-p12',
+        phase: 'Development',
+        startDate: '2026-02-01',
+        endDate:   '2026-07-31',
+        status: 'In Progress',
+        percentComplete: 50,
+        notes: 'Mobile app MVP complete. Variance reporting integration in development.',
+        assignments: [
+          { memberId: 'm55', part: 'Backend',  allocation: 80 },
+          { memberId: 'm56', part: 'Backend',  allocation: 75 },
+          { memberId: 'm57', part: 'Frontend', allocation: 60 },
+          { memberId: 'm58', part: 'Backend',  allocation: 70 },
+        ],
+      },
+      {
+        id: 'ph3-p12',
+        phase: 'QA',
+        startDate: '2026-08-01',
+        endDate:   '2026-09-30',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Pilot store selection complete. QA scripts drafted.',
+        assignments: [
+          { memberId: 'm55', part: 'Backend',  allocation: 40 },
+          { memberId: 'm57', part: 'Frontend', allocation: 40 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p12',
+      name: 'Inventorious Cycle Count Platform',
+      description: 'Mobile-first cycle count platform replacing paper-based counting with real-time variance tracking.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'High',
+      initiativeId: 'i2',
+      startDate: '2025-12-01',
+      targetEndDate: '2026-09-30',
+      percentComplete: 50,
+      stakeholders: 'Store Ops, Merchandising',
+      notes: 'Mobile app MVP complete. Variance reporting integration in development.',
+      updatedAt: '2026-05-24T12:00:00Z',
+      estimatedValue: 2200000, valueType: 'Cost Savings',
+      assignments: [
+        { memberId: 'm57', part: 'UX Design & Frontend', allocation: 60, startDate: '2025-12-01', endDate: '2026-09-30' },
+        { memberId: 'm55', part: 'Backend',              allocation: 80, startDate: '2026-02-01', endDate: '2026-09-30' },
+        { memberId: 'm56', part: 'Backend',              allocation: 75, startDate: '2026-02-01', endDate: '2026-07-31' },
+        { memberId: 'm58', part: 'Backend',              allocation: 70, startDate: '2026-02-01', endDate: '2026-07-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Inventory — DSD (i2) ──────────────────────────────────────────────
   {
     id: 'p13',
@@ -721,21 +1085,61 @@ const projects: Project[] = [
     updatedAt: '2026-05-23T14:00:00Z',
   },
   // ── Production — FAST (i2) ────────────────────────────────────────────
-  {
-    id: 'p15',
-    assignments: [
-      { memberId: 'm68', part: 'Backend',      allocation: 70, startDate: '2025-10-15', endDate: '2026-07-31' },
-      { memberId: 'm69', part: 'Architecture', allocation: 60, startDate: '2025-10-15', endDate: '2026-07-31' },
-      { memberId: 'm70', part: 'QA',           allocation: 70, startDate: '2026-02-01', endDate: '2026-07-31' },
-    ],
-    name: 'FAST Labor Optimization Engine',
-    description: 'AI-driven labor optimization for production departments reducing overstaffing and scheduling waste.',
-    status: 'In Progress', phase: 'QA', initiativeId: 'i2', priority: 'High',
-    startDate: '2025-10-15', targetEndDate: '2026-07-31', percentComplete: 72,
-    stakeholders: 'HR, Store Ops',
-    notes: 'Model trained and validated. QA underway with pilot stores.',
-    updatedAt: '2026-05-25T10:00:00Z',
-  },
+  // Two phases: Research & Development → QA & Pilot.
+  // Model trained and validated; QA is underway across pilot stores.
+  // percentComplete: avg of [100, 45] = 72.5 ≈ 72.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p15',
+        phase: 'Research',
+        startDate: '2025-10-15',
+        endDate:   '2026-03-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'AI model trained and validated on 12 months of production data.',
+        assignments: [
+          { memberId: 'm68', part: 'Backend',      allocation: 70 },
+          { memberId: 'm69', part: 'Architecture', allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph2-p15',
+        phase: 'QA',
+        startDate: '2026-04-01',
+        endDate:   '2026-07-31',
+        status: 'In Progress',
+        percentComplete: 45,
+        notes: 'QA underway with 8 pilot stores. Schedule accuracy at 88%.',
+        assignments: [
+          { memberId: 'm68', part: 'Backend', allocation: 40 },
+          { memberId: 'm70', part: 'QA',      allocation: 70 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p15',
+      name: 'FAST Labor Optimization Engine',
+      description: 'AI-driven labor optimization for production departments reducing overstaffing and scheduling waste.',
+      status: 'In Progress',
+      phase: 'QA',
+      priority: 'High',
+      initiativeId: 'i2',
+      startDate: '2025-10-15',
+      targetEndDate: '2026-07-31',
+      percentComplete: 72,
+      stakeholders: 'HR, Store Ops',
+      notes: 'Model trained and validated. QA underway with pilot stores.',
+      updatedAt: '2026-05-25T10:00:00Z',
+      assignments: [
+        { memberId: 'm68', part: 'Backend',      allocation: 70, startDate: '2025-10-15', endDate: '2026-07-31' },
+        { memberId: 'm69', part: 'Architecture', allocation: 60, startDate: '2025-10-15', endDate: '2026-03-31' },
+        { memberId: 'm70', part: 'QA',           allocation: 70, startDate: '2026-04-01', endDate: '2026-07-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Production — Freddy Kroger (i2) ──────────────────────────────────
   {
     id: 'p16',
@@ -752,22 +1156,75 @@ const projects: Project[] = [
     updatedAt: '2026-05-20T11:00:00Z',
   },
   // ── Ordering — Little Einsteins (i2) ─────────────────────────────────
-  {
-    id: 'p17',
-    assignments: [
-      { memberId: 'm75', part: 'Backend',  allocation: 70, startDate: '2025-11-01', endDate: '2026-08-31' },
-      { memberId: 'm76', part: 'Backend',  allocation: 80, startDate: '2025-11-01', endDate: '2026-08-31' },
-      { memberId: 'm77', part: 'Frontend', allocation: 60, startDate: '2026-01-01', endDate: '2026-08-31' },
-    ],
-    name: 'Intelligent Ordering System',
-    description: 'Demand-driven automated ordering with ML-based reorder point calculations and exception management.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i2', priority: 'Critical',
-    startDate: '2025-11-01', targetEndDate: '2026-08-31', percentComplete: 60,
-    stakeholders: 'Merchandising, Supply Chain',
-    notes: 'ML model deployed. Exception workflow in development.',
-    updatedAt: '2026-05-26T13:00:00Z',
-    estimatedValue: 5500000, valueType: 'Revenue Impact',
-  },
+  // Three phases: Research & ML Design → Development → UAT & Deploy.
+  // ML model live; exception workflow in dev; UAT planned for Jul–Aug 2026.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p17',
+        phase: 'Research',
+        startDate: '2025-11-01',
+        endDate:   '2025-12-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'ML reorder model designed and baseline-tested against historical data.',
+        assignments: [
+          { memberId: 'm75', part: 'Data Science', allocation: 70 },
+          { memberId: 'm76', part: 'Backend',       allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph2-p17',
+        phase: 'Development',
+        startDate: '2026-01-01',
+        endDate:   '2026-06-30',
+        status: 'In Progress',
+        percentComplete: 65,
+        notes: 'ML model deployed to prod. Exception workflow in development.',
+        assignments: [
+          { memberId: 'm75', part: 'Backend',  allocation: 70 },
+          { memberId: 'm76', part: 'Backend',  allocation: 80 },
+          { memberId: 'm77', part: 'Frontend', allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph3-p17',
+        phase: 'QA',
+        startDate: '2026-07-01',
+        endDate:   '2026-08-31',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'UAT plan with Merchandising drafted. Awaiting dev handoff.',
+        assignments: [
+          { memberId: 'm75', part: 'Backend',  allocation: 40 },
+          { memberId: 'm77', part: 'Frontend', allocation: 40 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p17',
+      name: 'Intelligent Ordering System',
+      description: 'Demand-driven automated ordering with ML-based reorder point calculations and exception management.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'Critical',
+      initiativeId: 'i2',
+      startDate: '2025-11-01',
+      targetEndDate: '2026-08-31',
+      percentComplete: 55,   // avg of [100, 65, 0] across three phases
+      stakeholders: 'Merchandising, Supply Chain',
+      notes: 'ML model deployed. Exception workflow in development.',
+      updatedAt: '2026-05-26T13:00:00Z',
+      estimatedValue: 5500000, valueType: 'Revenue Impact',
+      assignments: [
+        { memberId: 'm75', part: 'Backend',  allocation: 70, startDate: '2025-11-01', endDate: '2026-08-31' },
+        { memberId: 'm76', part: 'Backend',  allocation: 80, startDate: '2025-11-01', endDate: '2026-06-30' },
+        { memberId: 'm77', part: 'Frontend', allocation: 60, startDate: '2026-01-01', endDate: '2026-08-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Ordering — Interface (i2) ─────────────────────────────────────────
   {
     id: 'p18',
@@ -784,20 +1241,71 @@ const projects: Project[] = [
     updatedAt: '2026-05-22T12:00:00Z',
   },
   // ── QAOps — DEX SWAT (i3) ─────────────────────────────────────────────
-  {
-    id: 'p19',
-    assignments: [
-      { memberId: 'm86', part: 'QA',         allocation: 80, startDate: '2026-01-01', endDate: '2026-09-30' },
-      { memberId: 'm87', part: 'Automation', allocation: 80, startDate: '2026-01-01', endDate: '2026-09-30' },
-    ],
-    name: 'DEX SWAT Test Automation Platform',
-    description: 'Cross-product test automation framework for rapid quality validation across all SAT DEX products.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i3', priority: 'High',
-    startDate: '2026-01-01', targetEndDate: '2026-09-30', percentComplete: 50,
-    stakeholders: 'All engineering teams',
-    notes: 'Framework core built. Integrating with IRIS and Cookie Monster.',
-    updatedAt: '2026-05-24T10:00:00Z',
-  },
+  // Three phases: Discovery & Framework Design → Development & Integration → Rollout.
+  // Core framework built; IRIS and Cookie Monster integrations in progress.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p19',
+        phase: 'Discovery',
+        startDate: '2026-01-01',
+        endDate:   '2026-02-28',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Framework architecture chosen. Integration patterns for DEX products documented.',
+        assignments: [
+          { memberId: 'm86', part: 'QA Architect', allocation: 80 },
+          { memberId: 'm87', part: 'Automation',   allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph2-p19',
+        phase: 'Development',
+        startDate: '2026-03-01',
+        endDate:   '2026-07-31',
+        status: 'In Progress',
+        percentComplete: 35,
+        notes: 'Framework core built. IRIS and Cookie Monster integrations in progress.',
+        assignments: [
+          { memberId: 'm86', part: 'QA',         allocation: 80 },
+          { memberId: 'm87', part: 'Automation', allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph3-p19',
+        phase: 'Deployed',
+        startDate: '2026-08-01',
+        endDate:   '2026-09-30',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Rollout plan drafted. Team onboarding sessions scheduled.',
+        assignments: [
+          { memberId: 'm86', part: 'QA', allocation: 60 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p19',
+      name: 'DEX SWAT Test Automation Platform',
+      description: 'Cross-product test automation framework for rapid quality validation across all SAT DEX products.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'High',
+      initiativeId: 'i3',
+      startDate: '2026-01-01',
+      targetEndDate: '2026-09-30',
+      percentComplete: 45,   // avg of [100, 35, 0] across three phases
+      stakeholders: 'All engineering teams',
+      notes: 'Framework core built. Integrating with IRIS and Cookie Monster.',
+      updatedAt: '2026-05-24T10:00:00Z',
+      assignments: [
+        { memberId: 'm86', part: 'QA',         allocation: 80, startDate: '2026-01-01', endDate: '2026-09-30' },
+        { memberId: 'm87', part: 'Automation', allocation: 80, startDate: '2026-01-01', endDate: '2026-07-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── QAOps — DEX QAOps Mavericks (i3) ─────────────────────────────────
   {
     id: 'p20',
@@ -816,21 +1324,72 @@ const projects: Project[] = [
     updatedAt: '2026-05-23T10:00:00Z',
   },
   // ── DevSecOps — SAT DevSecOps (i3) ───────────────────────────────────
-  {
-    id: 'p21',
-    assignments: [
-      { memberId: 'm97', part: 'DevOps',   allocation: 80, startDate: '2025-10-01', endDate: '2026-09-30' },
-      { memberId: 'm98', part: 'Security', allocation: 80, startDate: '2025-10-01', endDate: '2026-09-30' },
-    ],
-    name: 'SAT DevSecOps CI/CD Pipeline',
-    description: 'Secure, standardized CI/CD pipeline with automated SAST/DAST scanning, SBOM generation, and policy gates.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i3', priority: 'Critical',
-    startDate: '2025-10-01', targetEndDate: '2026-09-30', percentComplete: 60,
-    stakeholders: 'All engineering teams, Security',
-    notes: 'GitHub Actions standard in place. Security gates being rolled out to all teams.',
-    updatedAt: '2026-05-26T11:00:00Z',
-    estimatedValue: 1500000, valueType: 'Cost Savings',
-  },
+  // Three phases: Discovery & Standards → Pipeline Development → Team Rollout.
+  // GitHub Actions standard set; security gates in dev; rollout begins Jul 2026.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p21',
+        phase: 'Discovery',
+        startDate: '2025-10-01',
+        endDate:   '2025-12-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'GitHub Actions standard defined. SAST/DAST tooling selected.',
+        assignments: [
+          { memberId: 'm97', part: 'DevOps',   allocation: 80 },
+          { memberId: 'm98', part: 'Security', allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph2-p21',
+        phase: 'Development',
+        startDate: '2026-01-01',
+        endDate:   '2026-06-30',
+        status: 'In Progress',
+        percentComplete: 55,
+        notes: 'Core pipeline built. Security gates and SBOM generation in progress.',
+        assignments: [
+          { memberId: 'm97', part: 'DevOps',   allocation: 80 },
+          { memberId: 'm98', part: 'Security', allocation: 80 },
+        ],
+      },
+      {
+        id: 'ph3-p21',
+        phase: 'Deployed',
+        startDate: '2026-07-01',
+        endDate:   '2026-09-30',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Rollout schedule drafted. 12 teams targeted for Q3 onboarding.',
+        assignments: [
+          { memberId: 'm97', part: 'DevOps', allocation: 60 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p21',
+      name: 'SAT DevSecOps CI/CD Pipeline',
+      description: 'Secure, standardized CI/CD pipeline with automated SAST/DAST scanning, SBOM generation, and policy gates.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'Critical',
+      initiativeId: 'i3',
+      startDate: '2025-10-01',
+      targetEndDate: '2026-09-30',
+      percentComplete: 52,   // avg of [100, 55, 0] across three phases
+      stakeholders: 'All engineering teams, Security',
+      notes: 'GitHub Actions standard in place. Security gates being rolled out to all teams.',
+      updatedAt: '2026-05-26T11:00:00Z',
+      estimatedValue: 1500000, valueType: 'Cost Savings',
+      assignments: [
+        { memberId: 'm97', part: 'DevOps',   allocation: 80, startDate: '2025-10-01', endDate: '2026-09-30' },
+        { memberId: 'm98', part: 'Security', allocation: 80, startDate: '2025-10-01', endDate: '2026-06-30' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── AP — AP Team (i4) ─────────────────────────────────────────────────
   {
     id: 'p22',
@@ -849,22 +1408,76 @@ const projects: Project[] = [
     estimatedValue: 2000000, valueType: 'Cost Savings',
   },
   // ── Compliance (i4) ───────────────────────────────────────────────────
-  {
-    id: 'p23',
-    assignments: [
-      { memberId: 'm114', part: 'Backend', allocation: 70, startDate: '2026-02-01', endDate: '2026-10-31' },
-      { memberId: 'm115', part: 'Backend', allocation: 70, startDate: '2026-02-01', endDate: '2026-10-31' },
-      { memberId: 'm116', part: 'Backend', allocation: 80, startDate: '2026-02-01', endDate: '2026-10-31' },
-      { memberId: 'm113', part: 'QA',      allocation: 60, startDate: '2026-04-01', endDate: '2026-10-31' },
-    ],
-    name: 'Regulatory Compliance Platform',
-    description: 'Automated compliance monitoring and reporting for food safety, labor, and financial regulations.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i4', priority: 'Critical',
-    startDate: '2026-02-01', targetEndDate: '2026-10-31', percentComplete: 40,
-    stakeholders: 'Legal, Compliance, Finance',
-    notes: 'Food safety module complete. Labor compliance in development.',
-    updatedAt: '2026-05-25T13:00:00Z',
-  },
+  // Three phases: Research & Requirements → Development → QA & Certification.
+  // Food safety module built; labor compliance module in development.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p23',
+        phase: 'Research',
+        startDate: '2026-02-01',
+        endDate:   '2026-03-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Regulatory requirements documented with Legal. Food safety rules validated.',
+        assignments: [
+          { memberId: 'm114', part: 'Analysis', allocation: 70 },
+          { memberId: 'm115', part: 'Analysis', allocation: 70 },
+        ],
+      },
+      {
+        id: 'ph2-p23',
+        phase: 'Development',
+        startDate: '2026-04-01',
+        endDate:   '2026-08-31',
+        status: 'In Progress',
+        percentComplete: 30,
+        notes: 'Food safety module complete. Labor compliance in development.',
+        assignments: [
+          { memberId: 'm114', part: 'Backend', allocation: 70 },
+          { memberId: 'm115', part: 'Backend', allocation: 70 },
+          { memberId: 'm116', part: 'Backend', allocation: 80 },
+          { memberId: 'm113', part: 'QA',      allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph3-p23',
+        phase: 'QA',
+        startDate: '2026-09-01',
+        endDate:   '2026-10-31',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Certification testing plan drafted with Compliance team.',
+        assignments: [
+          { memberId: 'm113', part: 'QA',      allocation: 60 },
+          { memberId: 'm114', part: 'Backend', allocation: 40 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p23',
+      name: 'Regulatory Compliance Platform',
+      description: 'Automated compliance monitoring and reporting for food safety, labor, and financial regulations.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'Critical',
+      initiativeId: 'i4',
+      startDate: '2026-02-01',
+      targetEndDate: '2026-10-31',
+      percentComplete: 40,
+      stakeholders: 'Legal, Compliance, Finance',
+      notes: 'Food safety module complete. Labor compliance in development.',
+      updatedAt: '2026-05-25T13:00:00Z',
+      assignments: [
+        { memberId: 'm114', part: 'Backend', allocation: 70, startDate: '2026-02-01', endDate: '2026-10-31' },
+        { memberId: 'm115', part: 'Backend', allocation: 70, startDate: '2026-02-01', endDate: '2026-08-31' },
+        { memberId: 'm116', part: 'Backend', allocation: 80, startDate: '2026-04-01', endDate: '2026-08-31' },
+        { memberId: 'm113', part: 'QA',      allocation: 60, startDate: '2026-04-01', endDate: '2026-10-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── Labor & Productivity (i5) ─────────────────────────────────────────
   {
     id: 'p24',
@@ -882,21 +1495,75 @@ const projects: Project[] = [
     updatedAt: '2026-05-23T10:00:00Z',
   },
   // ── Architecture (i5) ─────────────────────────────────────────────────
-  {
-    id: 'p25',
-    assignments: [
-      { memberId: 'm124', part: 'Architecture', allocation: 60, startDate: '2025-10-01', endDate: '2026-12-31' },
-      { memberId: 'm125', part: 'Architecture', allocation: 60, startDate: '2025-10-01', endDate: '2026-12-31' },
-      { memberId: 'm126', part: 'Architecture', allocation: 70, startDate: '2025-10-01', endDate: '2026-12-31' },
-    ],
-    name: 'SAT Reference Architecture',
-    description: 'Define and document SAT reference architecture: API design standards, event-driven patterns, and security baselines.',
-    status: 'In Progress', phase: 'Development', initiativeId: 'i5', priority: 'High',
-    startDate: '2025-10-01', targetEndDate: '2026-12-31', percentComplete: 50,
-    stakeholders: 'All engineering teams',
-    notes: 'API standards v1 published. Event-driven patterns in review.',
-    updatedAt: '2026-05-24T11:00:00Z',
-  },
+  // Three phases: Discovery & Inventory → Standards Development → Review & Publication.
+  // API standards v1 published; event-driven and security patterns in dev.
+  (() => {
+    const phases: ProjectPhaseStep[] = [
+      {
+        id: 'ph1-p25',
+        phase: 'Discovery',
+        startDate: '2025-10-01',
+        endDate:   '2026-01-31',
+        status: 'Complete',
+        percentComplete: 100,
+        notes: 'Existing patterns inventoried. Gaps identified across all domains.',
+        assignments: [
+          { memberId: 'm124', part: 'Architecture', allocation: 60 },
+          { memberId: 'm125', part: 'Architecture', allocation: 60 },
+        ],
+      },
+      {
+        id: 'ph2-p25',
+        phase: 'Development',
+        startDate: '2026-02-01',
+        endDate:   '2026-08-31',
+        status: 'In Progress',
+        percentComplete: 55,
+        notes: 'API standards v1 published. Event-driven patterns in stakeholder review.',
+        assignments: [
+          { memberId: 'm124', part: 'Architecture', allocation: 60 },
+          { memberId: 'm125', part: 'Architecture', allocation: 60 },
+          { memberId: 'm126', part: 'Architecture', allocation: 70 },
+        ],
+      },
+      {
+        id: 'ph3-p25',
+        phase: 'Deployed',
+        startDate: '2026-09-01',
+        endDate:   '2026-12-31',
+        status: 'Not Started',
+        percentComplete: 0,
+        notes: 'Publication plan drafted. CTO review session scheduled for Q4.',
+        assignments: [
+          { memberId: 'm124', part: 'Architecture', allocation: 40 },
+          { memberId: 'm125', part: 'Architecture', allocation: 40 },
+          { memberId: 'm126', part: 'Architecture', allocation: 50 },
+        ],
+      },
+    ]
+    const project: Project = {
+      id: 'p25',
+      name: 'SAT Reference Architecture',
+      description: 'Define and document SAT reference architecture: API design standards, event-driven patterns, and security baselines.',
+      status: 'In Progress',
+      phase: 'Development',
+      priority: 'High',
+      initiativeId: 'i5',
+      startDate: '2025-10-01',
+      targetEndDate: '2026-12-31',
+      percentComplete: 50,
+      stakeholders: 'All engineering teams',
+      notes: 'API standards v1 published. Event-driven patterns in review.',
+      updatedAt: '2026-05-24T11:00:00Z',
+      assignments: [
+        { memberId: 'm124', part: 'Architecture', allocation: 60, startDate: '2025-10-01', endDate: '2026-12-31' },
+        { memberId: 'm125', part: 'Architecture', allocation: 60, startDate: '2025-10-01', endDate: '2026-12-31' },
+        { memberId: 'm126', part: 'Architecture', allocation: 70, startDate: '2026-02-01', endDate: '2026-12-31' },
+      ],
+      phases,
+    }
+    return project
+  })(),
   // ── KPF (i4) ──────────────────────────────────────────────────────────
   {
     id: 'p26',
@@ -1180,6 +1847,16 @@ export function buildSeedState(): PortfolioState {
       p.phases ? p : { ...p, phases: legacyToPhases(p) }
     ),
   }
+}
+
+/**
+ * Return only the project layer from the seed data (projects, initiatives, intake requests).
+ * Used by Settings → "Load Sample Projects" to overlay realistic demo work onto the live
+ * roster without replacing domains, teams, or members.
+ */
+export function buildSampleProjectState() {
+  const { projects, initiatives, intakeRequests } = buildSeedState()
+  return { projects, initiatives, intakeRequests }
 }
 
 export function seedIfEmpty(hydrate: (state: PortfolioState) => void): void {

@@ -24,7 +24,10 @@ import { Slider } from '@/components/ui/slider'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { X, Check } from 'lucide-react'
+import { X, Check, ChevronDown } from 'lucide-react'
+import { StakeholderTagInput } from '@/components/ui/stakeholder-tag-input'
+import { DatePicker } from '@/components/ui/date-picker'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS } from '@/lib/colors'
 import { SDLC_ROLES, ROLE_COLORS } from '@/lib/roles'
@@ -84,7 +87,7 @@ function MemberMultiSelect({ members, assignments, onToggle }: {
   return (
     <div ref={ref} className="relative">
       <div
-        className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-10 bg-white cursor-text"
+        className="flex flex-wrap gap-1.5 p-2 pr-8 border rounded-md min-h-10 bg-white cursor-text"
         onClick={() => setOpen(true)}
       >
         {selectedMembers.map(m => (
@@ -108,12 +111,19 @@ function MemberMultiSelect({ members, assignments, onToggle }: {
           className="flex-1 min-w-[100px] text-sm outline-none bg-transparent placeholder:text-slate-400"
         />
       </div>
+      {/* Chevron indicator — pointer-events-none so clicks pass through to the div */}
+      <ChevronDown size={14} className="absolute right-2.5 top-3 text-slate-400 pointer-events-none" />
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
           {filtered.length === 0 ? (
             <p className="px-3 py-2 text-sm text-slate-400">No members found</p>
           ) : filtered.map(m => {
             const selected = selectedIds.includes(m.id)
+            // Existing project count excludes the project currently being edited
+            // (which may already include this member) so the count shows other commitments.
+            const otherProjectCount = selected ? m.projectIds.length - 1 : m.projectIds.length
+            const isOver = m.capacity > 100
+            const isBusy = m.capacity > 80
             return (
               <button
                 key={m.id}
@@ -121,12 +131,33 @@ function MemberMultiSelect({ members, assignments, onToggle }: {
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => { onToggle(m.id); setSearch('') }}
                 className={cn(
-                  'w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-slate-50 transition-colors',
-                  selected && 'text-blue-700 bg-blue-50 hover:bg-blue-50',
+                  'w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-slate-50 transition-colors',
+                  selected && 'bg-blue-50 hover:bg-blue-50',
                 )}
               >
-                {m.name}
-                {selected && <Check size={13} className="text-blue-600" />}
+                {/* Name — blue when selected */}
+                <span className={cn('flex-1 truncate', selected && 'text-blue-700 font-medium')}>
+                  {m.name}
+                </span>
+
+                {/* Existing project count — shows other commitments at a glance */}
+                {otherProjectCount > 0 && (
+                  <span className="text-xs text-slate-400 shrink-0">
+                    {otherProjectCount} {otherProjectCount === 1 ? 'project' : 'projects'}
+                  </span>
+                )}
+
+                {/* Capacity badge — red/amber/neutral so overloaded members stand out */}
+                <span className={cn(
+                  'text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0',
+                  isOver ? 'bg-red-100 text-red-600' :
+                  isBusy ? 'bg-amber-100 text-amber-600' :
+                  'bg-slate-100 text-slate-500',
+                )}>
+                  {m.capacity}%
+                </span>
+
+                {selected && <Check size={13} className="text-blue-600 shrink-0" />}
               </button>
             )
           })}
@@ -136,63 +167,8 @@ function MemberMultiSelect({ members, assignments, onToggle }: {
   )
 }
 
-// ─── Stakeholder tag input ─────────────────────────────────────────────────
-// Stores stakeholders as a comma-separated string (matching the Project type).
-// Press Enter or comma to add a tag; Backspace removes the last tag when the
-// text input is empty. Tags are deduplicated on entry.
-
-function StakeholderTagInput({ value, onChange }: {
-  value: string
-  onChange: (v: string) => void
-}) {
-  const [input, setInput] = useState('')
-  const tags = value ? value.split(',').map(s => s.trim()).filter(Boolean) : []
-
-  function addTag(raw: string) {
-    const tag = raw.trim()
-    if (!tag || tags.includes(tag)) { setInput(''); return }
-    onChange([...tags, tag].join(', '))
-    setInput('')
-  }
-
-  function removeTag(tag: string) {
-    onChange(tags.filter(t => t !== tag).join(', '))
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addTag(input)
-    } else if (e.key === 'Backspace' && !input && tags.length > 0) {
-      removeTag(tags[tags.length - 1])
-    }
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-10 bg-white cursor-text">
-      {tags.map(tag => (
-        <span key={tag} className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-medium shrink-0">
-          {tag}
-          <button
-            type="button"
-            onClick={() => removeTag(tag)}
-            className="hover:bg-slate-200 rounded-full p-0.5 transition-colors"
-          >
-            <X size={9} />
-          </button>
-        </span>
-      ))}
-      <input
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={() => addTag(input)}
-        placeholder={tags.length === 0 ? 'Type and press Enter or comma…' : ''}
-        className="flex-1 min-w-[140px] text-sm outline-none bg-transparent placeholder:text-slate-400"
-      />
-    </div>
-  )
-}
+// StakeholderTagInput is imported from @/components/ui/stakeholder-tag-input
+// (shared component with select-or-create behaviour and a global tag pool).
 
 // ─── Initiative searchable combobox ────────────────────────────────────────
 // Single-select dropdown with a search input. Stores the initiative's id as
@@ -582,6 +558,36 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
                 ))}
               </div>
             </div>
+
+            {/* % Complete — kept with Status/Phase/Priority so the "health" fields
+                are grouped together. Slider + number input so users can drag or type. */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">% Complete</Label>
+              <div className="flex items-center gap-3">
+                <Slider
+                  min={0} max={100} step={5}
+                  value={[percentComplete]}
+                  onValueChange={(v) => setPercent(Array.isArray(v) ? v[0] : v)}
+                  className="flex-1"
+                />
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <input
+                    type="number"
+                    min={0} max={100}
+                    value={percentComplete}
+                    onChange={e => {
+                      const n = Math.min(100, Math.max(0, Number(e.target.value)))
+                      setPercent(isNaN(n) ? 0 : n)
+                    }}
+                    className={cn(
+                      'w-12 h-7 text-center text-sm font-semibold rounded border border-slate-200 outline-none focus:border-blue-500',
+                      pctColor,
+                    )}
+                  />
+                  <span className={cn('text-sm font-semibold', pctColor)}>%</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Initiative */}
@@ -593,28 +599,15 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
             />
           </Field>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Start Date">
-              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-            </Field>
-            <Field label="Target End Date">
-              <Input type="date" value={targetEndDate} onChange={e => setTargetEnd(e.target.value)} />
-            </Field>
-          </div>
-
-          {/* % Complete */}
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label className="text-xs font-medium text-slate-600">% Complete</Label>
-              <span className={cn('text-sm font-semibold', pctColor)}>{percentComplete}%</span>
-            </div>
-            <Slider
-              min={0} max={100} step={5}
-              value={[percentComplete]}
-              onValueChange={(v) => setPercent(Array.isArray(v) ? v[0] : v)}
+          {/* Dates — range picker covers start + duration → end in one popover */}
+          <Field label="Date Range">
+            <DateRangePicker
+              startDate={startDate}
+              endDate={targetEndDate}
+              onChange={(start, end) => { setStartDate(start); setTargetEnd(end) }}
+              placeholder="Pick start date & duration"
             />
-          </div>
+          </Field>
 
           {/* Assigned Members */}
           <div className="space-y-2">
@@ -668,20 +661,18 @@ export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs text-slate-500">Start Date</Label>
-                          <Input
-                            type="date"
+                          <DatePicker
                             value={assignment.startDate ?? ''}
-                            onChange={e => updateAssignment(assignment.memberId, { startDate: e.target.value })}
-                            className="h-8 text-xs"
+                            onChange={v => updateAssignment(assignment.memberId, { startDate: v })}
+                            placeholder="Pick a date"
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs text-slate-500">End Date</Label>
-                          <Input
-                            type="date"
+                          <DatePicker
                             value={assignment.endDate ?? ''}
-                            onChange={e => updateAssignment(assignment.memberId, { endDate: e.target.value })}
-                            className="h-8 text-xs"
+                            onChange={v => updateAssignment(assignment.memberId, { endDate: v })}
+                            placeholder="Pick a date"
                           />
                         </div>
                       </div>

@@ -32,9 +32,14 @@ import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
   ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
+  FlaskConical, Save, History, Bot,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter, DialogClose,
+} from '@/components/ui/dialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { cn } from '@/lib/utils'
 import {
@@ -58,9 +63,126 @@ import {
   detectCsvEntityType,
   type CsvEntityType,
 } from '@/lib/csv'
-import { buildSeedState } from '@/lib/seedData'
+import { buildSeedState, buildSampleProjectState } from '@/lib/seedData'
 import { clearState } from '@/lib/persistence'
+import { ANTHROPIC_KEY_STORAGE } from '@/lib/chat'
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
+
+// ─── Ordering helpers ──────────────────────────────────────────────────────
+// These two functions let "Load Sample Data" preserve whatever domain/team/member
+// ordering the user has set via drag-and-drop, even after syncing new seed data.
+// New items (added in the seed) are appended after known ones in their group.
+
+/**
+ * Snapshot the current ordering from the live store state.
+ * Returns: ordered domain IDs, ordered team IDs per domain, ordered member IDs per team.
+ */
+function captureOrdering(state: PortfolioState) {
+  return {
+    domainIds: state.domains.map(d => d.id),
+    teamIdsByDomain: new Map(
+      state.domains.map(d => [
+        d.id,
+        state.teams.filter(t => t.domainId === d.id).map(t => t.id),
+      ])
+    ),
+    memberIdsByTeam: new Map(
+      state.teams.map(t => [t.id, [...t.memberIds]])
+    ),
+  }
+}
+
+/**
+ * Apply a previously-captured ordering to a fresh seed state.
+ * Items whose IDs no longer exist in the new state are silently dropped.
+ * Items that are new (not in the saved order) are appended to their group.
+ */
+function applyOrdering(
+  newState: PortfolioState,
+  ordering: ReturnType<typeof captureOrdering>
+): PortfolioState {
+  // Reorder domains — known IDs in saved order, then any brand-new domains at end.
+  const domainById = new Map(newState.domains.map(d => [d.id, d]))
+  const knownDomainIds = new Set(ordering.domainIds)
+  const orderedDomains = [
+    ...ordering.domainIds.map(id => domainById.get(id)).filter(Boolean),
+    ...newState.domains.filter(d => !knownDomainIds.has(d.id)),
+  ] as PortfolioState['domains']
+
+  // Reorder teams within each domain.
+  const teamById = new Map(newState.teams.map(t => [t.id, t]))
+  const orderedTeams: PortfolioState['teams'] = []
+  for (const domain of orderedDomains) {
+    const savedTeamIds = ordering.teamIdsByDomain.get(domain.id) ?? []
+    const savedTeamIdSet = new Set(savedTeamIds)
+    const domainTeams = newState.teams.filter(t => t.domainId === domain.id)
+    const domainTeamIds = new Set(domainTeams.map(t => t.id))
+    orderedTeams.push(
+      // Known teams in saved order (skip any that no longer exist in this domain)
+      ...savedTeamIds.filter(id => domainTeamIds.has(id)).map(id => teamById.get(id)!),
+      // Brand-new teams not in the saved order
+      ...domainTeams.filter(t => !savedTeamIdSet.has(t.id)),
+    )
+  }
+
+  // Reorder memberIds within each team.
+  const reorderedTeams = orderedTeams.map(team => {
+    const savedMemberIds = ordering.memberIdsByTeam.get(team.id) ?? []
+    const savedMemberIdSet = new Set(savedMemberIds)
+    const currentMemberIds = new Set(team.memberIds)
+    return {
+      ...team,
+      memberIds: [
+        // Known members in saved order (skip any who left the team)
+        ...savedMemberIds.filter(id => currentMemberIds.has(id)),
+        // Brand-new members not in the saved order
+        ...team.memberIds.filter(id => !savedMemberIdSet.has(id)),
+      ],
+    }
+  })
+
+  return { ...newState, domains: orderedDomains, teams: reorderedTeams }
+}
+
+// ─── Project snapshot ──────────────────────────────────────────────────────
+// A lightweight checkpoint for the project layer only (projects, initiatives,
+// intake requests, and per-member projectIds). Lets the user play with sample
+// data and then restore their real work without touching the roster.
+
+const PROJECT_SNAPSHOT_KEY = 'sat_project_snapshot'
+
+type ProjectSnapshot = {
+  /** ISO timestamp of when the snapshot was created. */
+  savedAt: string
+  projects:        PortfolioState['projects']
+  initiatives:     PortfolioState['initiatives']
+  intakeRequests:  PortfolioState['intakeRequests']
+  /** Each member's projectIds at snapshot time, keyed by member ID. */
+  memberProjectIds: Record<string, string[]>
+}
+
+/** Read an existing snapshot from localStorage, or null if none has been saved. */
+function loadProjectSnapshot(): ProjectSnapshot | null {
+  try {
+    const raw = localStorage.getItem(PROJECT_SNAPSHOT_KEY)
+    return raw ? (JSON.parse(raw) as ProjectSnapshot) : null
+  } catch {
+    return null
+  }
+}
+
+/** Persist the current project layer to localStorage and return the snapshot object. */
+function saveProjectSnapshot(state: PortfolioState): ProjectSnapshot {
+  const snap: ProjectSnapshot = {
+    savedAt:        new Date().toISOString(),
+    projects:       state.projects,
+    initiatives:    state.initiatives,
+    intakeRequests: state.intakeRequests,
+    memberProjectIds: Object.fromEntries(state.members.map(m => [m.id, m.projectIds])),
+  }
+  localStorage.setItem(PROJECT_SNAPSHOT_KEY, JSON.stringify(snap))
+  return snap
+}
 
 // ─── Currency helpers ──────────────────────────────────────────────────────
 
@@ -506,12 +628,148 @@ function ImportSection() {
   )
 }
 
+// ─── AI Assistant section ──────────────────────────────────────────────────
+
+/**
+ * AiAssistantSection — API key configuration for the floating chat assistant.
+ *
+ * The key is stored in localStorage under `ANTHROPIC_KEY_STORAGE` (separate
+ * from the portfolio store). It is read at call-time by FloatingChat so a
+ * newly saved key takes effect without reloading the page.
+ *
+ * The input is type="password" so the key isn't visible in screenshots /
+ * shoulder-surfing, but the user can show it by toggling the field type.
+ */
+function AiAssistantSection() {
+  // Read the current stored key on mount.
+  const [keyValue, setKeyValue] = useState<string>(
+    () => localStorage.getItem(ANTHROPIC_KEY_STORAGE) ?? '',
+  )
+  // Show a green checkmark for 2 seconds after saving.
+  const [saved, setSaved] = useState(false)
+  // Whether to reveal the key in plaintext.
+  const [visible, setVisible] = useState(false)
+
+  function handleSave() {
+    const trimmed = keyValue.trim()
+    if (trimmed) {
+      localStorage.setItem(ANTHROPIC_KEY_STORAGE, trimmed)
+    } else {
+      localStorage.removeItem(ANTHROPIC_KEY_STORAGE)
+    }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const hasKey = keyValue.trim().length > 0
+
+  return (
+    <section className="space-y-4">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        The Portfolio Assistant uses the Claude API to answer questions about your
+        data. Enter your Anthropic API key below — it is stored in your browser
+        only and sent exclusively to{' '}
+        <span className="font-mono">api.anthropic.com</span>.
+      </p>
+
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-4">
+        {/* Key input row */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+            Anthropic API Key
+          </label>
+          <div className="flex gap-2">
+            <Input
+              type={visible ? 'text' : 'password'}
+              value={keyValue}
+              onChange={e => setKeyValue(e.target.value)}
+              placeholder="sk-ant-…"
+              className="flex-1 font-mono text-sm"
+              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+            />
+            {/* Show/hide toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setVisible(v => !v)}
+              className="shrink-0 text-xs px-3"
+            >
+              {visible ? 'Hide' : 'Show'}
+            </Button>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+            Get your key at{' '}
+            <span className="font-mono">console.anthropic.com</span>.
+            The assistant uses <span className="font-mono">claude-opus-4-6</span>.
+          </p>
+        </div>
+
+        {/* Save button + status */}
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            onClick={handleSave}
+            className="gap-1.5 text-xs"
+          >
+            {saved ? <CheckCircle2 size={13} /> : <Save size={13} />}
+            {saved ? 'Saved' : 'Save Key'}
+          </Button>
+          {!hasKey && (
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              No key configured — the assistant is disabled.
+            </span>
+          )}
+          {hasKey && !saved && (
+            <span className="text-xs text-slate-400">Key configured.</span>
+          )}
+        </div>
+
+        {/* Clear key */}
+        {hasKey && (
+          <button
+            type="button"
+            onClick={() => { setKeyValue(''); localStorage.removeItem(ANTHROPIC_KEY_STORAGE) }}
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
+          >
+            <X size={11} />
+            Remove key
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ─── Settings page ─────────────────────────────────────────────────────────
 
 export function SettingsPage() {
   const { domains, teams, members, projects, initiatives, intakeRequests } = usePortfolioStore()
 
   const store = usePortfolioStore()
+
+  // Active settings tab.
+  const [activeTab, setActiveTab] = useState<'rates' | 'export' | 'import' | 'assistant' | 'danger'>('rates')
+
+  // Danger Zone confirmation modal. Set pendingAction to open it; the modal
+  // calls onConfirm() when the user clicks the destructive button.
+  const [pendingAction, setPendingAction] = useState<{
+    title: string
+    description: string
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null)
+
+  /** Open the warning modal for a Danger Zone action. */
+  function danger(title: string, description: string, confirmLabel: string, onConfirm: () => void) {
+    setPendingAction({ title, description, confirmLabel, onConfirm })
+  }
+
+  // Track whether a project snapshot exists so Save/Restore buttons reflect current state.
+  const [projectSnapshot, setProjectSnapshot] = useState<ProjectSnapshot | null>(loadProjectSnapshot)
+  const snapshotDate = projectSnapshot
+    ? new Date(projectSnapshot.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : null
 
   /**
    * Download all CSV files sequentially with a small delay between each so
@@ -553,130 +811,152 @@ export function SettingsPage() {
   return (
     <div className="p-8 overflow-y-auto h-full">
       <div className="max-w-2xl space-y-6">
-      {/* Header */}
+
+      {/* Header + tab bar */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Data Management</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-          Export data to CSV for editing in a spreadsheet, then reimport to update the portfolio.
-          Use the JSON snapshot for a full lossless backup.
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+          Manage resource rates, import/export data, and reset the portfolio.
         </p>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
+          {([
+            { id: 'rates',     label: 'Resource Rates', Icon: DollarSign },
+            { id: 'export',    label: 'Export',          Icon: Download },
+            { id: 'import',    label: 'Import',          Icon: Upload },
+            { id: 'assistant', label: 'AI Assistant',    Icon: Bot },
+            { id: 'danger',    label: 'Danger Zone',     Icon: AlertCircle },
+          ] as const).map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                activeTab === id
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300',
+              )}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Resource Rates section — above Export */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <DollarSign size={16} className="text-slate-400" />
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Resource Rates</h2>
-        </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-          Set annual salary rates per role to enable portfolio-level cost and ROI analysis.
-          Rates are fixed (salaried) — allocation % is used to compute project cost share, not to
-          adjust the base rate. Rates auto-save when you leave the field.
-        </p>
-        <ResourceRatesSection />
-      </section>
+      {/* Resource Rates tab */}
+      {activeTab === 'rates' && (
+        <section>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            Set annual salary rates per role to enable portfolio-level cost and ROI analysis.
+            Rates are fixed (salaried) — allocation % is used to compute project cost share, not to
+            adjust the base rate. Rates auto-save when you leave the field.
+          </p>
+          <ResourceRatesSection />
+        </section>
+      )}
 
-      {/* Export section */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Download size={16} className="text-slate-400" />
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Export</h2>
-        </div>
+      {/* Export tab */}
+      {activeTab === 'export' && (
+        <section>
+          {/* Export All shortcut — downloads all CSVs in one click */}
+          <div className="mb-4 flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/25 border border-blue-200 dark:border-blue-800 rounded-xl px-5 py-4">
+            <div className="flex items-start gap-3">
+              <PackageOpen size={16} className="text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Export All CSVs</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                  Downloads all 5 entity files in one click — ready to edit and reimport.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportAll}
+              className="shrink-0 gap-1.5 text-xs border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+            >
+              <Download size={13} />
+              Export All
+            </Button>
+          </div>
 
-        {/* Export All shortcut — downloads all CSVs in one click */}
-        <div className="mb-4 flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/25 border border-blue-200 dark:border-blue-800 rounded-xl px-5 py-4">
-          <div className="flex items-start gap-3">
-            <PackageOpen size={16} className="text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Export All CSVs</p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                Downloads all 5 entity files in one click — ready to edit and reimport.
+          <div className="bg-white border border-slate-200 rounded-xl px-5 divide-y divide-slate-100">
+            <ExportCard
+              label="Roster"
+              description={`${domains.length} domains · ${teams.length} teams · ${members.length} members — one flat file`}
+              onDownload={() => downloadCsv('roster.csv', exportRosterCsv(domains, teams, members))}
+            />
+            <ExportCard
+              label="Projects"
+              description={`${projects.length} projects — name, status, phase, priority, dates, % complete, initiative`}
+              onDownload={() => downloadCsv('projects.csv', exportProjectsCsv(projects, initiatives))}
+            />
+            <ExportCard
+              label="Assignments"
+              description={`${projects.reduce((s, p) => s + p.assignments.length, 0)} rows — project, member, part, allocation, dates`}
+              onDownload={() => downloadCsv('assignments.csv', exportAssignmentsCsv(projects, members))}
+            />
+            <ExportCard
+              label="Initiatives"
+              description={`${initiatives.length} initiatives — name, description, targetQuarter, status`}
+              onDownload={() => downloadCsv('initiatives.csv', exportInitiativesCsv(initiatives))}
+            />
+            <ExportCard
+              label="Intake Requests"
+              description={`${intakeRequests.length} requests — requester, description, priority, status`}
+              onDownload={() => downloadCsv('intake.csv', exportIntakeCsv(intakeRequests))}
+            />
+          </div>
+
+          {/* Full JSON snapshot — separate from individual CSVs */}
+          <div className="mt-4 flex items-center justify-between gap-4 bg-violet-50 dark:bg-violet-900/25 border border-violet-200 dark:border-violet-800 rounded-xl px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Database size={16} className="text-violet-500 dark:text-violet-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-violet-900 dark:text-violet-200">Full Snapshot (JSON)</p>
+                <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
+                  Exports the entire portfolio state in one file. Import it to fully restore the app — no ordering concerns.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleFullJsonExport}
+              className="shrink-0 gap-1.5 text-xs border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50"
+            >
+              <Download size={13} />
+              Download JSON
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {/* Import tab */}
+      {activeTab === 'import' && (
+        <section>
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="flex items-start gap-3 mb-5 pb-4 border-b border-slate-100">
+              <FileText size={15} className="text-slate-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Upload any CSV or JSON file exported from this tool. The entity type is auto-detected
+                from the header row — no need to specify it manually. Importing <strong>replaces</strong> the
+                entity collection entirely (existing rows are overwritten, rows not in the file are removed).
               </p>
             </div>
+            <ImportSection />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportAll}
-            className="shrink-0 gap-1.5 text-xs border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
-          >
-            <Download size={13} />
-            Export All
-          </Button>
-        </div>
+        </section>
+      )}
 
-        <div className="bg-white border border-slate-200 rounded-xl px-5 divide-y divide-slate-100">
-          <ExportCard
-            label="Roster"
-            description={`${domains.length} domains · ${teams.length} teams · ${members.length} members — one flat file`}
-            onDownload={() => downloadCsv('roster.csv', exportRosterCsv(domains, teams, members))}
-          />
-          <ExportCard
-            label="Projects"
-            description={`${projects.length} projects — name, status, phase, priority, dates, % complete, initiative`}
-            onDownload={() => downloadCsv('projects.csv', exportProjectsCsv(projects, initiatives))}
-          />
-          <ExportCard
-            label="Assignments"
-            description={`${projects.reduce((s, p) => s + p.assignments.length, 0)} rows — project, member, part, allocation, dates`}
-            onDownload={() => downloadCsv('assignments.csv', exportAssignmentsCsv(projects, members))}
-          />
-          <ExportCard
-            label="Initiatives"
-            description={`${initiatives.length} initiatives — name, description, targetQuarter, status`}
-            onDownload={() => downloadCsv('initiatives.csv', exportInitiativesCsv(initiatives))}
-          />
-          <ExportCard
-            label="Intake Requests"
-            description={`${intakeRequests.length} requests — requester, description, priority, status`}
-            onDownload={() => downloadCsv('intake.csv', exportIntakeCsv(intakeRequests))}
-          />
-        </div>
+      {/* AI Assistant tab */}
+      {activeTab === 'assistant' && <AiAssistantSection />}
 
-        {/* Full JSON snapshot — separate from individual CSVs */}
-        <div className="mt-4 flex items-center justify-between gap-4 bg-violet-50 dark:bg-violet-900/25 border border-violet-200 dark:border-violet-800 rounded-xl px-5 py-4">
-          <div className="flex items-start gap-3">
-            <Database size={16} className="text-violet-500 dark:text-violet-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-violet-900 dark:text-violet-200">Full Snapshot (JSON)</p>
-              <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
-                Exports the entire portfolio state in one file. Import it to fully restore the app — no ordering concerns.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFullJsonExport}
-            className="shrink-0 gap-1.5 text-xs border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50"
-          >
-            <Download size={13} />
-            Download JSON
-          </Button>
-        </div>
-      </section>
-
-      {/* Import section */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Upload size={16} className="text-slate-400" />
-          <h2 className="text-base font-semibold text-slate-800">Import</h2>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-start gap-3 mb-5 pb-4 border-b border-slate-100">
-            <FileText size={15} className="text-slate-400 mt-0.5 shrink-0" />
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Upload any CSV or JSON file exported from this tool. The entity type is auto-detected
-              from the header row — no need to specify it manually. Importing <strong>replaces</strong> the
-              entity collection entirely (existing rows are overwritten, rows not in the file are removed).
-            </p>
-          </div>
-          <ImportSection />
-        </div>
-      </section>
-
-      {/* Danger Zone — reset and clear actions */}
-      <section>
+      {/* Danger Zone tab */}
+      {activeTab === 'danger' && (
+        <section>
         <div className="flex items-center gap-2 mb-4">
           <AlertCircle size={16} className="text-red-400" />
           <h2 className="text-base font-semibold text-red-700">Danger Zone</h2>
@@ -699,14 +979,191 @@ export function SettingsPage() {
               variant="outline"
               size="sm"
               className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => {
-                if (!confirm('Replace all data with the sample dataset? This cannot be undone.')) return
-                const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                s.hydrate(buildSeedState())
-              }}
+              onClick={() => danger(
+                'Load Sample Data',
+                'This replaces everything — domains, teams, members, and projects — with the built-in sample dataset. Your current data cannot be recovered.',
+                'Load Sample Data',
+                () => {
+                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                  const ordering = captureOrdering(usePortfolioStore.getState())
+                  s.hydrate(applyOrdering(buildSeedState(), ordering))
+                },
+              )}
             >
               <RotateCcw size={13} />
               Load Sample Data
+            </Button>
+          </div>
+
+          {/* Load sample projects — overlays demo projects onto the live roster */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <FlaskConical size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Load Sample Projects</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Overlays 29 realistic projects, 5 initiatives, and 5 intake requests onto your
+                  current roster so you can explore analytics, capacity planning, and other features
+                  with real names.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => danger(
+                'Load Sample Projects',
+                'This replaces all current projects, initiatives, and intake requests with sample data. Your roster (domains, teams, members) will not be affected.',
+                'Load Sample Projects',
+                () => {
+                const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                const current = usePortfolioStore.getState()
+                const { projects, initiatives, intakeRequests } = buildSampleProjectState()
+                // Rebuild each member's projectIds from the sample projects' assignment lists.
+                const projectIdsByMember = new Map<string, string[]>()
+                for (const p of projects) {
+                  for (const { memberId } of p.assignments) {
+                    const arr = projectIdsByMember.get(memberId) ?? []
+                    arr.push(p.id)
+                    projectIdsByMember.set(memberId, arr)
+                  }
+                }
+                s.hydrate({
+                  ...current,
+                  projects,
+                  initiatives,
+                  intakeRequests,
+                  members: current.members.map(m => ({
+                    ...m,
+                    projectIds: projectIdsByMember.get(m.id) ?? [],
+                  })),
+                })
+                },
+              )}
+            >
+              <FlaskConical size={13} />
+              Load Samples
+            </Button>
+          </div>
+
+          {/* Save project snapshot — checkpoint real data before loading samples */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Save size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Save Real Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {projectSnapshot
+                    ? `Snapshot saved ${snapshotDate}. Save again to overwrite with the current project state.`
+                    : 'Save your current projects, initiatives, and intake requests as a restore point before loading sample data.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => {
+                // If no snapshot yet, save directly without a modal.
+                if (!projectSnapshot) {
+                  setProjectSnapshot(saveProjectSnapshot(usePortfolioStore.getState()))
+                  return
+                }
+                danger(
+                  'Overwrite Snapshot',
+                  `You already have a snapshot saved on ${snapshotDate}. Saving now will overwrite it with the current project data.`,
+                  'Overwrite Snapshot',
+                  () => setProjectSnapshot(saveProjectSnapshot(usePortfolioStore.getState())),
+                )
+              }}
+            >
+              <Save size={13} />
+              Save Snapshot
+            </Button>
+          </div>
+
+          {/* Restore project snapshot — revert to real data after playing with samples */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <History size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Restore Real Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {projectSnapshot
+                    ? `Restore the snapshot saved ${snapshotDate}. Current projects will be replaced.`
+                    : 'No snapshot saved yet — use "Save Real Data" first.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!projectSnapshot}
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+              onClick={() => {
+                if (!projectSnapshot) return
+                danger(
+                  'Restore Snapshot',
+                  `This will replace your current projects, initiatives, and intake requests with the snapshot saved on ${snapshotDate}. Any work added since then will be lost.`,
+                  'Restore Snapshot',
+                  () => {
+                    const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                    const current = usePortfolioStore.getState()
+                    s.hydrate({
+                      ...current,
+                      projects:       projectSnapshot.projects,
+                      initiatives:    projectSnapshot.initiatives,
+                      intakeRequests: projectSnapshot.intakeRequests,
+                      members: current.members.map(m => ({
+                        ...m,
+                        projectIds: projectSnapshot.memberProjectIds[m.id] ?? [],
+                      })),
+                    })
+                  },
+                )
+              }}
+            >
+              <History size={13} />
+              Restore Snapshot
+            </Button>
+          </div>
+
+          {/* Clear project data — roster stays, projects/initiatives/intake wiped */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <PackageOpen size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Clear Project Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Deletes all projects, initiatives, and intake requests. Your roster (domains, teams,
+                  and members) is kept intact so you can start tracking real work from scratch.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => danger(
+                'Clear Project Data',
+                'This permanently deletes all projects, initiatives, and intake requests. Your roster (domains, teams, and members) will not be affected.',
+                'Clear Project Data',
+                () => {
+                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                  const current = usePortfolioStore.getState()
+                  s.hydrate({
+                    ...current,
+                    projects: [],
+                    initiatives: [],
+                    intakeRequests: [],
+                    members: current.members.map(m => ({ ...m, projectIds: [] })),
+                  })
+                },
+              )}
+            >
+              <PackageOpen size={13} />
+              Clear Project Data
             </Button>
           </div>
 
@@ -726,11 +1183,12 @@ export function SettingsPage() {
               variant="outline"
               size="sm"
               className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => {
-                if (!confirm('Delete all data permanently? The page will reload empty.')) return
-                clearState()
-                window.location.reload()
-              }}
+              onClick={() => danger(
+                'Clear All Data',
+                'This permanently deletes everything — all domains, teams, members, projects, initiatives, and intake requests. The page will reload empty and this cannot be undone.',
+                'Delete Everything',
+                () => { clearState(); window.location.reload() },
+              )}
             >
               <Trash2 size={13} />
               Clear All Data
@@ -739,7 +1197,47 @@ export function SettingsPage() {
 
         </div>
       </section>
+      )}
+
       </div>
+
+      {/* Danger Zone confirmation modal — shown whenever pendingAction is set */}
+      <Dialog
+        open={!!pendingAction}
+        onOpenChange={open => { if (!open) setPendingAction(null) }}
+      >
+        <DialogContent showCloseButton={false} className="max-w-sm">
+          <DialogHeader>
+            {/* Red warning icon + title row */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 shrink-0">
+                <AlertCircle size={20} className="text-red-600" />
+              </div>
+              <DialogTitle className="text-slate-900">{pendingAction?.title}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <DialogDescription className="text-slate-600 pl-[52px]">
+            {pendingAction?.description}
+          </DialogDescription>
+          <DialogFooter className="gap-2">
+            {/* Cancel — closes without acting */}
+            <DialogClose render={<Button variant="outline" className="flex-1" />}>
+              Cancel
+            </DialogClose>
+            {/* Confirm — fires the callback then closes */}
+            <Button
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
+              onClick={() => {
+                pendingAction?.onConfirm()
+                setPendingAction(null)
+              }}
+            >
+              {pendingAction?.confirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

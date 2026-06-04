@@ -33,6 +33,8 @@ const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage').then(m 
 const EscalationsPage = lazy(() => import('@/pages/EscalationsPage').then(m => ({ default: m.EscalationsPage })))
 const MemberDetailPage = lazy(() => import('@/pages/MemberDetailPage').then(m => ({ default: m.MemberDetailPage })))
 const SettingsPage   = lazy(() => import('@/pages/SettingsPage').then(m   => ({ default: m.SettingsPage   })))
+const OrgPage        = lazy(() => import('@/pages/OrgPage').then(m        => ({ default: m.OrgPage        })))
+const PtoPage        = lazy(() => import('@/pages/PtoPage').then(m        => ({ default: m.PtoPage        })))
 
 // PrintPage renders outside AppLayout and is also lazy-loaded so it doesn't
 // bloat the initial bundle even though it lives on a separate route.
@@ -75,9 +77,11 @@ export default function App() {
             <Route path="pipeline"    element={<PipelinePage />} />
             <Route path="analytics"   element={<AnalyticsPage />} />
             <Route path="planning"    element={<PlanningPage />} />
+            <Route path="pto"         element={<PtoPage />} />
             <Route path="escalations" element={<EscalationsPage />} />
             {/* /teams redirects to /roster — old bookmarks and nav links are preserved */}
             <Route path="teams"       element={<Navigate to="/roster" replace />} />
+            <Route path="org"         element={<OrgPage />} />
             <Route path="settings"    element={<SettingsPage />} />
             {/* Legacy redirects so old bookmarks still work */}
             <Route path="capacity"    element={<Navigate to="/planning" replace />} />

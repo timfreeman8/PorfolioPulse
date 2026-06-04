@@ -10,7 +10,7 @@
  * projects that haven't been ranked yet appended at the bottom.
  */
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, FolderOpen } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -128,6 +128,11 @@ function ProjectRow({ project, rank, initiativeName, onEdit, onDelete }: {
 export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  // `from` is set by the navigation call that brought us here (e.g. '/org').
+  // Falling back to '/org' since Roster is archived and People is now the primary source.
+  const location = useLocation()
+  const backTo: string = (location.state as { from?: string } | null)?.from ?? '/org'
+  const backLabel = backTo === '/org' ? 'Back to People' : 'Back'
   const {
     members, teams, projects, initiatives,
     addProject, updateProject, deleteProject, reorderMemberProjects,
@@ -159,8 +164,8 @@ export function MemberDetailPage() {
   if (!member) {
     return (
       <div className="p-8">
-        <button onClick={() => navigate('/roster')} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 mb-6">
-          <ArrowLeft size={15} /> Back to Roster
+        <button onClick={() => navigate(backTo)} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 mb-6">
+          <ArrowLeft size={15} /> {backLabel}
         </button>
         <p className="text-slate-500">Member not found.</p>
       </div>
@@ -198,10 +203,10 @@ export function MemberDetailPage() {
     <div className="p-8 space-y-6 overflow-y-auto h-full">
       {/* Back nav */}
       <button
-        onClick={() => navigate('/roster')}
+        onClick={() => navigate(backTo)}
         className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition-colors"
       >
-        <ArrowLeft size={15} /> Back to Roster
+        <ArrowLeft size={15} /> {backLabel}
       </button>
 
       {/* Member header */}

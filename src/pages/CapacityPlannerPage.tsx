@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, createContext, useContext } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Palmtree, Trash2, Flag, Search, Printer } from 'lucide-react'
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTooltip } from '@/components/ui/tooltip'
@@ -118,19 +119,40 @@ function buildFiscalCalendar(): { weeks: FiscalWeek[]; periods: FiscalPeriod[]; 
 }
 
 const { weeks: FY_WEEKS, periods: FY_PERIODS, quarters: FY_QUARTERS } = buildFiscalCalendar()
-const FY_TOTAL_WEEKS = FY_WEEKS.length  // 52
-const CHART_WIDTH    = FY_TOTAL_WEEKS * WEEK_PX
-const LEFT_COL_W     = 200  // px
-
-// Alternating week column background — every other 80px stripe gets a very
-// light tint so week boundaries are immediately readable without grid-line clutter.
-// Uses a CSS variable so dark mode automatically flips the stripe opacity.
-const WEEK_STRIPE_BG = `repeating-linear-gradient(90deg, transparent 0px, transparent ${WEEK_PX}px, var(--gantt-stripe) ${WEEK_PX}px, var(--gantt-stripe) ${WEEK_PX * 2}px)`
+const LEFT_COL_W = 200  // px — width of the sticky member/project name column
 
 // Gantt bar colors come from the shared roles file — same source as the form's
 // Part/Responsibility chip picker, so bar color always matches the chip color.
 const PART_COLORS = ROLE_COLORS
 const DEFAULT_PART_COLOR = DEFAULT_ROLE_COLOR
+
+// ─── Gantt configuration context ─────────────────────────────────────────
+// Distributes dynamic chart values (zoom level, visible window, coordinate
+// conversion) to all child components so they don't need to be passed as props.
+interface GanttConfig {
+  weekPx: number
+  chartWidth: number
+  visibleWeeks: FiscalWeek[]
+  visiblePeriods: FiscalPeriod[]    // periods visible in the current window
+  visibleQuarters: FiscalQuarter[]  // quarters visible in the current window (with weekCount adjusted)
+  visibleOffset: number             // index of the first visible week in the full FY_WEEKS array
+  todayXPos: number                 // pixel x of today relative to visibleStart (or -1 if outside window)
+  dateToX: (iso: string) => number  // convert ISO date → pixel x relative to visibleStart
+  xToDate: (px: number) => string   // convert pixel x back to ISO date
+}
+const GanttCtx = createContext<GanttConfig | null>(null)
+
+/** Access the current Gantt chart configuration from any component in the tree. */
+function useGantt(): GanttConfig {
+  const ctx = useContext(GanttCtx)
+  if (!ctx) throw new Error('useGantt must be called inside a GanttCtx.Provider')
+  return ctx
+}
+
+/** Generate a CSS repeating stripe background that scales with the zoom level. */
+function makeStripe(weekPx: number): string {
+  return `repeating-linear-gradient(90deg, transparent 0px, transparent ${weekPx}px, var(--gantt-stripe) ${weekPx}px, var(--gantt-stripe) ${weekPx * 2}px)`
+}
 
 // ─── Calendar math helpers ────────────────────────────────────────────────
 // Core idea: every date on the timeline maps to a pixel offset from the left
@@ -202,43 +224,32 @@ function formatWeekLabel(d: Date): string {
  * Compute the clamped pixel position and width for a Gantt bar.
  *
  * Steps:
- *  1. Convert start/end ISO dates to raw pixel offsets via dateToX().
+ *  1. Convert start/end ISO dates to raw pixel offsets via the provided dateToX().
  *  2. Enforce a minimum bar width of half a week so short projects are still visible.
- *  3. Clamp both edges to [0, CHART_WIDTH] so bars don't overflow the FY range.
+ *  3. Clamp both edges to [0, chartWidth] so bars don't overflow the visible window.
  *  4. Return null if the bar would be invisible (missing dates or fully off-screen).
  *
- * Used by ProjectBar, PtoBar, and ProjectGanttRow — the single place where
+ * Accepts config parameters instead of referencing module-level constants so it
+ * works correctly in any zoom mode (year / quarter / period).
+ *
+ * Used by ProjectBar, PtoBar, AssignmentBar, and PhaseBar — the single place where
  * date-to-pixel math lives so all bars behave consistently.
  */
 function barGeometry(
   startIso: string | undefined,
   endIso: string | undefined,
+  dateToX: (iso: string) => number,
+  weekPx: number,
+  chartWidth: number,
 ): { leftPx: number; widthPx: number } | null {
   if (!startIso || !endIso) return null
   const rawLeft  = dateToX(startIso)
   const rawRight = dateToX(endIso)
-  const rawWidth = Math.max(rawRight - rawLeft, WEEK_PX * 0.5)  // min half-week
+  const rawWidth = Math.max(rawRight - rawLeft, weekPx * 0.5)  // min half-week
   const clampedLeft  = Math.max(0, rawLeft)
-  const clampedWidth = Math.min(CHART_WIDTH, rawLeft + rawWidth) - clampedLeft
+  const clampedWidth = Math.min(chartWidth, rawLeft + rawWidth) - clampedLeft
   if (clampedWidth <= 0) return null
   return { leftPx: clampedLeft, widthPx: clampedWidth }
-}
-
-/**
- * Convert a pixel x-offset back to an ISO date string — the inverse of dateToX.
- * Used by the drag system to turn a bar's final pixel position into dates.
- * Snaps to whole days; clamps to the FY range.
- */
-function xToDate(px: number): string {
-  const clamped = Math.max(0, Math.min(px, CHART_WIDTH))
-  const days = Math.round((clamped / WEEK_PX) * 7)
-  const d = new Date(FY_START)
-  d.setDate(d.getDate() + days)
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-')
 }
 
 // ─── Gantt bar drag hook ──────────────────────────────────────────────────
@@ -266,11 +277,15 @@ function xToDate(px: number): string {
 function useBarDrag({
   leftPx,
   widthPx,
+  weekPx,
+  chartWidth,
   onEdit,
   onCommit,
 }: {
   leftPx: number
   widthPx: number
+  weekPx: number
+  chartWidth: number
   onEdit: () => void
   onCommit: (newLeft: number, newWidth: number) => void
 }) {
@@ -312,7 +327,7 @@ function useBarDrag({
     const startMouseX = e.clientX
     const startLeft   = leftPx   // snapshot at drag start — always current from props
     const startWidth  = widthPx
-    const DAY_PX      = WEEK_PX / 7  // pixels per day, used for snapping
+    const DAY_PX      = weekPx / 7  // pixels per day, used for snapping
     const MIN_W       = DAY_PX        // bars must be at least 1 day wide
 
     let cl = startLeft, cw = startWidth
@@ -327,14 +342,14 @@ function useBarDrag({
       if (Math.abs(dx) > 5) moved = true
 
       if (mode === 'move') {
-        cl = Math.max(0, Math.min(startLeft + snapped, CHART_WIDTH - startWidth))
+        cl = Math.max(0, Math.min(startLeft + snapped, chartWidth - startWidth))
         cw = startWidth
       } else if (mode === 'resize-left') {
         const d = Math.max(-startLeft, Math.min(snapped, startWidth - MIN_W))
         cl = startLeft + d
         cw = startWidth - d
       } else {
-        cw = Math.max(MIN_W, Math.min(startWidth + snapped, CHART_WIDTH - startLeft))
+        cw = Math.max(MIN_W, Math.min(startWidth + snapped, chartWidth - startLeft))
       }
 
       setVLeft(cl)
@@ -378,26 +393,32 @@ const PHASE_ORDER: ProjectPhase[] = ['Research', 'Discovery', 'Development', 'QA
 // Light, airy header rows so the colored bars are the visual focus.
 // FY → Quarter → Period → Week date, each row slightly lighter/more subtle.
 
-function GanttHeaders({ todayLeftPx }: { todayLeftPx: number }) {
+function GanttHeaders() {
+  // Pull all chart dimensions and visible-window data from context so this
+  // component re-renders automatically when the zoom mode or selection changes.
+  const { weekPx, chartWidth, visibleWeeks, visiblePeriods, visibleQuarters, todayXPos } = useGantt()
+
   return (
-    <div className="relative" style={{ width: CHART_WIDTH }}>
+    <div className="relative" style={{ width: chartWidth }}>
       {/* FY row — very subtle; just an anchor label */}
       <div
         className="flex items-center text-xs text-slate-500 font-medium px-2 border-b border-slate-100"
-        style={{ height: 24, width: CHART_WIDTH, background: 'var(--gantt-surface)' }}
+        style={{ height: 24, width: chartWidth, background: 'var(--gantt-surface)' }}
       >
         FY2026
       </div>
 
       {/* Quarter row — alternating bg so Q boundaries are immediately visible.
-          Uses CSS vars instead of hardcoded hex so dark mode works without JS. */}
+          Uses CSS vars instead of hardcoded hex so dark mode works without JS.
+          visibleQuarters may contain partial quarters (fewer than 13 weeks) in
+          quarter/period zoom modes; weekCount is already clamped by the context. */}
       <div className="flex border-b border-slate-200" style={{ height: 24 }}>
-        {FY_QUARTERS.map(q => (
+        {visibleQuarters.map(q => (
           <div
             key={q.label}
             className="flex items-center justify-center text-xs font-semibold text-slate-500 border-r border-slate-200"
             style={{
-              width: q.weekCount * WEEK_PX,
+              width: q.weekCount * weekPx,
               background: q.index % 2 === 0 ? 'var(--gantt-q-even)' : 'var(--gantt-q-odd)',
             }}
           >
@@ -408,12 +429,12 @@ function GanttHeaders({ todayLeftPx }: { todayLeftPx: number }) {
 
       {/* Period row — alternating bg matches its parent quarter's shade for rhythm */}
       <div className="flex border-b border-slate-200" style={{ height: 22 }}>
-        {FY_PERIODS.map(p => (
+        {visiblePeriods.map(p => (
           <div
             key={p.label}
             className="flex items-center justify-center text-xs font-medium text-slate-500 border-r border-slate-200 font-semibold"
             style={{
-              width: p.weekCount * WEEK_PX,
+              width: p.weekCount * weekPx,
               background: p.index % 2 === 0 ? 'var(--gantt-p-even)' : 'var(--gantt-p-odd)',
             }}
           >
@@ -424,12 +445,12 @@ function GanttHeaders({ todayLeftPx }: { todayLeftPx: number }) {
 
       {/* Week date row — subtle alternating bg so individual weeks are easy to scan */}
       <div className="flex border-b border-slate-200" style={{ height: 22 }}>
-        {FY_WEEKS.map(w => (
+        {visibleWeeks.map(w => (
           <div
             key={w.index}
             className="flex items-center justify-center text-xs text-slate-500 border-r border-slate-100 shrink-0"
             style={{
-              width: WEEK_PX,
+              width: weekPx,
               background: w.index % 2 === 0 ? 'var(--gantt-w-even)' : 'var(--gantt-w-odd)',
             }}
           >
@@ -438,16 +459,16 @@ function GanttHeaders({ todayLeftPx }: { todayLeftPx: number }) {
         ))}
       </div>
 
-      {/* Today marker — container sits at exactly left: todayLeftPx (no transform),
+      {/* Today marker — container sits at exactly left: todayXPos (no transform),
           so the w-px stem line inside stays pixel-perfect with the rows' today line.
           The badge text gets its own translateX(-50%) that only affects its visual
           centering without touching the line position.
           Flex-col layout means the line starts at the badge's bottom edge — it never
           pokes out above the badge. */}
-      {todayLeftPx >= 0 && todayLeftPx <= CHART_WIDTH && (
+      {todayXPos >= 0 && todayXPos <= chartWidth && (
         <div
           className="absolute top-0 bottom-0 flex flex-col items-start pointer-events-none"
-          style={{ left: todayLeftPx, zIndex: 15 }}
+          style={{ left: todayXPos, zIndex: 15 }}
         >
           {/* Badge — centered over the left edge of the container via its own transform */}
           <div
@@ -492,11 +513,14 @@ function ProjectBar({
   onEdit: () => void
 }) {
   const { updateProject } = usePortfolioStore()
+  // Pull coordinate conversion and sizing from context so drag math is always
+  // relative to the currently visible window, not the full fiscal year.
+  const { dateToX, xToDate, weekPx, chartWidth } = useGantt()
 
   const assignment = project.assignments.find(a => a.memberId === memberId)
   const barStart   = assignment?.startDate || project.startDate
   const barEnd     = assignment?.endDate   || project.targetEndDate
-  const geo        = barGeometry(barStart, barEnd)
+  const geo        = barGeometry(barStart, barEnd, dateToX, weekPx, chartWidth)
 
   const allocation = assignment?.allocation ?? 0
   const meta       = [project.phase, assignment?.part].filter(Boolean).join(' · ')
@@ -506,8 +530,10 @@ function ProjectBar({
 
   // Hooks must be called before any early return
   const { vLeft, vWidth, isDragging, handleMouseDown } = useBarDrag({
-    leftPx:   geo?.leftPx  ?? 0,
-    widthPx:  geo?.widthPx ?? 0,
+    leftPx:    geo?.leftPx  ?? 0,
+    widthPx:   geo?.widthPx ?? 0,
+    weekPx,
+    chartWidth,
     onEdit,
     // Drag commits new dates to the project-level start/end so all member bars shift together
     onCommit: (newLeft, newWidth) => {
@@ -594,7 +620,10 @@ function ProjectBar({
 // ─── PTO bar ──────────────────────────────────────────────────────────────
 
 function PtoBar({ pto, onDelete }: { pto: PtoBlock; onDelete: () => void }) {
-  const geo = barGeometry(pto.startDate, pto.endDate)
+  // PTO bars are read-only (no drag), so we only need the coordinate functions
+  // and sizing — not xToDate. Pull from context for zoom-mode correctness.
+  const { dateToX, weekPx, chartWidth } = useGantt()
+  const geo = barGeometry(pto.startDate, pto.endDate, dateToX, weekPx, chartWidth)
   const tooltipContent = (
     <div>
       <p className="text-sm font-semibold leading-snug mb-1">PTO</p>
@@ -700,10 +729,14 @@ function MemberGanttRow({
 }) {
   const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false })
   const [ptoOpen, setPtoOpen]          = useState(false)
-  const { addProject, updateProject, deletePto } = usePortfolioStore()
+  const { addProject, deletePto } = usePortfolioStore()
+  const navigate = useNavigate()
   // In User mode, only this member (the active member) can manage their own row.
   const { activeMemberId } = useViewStore()
   const canEdit = activeMemberId === null || activeMemberId === member.id
+  // Chart dimensions come from context so this row scales with the active zoom mode.
+  const { weekPx, chartWidth, visibleWeeks, visiblePeriods, visibleOffset } = useGantt()
+  const weekStripe = makeStripe(weekPx)
 
   const hasPto = memberPto.length > 0
   const rowCount = Math.max(memberProjects.length, 1)
@@ -720,9 +753,9 @@ function MemberGanttRow({
     isAtRisk ? 'text-amber-600 font-semibold' :
     'text-slate-500'
 
-  function handleSave(draft: Omit<Project, 'id' | 'updatedAt'>, id?: string) {
-    if (id) updateProject(id, draft)
-    else addProject(draft)
+  // Only called for new projects — editing navigates to ProjectDetailPage.
+  function handleSave(draft: Omit<Project, 'id' | 'updatedAt'>) {
+    addProject(draft)
   }
 
   return (
@@ -786,22 +819,24 @@ function MemberGanttRow({
         </div>
 
         {/* Chart area — isolate creates a stacking context so bars can't bleed above
-            the sticky left column regardless of their z-index values. */}
-        <div className="relative flex-1 shrink-0 isolate" style={{ width: CHART_WIDTH, minHeight: rowHeight, backgroundImage: WEEK_STRIPE_BG }}>
-          {/* Week grid lines */}
-          {FY_WEEKS.map(w => (
+            the sticky left column regardless of their z-index values.
+            width and stripe come from context so they resize with the zoom mode. */}
+        <div className="relative flex-1 shrink-0 isolate" style={{ width: chartWidth, minHeight: rowHeight, backgroundImage: weekStripe }}>
+          {/* Week grid lines — positions are relative to visibleOffset so they align
+              correctly even when only a subset of weeks are shown (quarter/period zoom). */}
+          {visibleWeeks.map(w => (
             <div
               key={w.index}
               className="absolute top-0 bottom-0 border-r border-slate-100"
-              style={{ left: w.index * WEEK_PX }}
+              style={{ left: (w.index - visibleOffset) * weekPx }}
             />
           ))}
-          {/* Period dividers */}
-          {FY_PERIODS.map(p => (
+          {/* Period dividers — same offset logic as week grid lines */}
+          {visiblePeriods.map(p => (
             <div
               key={p.label}
               className="absolute top-0 bottom-0 border-r border-slate-200"
-              style={{ left: p.weekStart * WEEK_PX }}
+              style={{ left: (p.weekStart - visibleOffset) * weekPx }}
             />
           ))}
 
@@ -818,7 +853,7 @@ function MemberGanttRow({
               memberId={member.id}
               rowIndex={i}
               rowOffset={projectOffset}
-              onEdit={() => setProjectModal({ open: true, project: p })}
+              onEdit={() => navigate(`/projects/${p.id}`, { state: { from: '/planning' } })}
             />
           ))}
 
@@ -867,10 +902,13 @@ function AssignmentBar({
   onEdit: () => void
 }) {
   const { updateProject } = usePortfolioStore()
+  // Pull coordinate conversion and sizing from context so drag math is always
+  // relative to the currently visible window, not the full fiscal year.
+  const { dateToX, xToDate, weekPx, chartWidth } = useGantt()
 
   const barStart    = assignment.startDate || project.startDate
   const barEnd      = assignment.endDate   || project.targetEndDate
-  const geo         = barGeometry(barStart, barEnd)
+  const geo         = barGeometry(barStart, barEnd, dateToX, weekPx, chartWidth)
   const primaryPart = assignment.part?.split(',')[0]?.trim()
   const colorClass  = (primaryPart && PART_COLORS[primaryPart]) ?? DEFAULT_PART_COLOR
   const partMeta    = [assignment.part, `${assignment.allocation}%`].filter(Boolean).join(' · ')
@@ -879,6 +917,8 @@ function AssignmentBar({
   const { vLeft, vWidth, isDragging, handleMouseDown } = useBarDrag({
     leftPx:  geo?.leftPx  ?? 0,
     widthPx: geo?.widthPx ?? 0,
+    weekPx,
+    chartWidth,
     onEdit,
     // Commit updates only this member's assignment dates within the project
     onCommit: (newLeft, newWidth) => {
@@ -967,8 +1007,11 @@ function PhaseBar({
 }) {
   const { updateProject } = usePortfolioStore()
   const navigate = useNavigate()
+  // Pull coordinate conversion and sizing from context so drag math is always
+  // relative to the currently visible window, not the full fiscal year.
+  const { dateToX, xToDate, weekPx, chartWidth } = useGantt()
 
-  const geo = barGeometry(phase.startDate, phase.endDate)
+  const geo = barGeometry(phase.startDate, phase.endDate, dateToX, weekPx, chartWidth)
   // Use the shared phase palette so colors stay consistent across views
   const bgColor  = CHART_COLORS.phase[phase.phase] ?? '#60a5fa'
   // QA and Deployed use lighter backgrounds — dark text reads better on those
@@ -983,8 +1026,10 @@ function PhaseBar({
   const { vLeft, vWidth, isDragging, handleMouseDown } = useBarDrag({
     leftPx:  geo?.leftPx  ?? 0,
     widthPx: geo?.widthPx ?? 0,
+    weekPx,
+    chartWidth,
     // Click with no drag → open the project detail page
-    onEdit: () => navigate(`/projects/${project.id}`),
+    onEdit: () => navigate(`/projects/${project.id}`, { state: { from: '/planning' } }),
     // Drag commit → update this phase's dates and re-derive root project fields
     onCommit: (newLeft, newWidth) => {
       const newPhases = project.phases!.map((ph, i) =>
@@ -1088,6 +1133,10 @@ function PhaseBar({
 // ─── Project view: one row per project, stacked member bars ───────────────
 
 function PhaseDivider({ phase }: { phase: string }) {
+  // Chart width and stripe pattern come from context so the divider row stays
+  // the same width as the data rows in all zoom modes.
+  const { chartWidth, weekPx } = useGantt()
+  const weekStripe = makeStripe(weekPx)
   return (
     <div className="flex border-b border-slate-200" style={{ minHeight: 26, background: 'var(--gantt-section)' }}>
       <div
@@ -1096,7 +1145,7 @@ function PhaseDivider({ phase }: { phase: string }) {
       >
         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{phase}</span>
       </div>
-      <div style={{ width: CHART_WIDTH, backgroundImage: WEEK_STRIPE_BG }} />
+      <div style={{ width: chartWidth, backgroundImage: weekStripe }} />
     </div>
   )
 }
@@ -1111,6 +1160,10 @@ function ProjectGanttRow({
   /** Opens the project editor — used for both bar clicks and the assign button */
   onEdit: (p: Project) => void
 }) {
+  // Chart dimensions come from context so this row scales with the active zoom mode.
+  const { weekPx, chartWidth, visibleWeeks, visiblePeriods, visibleOffset } = useGantt()
+  const weekStripe = makeStripe(weekPx)
+
   // If the project has an explicit phases array, render phase bars instead of
   // per-member assignment bars. This gives a clearer picture of when each
   // phase of work happens rather than who is doing what.
@@ -1167,14 +1220,16 @@ function ProjectGanttRow({
         )}
       </div>
 
-      {/* Chart area — isolated stacking context prevents bars bleeding past sticky col */}
-      <div className="relative flex-1 shrink-0 isolate" style={{ width: CHART_WIDTH, minHeight: rowHeight, backgroundImage: WEEK_STRIPE_BG }}>
-        {/* Grid lines */}
-        {FY_WEEKS.map(w => (
-          <div key={w.index} className="absolute top-0 bottom-0 border-r border-slate-100" style={{ left: w.index * WEEK_PX }} />
+      {/* Chart area — isolated stacking context prevents bars bleeding past sticky col.
+          Width and stripe come from context so they resize with the zoom mode. */}
+      <div className="relative flex-1 shrink-0 isolate" style={{ width: chartWidth, minHeight: rowHeight, backgroundImage: weekStripe }}>
+        {/* Grid lines — positions are relative to visibleOffset so they align
+            correctly even when only a subset of weeks are shown (quarter/period zoom). */}
+        {visibleWeeks.map(w => (
+          <div key={w.index} className="absolute top-0 bottom-0 border-r border-slate-100" style={{ left: (w.index - visibleOffset) * weekPx }} />
         ))}
-        {FY_PERIODS.map(p => (
-          <div key={p.label} className="absolute top-0 bottom-0 border-r border-slate-200" style={{ left: p.weekStart * WEEK_PX }} />
+        {visiblePeriods.map(p => (
+          <div key={p.label} className="absolute top-0 bottom-0 border-r border-slate-200" style={{ left: (p.weekStart - visibleOffset) * weekPx }} />
         ))}
 
         {/* Phase bars — one bar per phase when project has an explicit phases array.
@@ -1210,6 +1265,10 @@ function ProjectGanttRow({
 // ─── Team section divider ─────────────────────────────────────────────────
 
 function TeamDivider({ team }: { team: Team }) {
+  // Chart width and stripe pattern come from context so the divider row stays
+  // the same width as the data rows in all zoom modes.
+  const { chartWidth, weekPx } = useGantt()
+  const weekStripe = makeStripe(weekPx)
   return (
     <div className="flex border-b border-slate-200" style={{ minHeight: 28, background: 'var(--gantt-section)' }}>
       <div
@@ -1220,7 +1279,7 @@ function TeamDivider({ team }: { team: Team }) {
           {team.name}
         </span>
       </div>
-      <div style={{ width: CHART_WIDTH, backgroundImage: WEEK_STRIPE_BG }} />
+      <div style={{ width: chartWidth, backgroundImage: weekStripe }} />
     </div>
   )
 }
@@ -1228,7 +1287,8 @@ function TeamDivider({ team }: { team: Team }) {
 // ─── Capacity Planner page ────────────────────────────────────────────────
 
 export function PlanningPage() {
-  const { domains, teams, members, projects, ptoBlocks, addProject, updateProject } = usePortfolioStore()
+  const { domains, teams, members, projects, ptoBlocks } = usePortfolioStore()
+  const navigate = useNavigate()
   // User mode: filter rows and hide admin controls when a member is selected.
   const { activeMemberId } = useViewStore()
   const isAdmin = activeMemberId === null
@@ -1241,11 +1301,129 @@ export function PlanningPage() {
   const [selectedDomains,  setSelectedDomains]  = useState<string[]>([])
   const [selectedTeams,    setSelectedTeams]    = useState<string[]>([])
   const [selectedMembers,  setSelectedMembers]  = useState<string[]>([])
-  const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false })
+  // Zoom mode: year shows all 52 weeks, quarter shows 13 weeks, period shows 4-5 weeks.
+  // selectedQIdx / selectedPIdx track which quarter/period is shown in those modes.
+  type ZoomMode = 'year' | 'quarter' | 'period'
+  const [zoomMode, setZoomMode]       = useState<ZoomMode>('year')
+  const [selectedQIdx, setSelectedQIdx] = useState<number>(() => currentQuarterIndex())
+  const [selectedPIdx, setSelectedPIdx] = useState<number>(0)
+
+  // Measured width of the scroll container — updated via ResizeObserver so
+  // quarter and period views can fill the available space rather than using
+  // a fixed px/week value that leaves empty space on wide screens.
+  const [containerWidth, setContainerWidth] = useState(0)
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const ro = new ResizeObserver(entries => {
+      setContainerWidth(entries[0].contentRect.width)
+    })
+    ro.observe(scrollRef.current)
+    return () => ro.disconnect()
+  // scrollRef is a stable ref object; the effect only needs to run once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const txPx = todayX()
   const qIdx = currentQuarterIndex()
   const currentQ = FY_QUARTERS[qIdx]
+
+  // Build the Gantt context value for the current zoom mode and selection.
+  // visibleOffset is the week index (in FY_WEEKS) of the first visible week,
+  // used to convert global week positions to chart-relative pixel positions.
+  // Re-computed whenever zoomMode, selectedQIdx, selectedPIdx, or containerWidth changes.
+  const ganttConfig = useMemo((): GanttConfig => {
+    let visibleWeeks: FiscalWeek[]
+    let visibleStart: Date
+    let weekPx: number
+    let visibleOffset: number
+
+    // Available pixel width for bars = scroll container width minus the sticky left column.
+    // Falls back to a sensible default while the ResizeObserver hasn't fired yet (first render).
+    const availableWidth = containerWidth > LEFT_COL_W ? containerWidth - LEFT_COL_W : 0
+
+    if (zoomMode === 'year') {
+      // Show the entire fiscal year at the default zoom (80px/week)
+      visibleWeeks  = FY_WEEKS
+      visibleStart  = FY_START
+      weekPx        = 80
+      visibleOffset = 0
+    } else if (zoomMode === 'quarter') {
+      // Fill available space across 13 weeks; fall back to 120px if width unknown
+      const q = FY_QUARTERS[selectedQIdx]
+      visibleWeeks  = FY_WEEKS.filter(w => w.quarterIndex === selectedQIdx)
+      visibleStart  = new Date(FY_WEEKS[q.weekStart].date)
+      weekPx        = availableWidth > 0 ? Math.floor(availableWidth / visibleWeeks.length) : 120
+      visibleOffset = q.weekStart
+    } else {
+      // Fill available space across 4-5 weeks; fall back to 200px if width unknown
+      const p = FY_PERIODS[selectedPIdx]
+      visibleWeeks  = FY_WEEKS.filter(w => w.periodIndex === selectedPIdx)
+      visibleStart  = new Date(FY_WEEKS[p.weekStart].date)
+      weekPx        = availableWidth > 0 ? Math.floor(availableWidth / visibleWeeks.length) : 200
+      visibleOffset = p.weekStart
+    }
+
+    const chartWidth = visibleWeeks.length * weekPx
+
+    // Periods visible in the window — include a period if any of its weeks are visible.
+    // weekCount is clamped to the number of visible weeks so the header cell widths sum
+    // to exactly chartWidth (important for the FY label and today marker alignment).
+    const visiblePeriodIndices = new Set(visibleWeeks.map(w => w.periodIndex))
+    const visiblePeriods: FiscalPeriod[] = FY_PERIODS
+      .filter(p => visiblePeriodIndices.has(p.index))
+      .map(p => {
+        const weeksInPeriod = visibleWeeks.filter(w => w.periodIndex === p.index).length
+        return { ...p, weekCount: weeksInPeriod }
+      })
+
+    // Quarters — show the parent quarters of all visible weeks.
+    // Each entry's weekCount = number of visible weeks it contributes.
+    const visibleQIndices = new Set(visibleWeeks.map(w => w.quarterIndex))
+    const visibleQuarters: FiscalQuarter[] = FY_QUARTERS
+      .filter(q => visibleQIndices.has(q.index))
+      .map(q => {
+        const weeksInQ = visibleWeeks.filter(w => w.quarterIndex === q.index).length
+        return { ...q, weekCount: weeksInQ }
+      })
+
+    // Dynamic coordinate functions relative to the visible window's start date.
+    // These replace the module-level dateToX / xToDate for all child components.
+    const dToX = (iso: string): number => {
+      if (!iso) return -1
+      const d = new Date(iso + 'T00:00:00')
+      return (daysBetween(visibleStart, d) / 7) * weekPx
+    }
+
+    const xToD = (px: number): string => {
+      const clamped = Math.max(0, Math.min(px, chartWidth))
+      const days = Math.round((clamped / weekPx) * 7)
+      const d = new Date(visibleStart)
+      d.setDate(d.getDate() + days)
+      return [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0'),
+      ].join('-')
+    }
+
+    // Today's pixel position relative to visibleStart.
+    // Offset by half a day so the line sits in the middle of today's column.
+    const now = new Date()
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const todayXPos = dToX(todayIso) + weekPx / 14
+
+    return {
+      weekPx,
+      chartWidth,
+      visibleWeeks,
+      visiblePeriods,
+      visibleQuarters,
+      visibleOffset,
+      todayXPos,
+      dateToX: dToX,
+      xToDate: xToD,
+    }
+  }, [zoomMode, selectedQIdx, selectedPIdx, containerWidth])
 
   // Auto-scroll to current week on mount
   useEffect(() => {
@@ -1504,54 +1682,114 @@ export function PlanningPage() {
             Clear all
           </button>
         )}
+
+        {/* Zoom mode toggle — Year shows the full FY, Quarter and Period zoom into a
+            selected window at a wider pixel-per-week scale.  Placed at the right end
+            of the filter bar so it doesn't disrupt the search/dropdown group. */}
+        <div className="ml-auto flex items-center gap-2">
+          <SegmentedControl
+            options={[
+              { value: 'year',    label: 'Year' },
+              { value: 'quarter', label: 'Quarter' },
+              { value: 'period',  label: 'Month' },
+            ] as { value: ZoomMode; label: string }[]}
+            value={zoomMode}
+            onChange={setZoomMode}
+          />
+
+          {/* Quarter navigation — prev/next arrows with the current quarter label */}
+          {zoomMode === 'quarter' && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSelectedQIdx(i => Math.max(0, i - 1))}
+                disabled={selectedQIdx === 0}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Previous quarter"
+              >
+                ‹
+              </button>
+              <span className="text-xs font-semibold text-slate-700 w-6 text-center">
+                {FY_QUARTERS[selectedQIdx].label}
+              </span>
+              <button
+                onClick={() => setSelectedQIdx(i => Math.min(FY_QUARTERS.length - 1, i + 1))}
+                disabled={selectedQIdx === FY_QUARTERS.length - 1}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Next quarter"
+              >
+                ›
+              </button>
+            </div>
+          )}
+
+          {/* Period (Month) navigation — prev/next arrows with the current period label */}
+          {zoomMode === 'period' && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSelectedPIdx(i => Math.max(0, i - 1))}
+                disabled={selectedPIdx === 0}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Previous period"
+              >
+                ‹
+              </button>
+              <span className="text-xs font-semibold text-slate-700 w-6 text-center">
+                {FY_PERIODS[selectedPIdx].label}
+              </span>
+              <button
+                onClick={() => setSelectedPIdx(i => Math.min(FY_PERIODS.length - 1, i + 1))}
+                disabled={selectedPIdx === FY_PERIODS.length - 1}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Next period"
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Gantt */}
+      {/* Gantt — wrapped in GanttCtx.Provider so all descendant components (headers,
+          row bars, dividers) receive the correct zoom-relative chart dimensions and
+          coordinate functions without prop drilling. */}
+      <GanttCtx.Provider value={ganttConfig}>
       <div
         ref={scrollRef}
         className="flex-1 overflow-x-auto overflow-y-auto border border-slate-200 rounded-xl"
         style={{ minHeight: 0, background: 'var(--gantt-surface)' }}
       >
-        {/* Sticky header (calendar rows) */}
-        <div className="sticky top-0 z-20 flex" style={{ minWidth: LEFT_COL_W + CHART_WIDTH }}>
+        {/* Sticky header (calendar rows).
+            minWidth uses ganttConfig.chartWidth so the header always spans exactly
+            the visible window, regardless of zoom mode. */}
+        <div className="sticky top-0 z-20 flex" style={{ minWidth: LEFT_COL_W + ganttConfig.chartWidth }}>
           {/* Left column header — view toggle lives here instead of the page header */}
           <div
             className="sticky left-0 z-30 border-r border-b border-slate-200 shrink-0 flex items-center justify-center"
             style={{ width: LEFT_COL_W, background: 'var(--gantt-surface)' }}
           >
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
-              <button
-                onClick={() => setView('member')}
-                className={cn(
-                  'px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-                  view === 'member' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700',
-                )}
-              >
-                Member
-              </button>
-              <button
-                onClick={() => setView('project')}
-                className={cn(
-                  'px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-                  view === 'project' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700',
-                )}
-              >
-                Project
-              </button>
-            </div>
+            <SegmentedControl
+              options={[
+                { value: 'member',  label: 'Member' },
+                { value: 'project', label: 'Project' },
+              ] as { value: typeof view; label: string }[]}
+              value={view}
+              onChange={setView}
+            />
           </div>
-          {/* Calendar headers */}
-          <GanttHeaders todayLeftPx={txPx} />
+          {/* Calendar headers — reads dimensions and visible windows from GanttCtx */}
+          <GanttHeaders />
         </div>
 
         {/* Rows — single today line on the container so it's never broken at row boundaries.
             Uses a large explicit height (not bottom:0) because the container has auto height,
-            which makes bottom:0 resolve to 0. The scroll container clips any excess. */}
-        <div className="relative" style={{ minWidth: LEFT_COL_W + CHART_WIDTH }}>
-          {txPx >= 0 && txPx <= CHART_WIDTH && (
+            which makes bottom:0 resolve to 0. The scroll container clips any excess.
+            Today line position and visibility come from ganttConfig so they track the
+            visible window correctly in quarter/period zoom modes. */}
+        <div className="relative" style={{ minWidth: LEFT_COL_W + ganttConfig.chartWidth }}>
+          {ganttConfig.todayXPos >= 0 && ganttConfig.todayXPos <= ganttConfig.chartWidth && (
             <div
               className="absolute w-px bg-red-500 pointer-events-none"
-              style={{ left: LEFT_COL_W + txPx, top: 0, height: 9999, zIndex: 5 }}
+              style={{ left: LEFT_COL_W + ganttConfig.todayXPos, top: 0, height: 9999, zIndex: 5 }}
             />
           )}
           {view === 'member' ? (
@@ -1583,7 +1821,7 @@ export function PlanningPage() {
                     key={p.id}
                     project={p}
                     members={members}
-                    onEdit={proj => setProjectModal({ open: true, project: proj })}
+                    onEdit={proj => navigate(`/projects/${proj.id}`, { state: { from: '/planning' } })}
                   />
                 ))}
               </div>
@@ -1591,20 +1829,7 @@ export function PlanningPage() {
           )}
         </div>
       </div>
-
-      {/* Project form — opened by clicking a bar in the Project view */}
-      {view === 'project' && (
-        <ProjectFormDialog
-          key={projectModal.project?.id ?? 'new'}
-          open={projectModal.open}
-          onOpenChange={open => setProjectModal(s => ({ ...s, open }))}
-          initial={projectModal.project}
-          onSave={(draft, id) => {
-            if (id) updateProject(id, draft)
-            else addProject(draft)
-          }}
-        />
-      )}
+      </GanttCtx.Provider>
     </div>
   )
 }

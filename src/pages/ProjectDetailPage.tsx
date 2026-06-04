@@ -19,11 +19,13 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, Plus, ChevronUp, ChevronDown, Trash2, X, Check,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { StakeholderTagInput } from '@/components/ui/stakeholder-tag-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -71,48 +73,6 @@ function roleChipClass(role: string, active: boolean): string {
   const bg     = ROLE_COLORS[role] ?? 'bg-slate-400'
   const border = bg.replace('bg-', 'border-')
   return cn(bg, 'text-white', border)
-}
-
-// ─── Stakeholder tag input ────────────────────────────────────────────────
-// Comma-separated tags stored as a plain string; same implementation as
-// the one inside ProjectFormDialog so behaviour is identical.
-
-function StakeholderTagInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const tags  = value.split(',').map(t => t.trim()).filter(Boolean)
-  const [input, setInput] = useState('')
-
-  function addTag(raw: string) {
-    const tag = raw.trim()
-    if (tag && !tags.includes(tag)) onChange([...tags, tag].join(', '))
-    setInput('')
-  }
-  function removeTag(tag: string) {
-    onChange(tags.filter(t => t !== tag).join(', '))
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-10 bg-white cursor-text">
-      {tags.map(tag => (
-        <span key={tag} className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-medium shrink-0">
-          {tag}
-          <button type="button" onClick={() => removeTag(tag)} className="hover:bg-slate-200 rounded-full p-0.5">
-            <X size={9} />
-          </button>
-        </span>
-      ))}
-      <input
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(input) }
-          else if (e.key === 'Backspace' && !input && tags.length > 0) removeTag(tags[tags.length - 1])
-        }}
-        onBlur={() => addTag(input)}
-        placeholder={tags.length === 0 ? 'Type and press Enter or comma…' : ''}
-        className="flex-1 min-w-[140px] text-sm outline-none bg-transparent placeholder:text-slate-400"
-      />
-    </div>
-  )
 }
 
 // ─── Initiative combobox ──────────────────────────────────────────────────
@@ -262,7 +222,7 @@ function PhaseMemberPicker({ members, assignments, onToggle }: {
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-9 bg-white cursor-text" onClick={() => setOpen(true)}>
+      <div className="flex flex-wrap gap-1.5 p-2 pr-8 border rounded-md min-h-9 bg-white cursor-text" onClick={() => setOpen(true)}>
         {selected.map(m => (
           <span key={m.id} className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-blue-600 text-white rounded-full text-xs font-medium shrink-0">
             {m.name}
@@ -273,6 +233,7 @@ function PhaseMemberPicker({ members, assignments, onToggle }: {
         ))}
         <input value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setOpen(true)} placeholder={selected.length === 0 ? 'Add team members…' : ''} className="flex-1 min-w-[120px] text-xs outline-none bg-transparent placeholder:text-slate-400" />
       </div>
+      <ChevronDown size={14} className="absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
           {filtered.length === 0
@@ -394,16 +355,15 @@ function PhaseCard({
           </div>
         </div>
 
-        {/* Date range */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs font-medium text-slate-600">Start Date</Label>
-            <Input type="date" value={step.startDate} onChange={e => set('startDate', e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-medium text-slate-600">End Date</Label>
-            <Input type="date" value={step.endDate} onChange={e => set('endDate', e.target.value)} className="h-9 text-sm" />
-          </div>
+        {/* Date range — single picker covers start + duration → end */}
+        <div className="space-y-1">
+          <Label className="text-xs font-medium text-slate-600">Date Range</Label>
+          <DateRangePicker
+            startDate={step.startDate}
+            endDate={step.endDate}
+            onChange={(start, end) => onChange({ ...step, startDate: start, endDate: end })}
+            placeholder="Pick start date & duration"
+          />
         </div>
 
         {/* Status + % Complete */}
@@ -428,15 +388,28 @@ function PhaseCard({
             </div>
           </div>
           <div className="space-y-1.5">
-            <div className="flex justify-between">
-              <Label className="text-xs font-medium text-slate-600">% Complete</Label>
-              <span className={cn('text-xs font-semibold', pctColor)}>{step.percentComplete}%</span>
+            <Label className="text-xs font-medium text-slate-600">% Complete</Label>
+            <div className="flex items-center gap-2">
+              <Slider
+                min={0} max={100} step={5}
+                value={[step.percentComplete]}
+                onValueChange={v => set('percentComplete', Array.isArray(v) ? v[0] : v)}
+                className="flex-1"
+              />
+              <div className="flex items-center gap-0.5 shrink-0">
+                <input
+                  type="number"
+                  min={0} max={100}
+                  value={step.percentComplete}
+                  onChange={e => {
+                    const n = Math.min(100, Math.max(0, Number(e.target.value)))
+                    set('percentComplete', isNaN(n) ? 0 : n)
+                  }}
+                  className={cn('w-10 h-6 text-center text-xs font-semibold rounded border border-slate-200 outline-none focus:border-blue-500', pctColor)}
+                />
+                <span className={cn('text-xs font-semibold', pctColor)}>%</span>
+              </div>
             </div>
-            <Slider
-              min={0} max={100} step={5}
-              value={[step.percentComplete]}
-              onValueChange={v => set('percentComplete', Array.isArray(v) ? v[0] : v)}
-            />
           </div>
         </div>
 
@@ -533,6 +506,11 @@ function Field({ label, children, hint }: { label: string; children: React.React
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate      = useNavigate()
+  const location      = useLocation()
+  // Respect the caller's back destination (e.g. /planning) so the back button
+  // returns to wherever the user navigated from, not always /projects.
+  const backTo   = (location.state as { from?: string } | null)?.from ?? '/projects'
+  const backLabel = backTo === '/planning' ? 'Planning' : 'Projects'
   const { projects, members, initiatives, addProject, updateProject } = usePortfolioStore()
 
   // Resolve existing project (undefined for /projects/new).
@@ -621,7 +599,7 @@ export function ProjectDetailPage() {
     } else {
       addProject(draft)
     }
-    navigate('/projects')
+    navigate(backTo)
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -632,9 +610,9 @@ export function ProjectDetailPage() {
       {/* ── Sticky page header ─────────────────────────────────────────── */}
       <div className="shrink-0 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <Link to="/projects" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors shrink-0">
+          <Link to={backTo} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors shrink-0">
             <ArrowLeft size={15} />
-            Projects
+            {backLabel}
           </Link>
           <span className="text-slate-300">/</span>
           <h1 className="text-base font-semibold text-slate-800 truncate">
@@ -642,7 +620,7 @@ export function ProjectDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/projects')}>
+          <Button type="button" variant="outline" size="sm" onClick={() => navigate(backTo)}>
             Cancel
           </Button>
           <Button type="button" size="sm" onClick={handleSave} disabled={!name.trim()}>

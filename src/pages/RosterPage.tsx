@@ -35,6 +35,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
 import { FilterChip } from '@/components/ui/filter-chip'
+import { StatCard } from '@/components/ui/stat-card'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { memberQuarterAllocation, getCurrentQBounds } from '@/lib/fiscal'
 import { avatarColor } from '@/lib/colors'
@@ -56,37 +57,6 @@ function memberQuarterProjectCount(memberId: string, projects: Project[]): numbe
     const pEnd   = new Date(p.targetEndDate + 'T00:00:00')
     return pStart < qEnd && pEnd > qStart
   }).length
-}
-
-// ─── Stat card ────────────────────────────────────────────────────────────
-
-interface StatCardProps {
-  label: string
-  value: string | number
-  icon: React.ReactNode
-  /** Tailwind classes for the icon container background + text */
-  iconColor: string
-  /** Optional soft tint on the card itself for warning states */
-  cardTint?: string
-}
-
-function StatCard({ label, value, icon, iconColor, cardTint }: StatCardProps) {
-  return (
-    <div className={cn(
-      'rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-4',
-      'dark:bg-slate-800 dark:border-slate-700',
-      cardTint,
-    )}>
-      {/* Colored icon bubble */}
-      <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', iconColor)}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">{value}</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{label}</p>
-      </div>
-    </div>
-  )
 }
 
 // ─── Member card ──────────────────────────────────────────────────────────

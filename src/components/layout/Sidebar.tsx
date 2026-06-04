@@ -20,16 +20,16 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  FolderTree,
-  BookUser,
   Target,
   ClipboardList,
   BarChart3,
   Calendar,
+  CalendarOff,
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
   Layers,
+  Network,
   Sun,
   Moon,
 } from 'lucide-react'
@@ -44,11 +44,11 @@ const SIDEBAR_BG = 'var(--sidebar)'
 
 const NAV_ITEMS = [
   { to: '/',            label: 'Dashboard',   icon: LayoutDashboard, end: true },
-  { to: '/portfolio',   label: 'Portfolio',   icon: FolderTree },
+  { to: '/org',         label: 'People',      icon: Network },
   { to: '/initiatives', label: 'Initiatives', icon: Target },
   { to: '/projects',    label: 'Projects',    icon: Layers },
-  { to: '/roster',      label: 'Roster',      icon: BookUser },
   { to: '/planning',    label: 'Planning',    icon: Calendar },
+  { to: '/pto',         label: 'PTO',         icon: CalendarOff },
   { to: '/analytics',   label: 'Analytics',   icon: BarChart3 },
   { to: '/pipeline',    label: 'Pipeline',    icon: ClipboardList },
   { to: '/escalations', label: 'Escalations', icon: ShieldAlert },
@@ -117,8 +117,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 cn(
                   'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                    ? 'bg-slate-200 text-slate-900'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                   // On desktop, when collapsed, centre icons and remove text padding.
                   // On mobile the sidebar is always expanded so `collapsed` never
                   // applies — the md: prefix gates it.

@@ -25,15 +25,17 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
-import { BarChart3, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp } from 'lucide-react'
+import {
+  BarChart3, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp,
+  Search, X, CheckCircle2, Clock, AlertCircle, Layers2,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ColorBadge } from '@/components/ui/color-badge'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
+import { SegmentedControl } from '@/components/ui/segmented-control'
+import { StatCard } from '@/components/ui/stat-card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -82,14 +84,14 @@ type SortDir = 'asc' | 'desc'
 type FinSortKey = 'name' | 'estimatedValue' | 'roi'
 type FinSortDir = 'asc' | 'desc'
 
-/** Shape stored in localStorage for filter persistence. */
+/** Shape stored in localStorage for filter persistence. Arrays = multi-select. */
 interface PersistedFilters {
-  domain: string
-  team: string
-  initiative: string
-  phase: string
-  status: string
-  priority: string
+  domains: string[]
+  teams: string[]
+  initiatives: string[]
+  phases: string[]
+  statuses: string[]
+  priorities: string[]
   dateFrom: string
   dateTo: string
   search: string
@@ -104,7 +106,27 @@ interface PersistedFilters {
 function loadFilters(): PersistedFilters | null {
   try {
     const raw = localStorage.getItem(FILTER_STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as PersistedFilters) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    // Migrate: old shape used single strings with '--all--'/'__all__' sentinels.
+    // New shape uses string arrays (empty = no filter). If a field is a string,
+    // convert to array; if it's '__all__' or '--all--', use empty array.
+    const toArr = (v: unknown): string[] => {
+      if (Array.isArray(v)) return v as string[]
+      if (typeof v === 'string' && v !== '__all__' && v !== '--all--' && v) return [v]
+      return []
+    }
+    return {
+      domains:     toArr(parsed.domain    ?? parsed.domains),
+      teams:       toArr(parsed.team      ?? parsed.teams),
+      initiatives: toArr(parsed.initiative ?? parsed.initiatives),
+      phases:      toArr(parsed.phase     ?? parsed.phases),
+      statuses:    toArr(parsed.status    ?? parsed.statuses),
+      priorities:  toArr(parsed.priority  ?? parsed.priorities),
+      dateFrom:    typeof parsed.dateFrom === 'string' ? parsed.dateFrom : '',
+      dateTo:      typeof parsed.dateTo   === 'string' ? parsed.dateTo   : '',
+      search:      typeof parsed.search   === 'string' ? parsed.search   : '',
+    }
   } catch {
     return null
   }
@@ -122,32 +144,34 @@ function saveFilters(filters: PersistedFilters) {
 // ─── Default filter values ────────────────────────────────────────────────────
 
 const DEFAULT_FILTERS: PersistedFilters = {
-  domain:     '__all__',
-  team:       '__all__',
-  initiative: '__all__',
-  phase:      '__all__',
-  status:     '__all__',
-  priority:   '__all__',
-  dateFrom:   '',
-  dateTo:     '',
-  search:     '',
+  domains:     [],
+  teams:       [],
+  initiatives: [],
+  phases:      [],
+  statuses:    [],
+  priorities:  [],
+  dateFrom:    '',
+  dateTo:      '',
+  search:      '',
 }
 
 // ─── Sort icon ────────────────────────────────────────────────────────────────
 
-function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+// Generic sort icon — works for any string-keyed sort column.
+function SortIcon<K extends string>({ col, sortKey, sortDir }: { col: K; sortKey: K; sortDir: 'asc' | 'desc' }) {
   if (col !== sortKey) return <ChevronsUpDown size={13} className="text-slate-300 ml-1" />
   return sortDir === 'asc'
     ? <ChevronUp size={13} className="text-blue-500 ml-1" />
     : <ChevronDown size={13} className="text-blue-500 ml-1" />
 }
 
-function SortableHead({
+// Generic sortable table header — reused by both the Charts and Financial tables.
+function SortableHead<K extends string>({
   col, label, sortKey, sortDir, onSort,
 }: {
-  col: SortKey; label: string
-  sortKey: SortKey; sortDir: SortDir
-  onSort: (c: SortKey) => void
+  col: K; label: string
+  sortKey: K; sortDir: 'asc' | 'desc'
+  onSort: (c: K) => void
 }) {
   return (
     <TableHead
@@ -400,36 +424,32 @@ export function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<'charts' | 'financial'>('charts')
 
   // ── Filters — initialised from localStorage if available ─────────────────
-  // We read from localStorage once on mount via lazy initialiser so the UI
-  // immediately reflects the user's previous session without a flash of defaults.
-  const saved = loadFilters() ?? DEFAULT_FILTERS
-
-  const [filterDomain,     setFilterDomain]    = useState(saved.domain)
-  const [filterTeam,       setFilterTeam]      = useState(saved.team)
-  const [filterInitiative, setFilterInit]      = useState(saved.initiative)
-  const [filterPhase,      setFilterPhase]     = useState(saved.phase)
-  const [filterStatus,     setFilterStatus]    = useState(saved.status)
-  const [filterPriority,   setFilterPriority]  = useState(saved.priority)
-  const [filterDateFrom,   setDateFrom]        = useState(saved.dateFrom)
-  const [filterDateTo,     setDateTo]          = useState(saved.dateTo)
-  const [search,           setSearch]          = useState(saved.search)
+  // Each useState uses a lazy initialiser (() => ...) so loadFilters() runs
+  // exactly once on mount and is skipped on every subsequent render.
+  const [filterDomains,    setFilterDomains]   = useState<string[]>(() => (loadFilters() ?? DEFAULT_FILTERS).domains)
+  const [filterTeams,      setFilterTeams]     = useState<string[]>(() => (loadFilters() ?? DEFAULT_FILTERS).teams)
+  const [filterInits,      setFilterInits]     = useState<string[]>(() => (loadFilters() ?? DEFAULT_FILTERS).initiatives)
+  const [filterPhases,     setFilterPhases]    = useState<string[]>(() => (loadFilters() ?? DEFAULT_FILTERS).phases)
+  const [filterStatuses,   setFilterStatuses]  = useState<string[]>(() => (loadFilters() ?? DEFAULT_FILTERS).statuses)
+  const [filterPriorities, setFilterPriorities]= useState<string[]>(() => (loadFilters() ?? DEFAULT_FILTERS).priorities)
+  const [filterDateFrom,   setDateFrom]        = useState(() => (loadFilters() ?? DEFAULT_FILTERS).dateFrom)
+  const [filterDateTo,     setDateTo]          = useState(() => (loadFilters() ?? DEFAULT_FILTERS).dateTo)
+  const [search,           setSearch]          = useState(() => (loadFilters() ?? DEFAULT_FILTERS).search)
 
   // ── Persist filters to localStorage on every change ──────────────────────
-  // Runs after render whenever any filter value changes. We write the whole
-  // filter object at once to avoid partial-state reads on next mount.
   useEffect(() => {
     saveFilters({
-      domain:     filterDomain,
-      team:       filterTeam,
-      initiative: filterInitiative,
-      phase:      filterPhase,
-      status:     filterStatus,
-      priority:   filterPriority,
-      dateFrom:   filterDateFrom,
-      dateTo:     filterDateTo,
+      domains:     filterDomains,
+      teams:       filterTeams,
+      initiatives: filterInits,
+      phases:      filterPhases,
+      statuses:    filterStatuses,
+      priorities:  filterPriorities,
+      dateFrom:    filterDateFrom,
+      dateTo:      filterDateTo,
       search,
     })
-  }, [filterDomain, filterTeam, filterInitiative, filterPhase, filterStatus, filterPriority, filterDateFrom, filterDateTo, search])
+  }, [filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities, filterDateFrom, filterDateTo, search])
 
   // ── Sort ─────────────────────────────────────────────────────────────────
   const [sortKey, setSortKey] = useState<SortKey>('name')
@@ -445,29 +465,34 @@ export function AnalyticsPage() {
   const memberTeamMap = useMemo(() => new Map(members.map(m => [m.id, m.teamIds])), [members])
   const teamDomainMap = useMemo(() => new Map(teams.map(t => [t.id, t.domainId])), [teams])
 
-  function projectDomainId(p: Project): string {
-    const teamId = p.assignments.flatMap(a => memberTeamMap.get(a.memberId) ?? []).find(Boolean)
+  // Resolve domain/team for a project by walking its assignments through the
+  // member→team→domain maps. Takes the first team found (projects are typically
+  // owned by one team). Stable between renders as long as the maps are stable.
+  const projectTeamId = useMemo(() => (p: Project): string =>
+    p.assignments.flatMap(a => memberTeamMap.get(a.memberId) ?? []).find(Boolean) ?? '',
+  [memberTeamMap])
+
+  const projectDomainId = useMemo(() => (p: Project): string => {
+    const teamId = projectTeamId(p)
     return teamId ? (teamDomainMap.get(teamId) ?? '') : ''
-  }
-  function projectTeamId(p: Project): string {
-    return p.assignments.flatMap(a => memberTeamMap.get(a.memberId) ?? []).find(Boolean) ?? ''
-  }
+  }, [projectTeamId, teamDomainMap])
 
   // ── Filtered projects ─────────────────────────────────────────────────────
+  // Empty array = "no filter" (show all). Non-empty = must include at least one.
   const filtered = useMemo(() => {
     return projects.filter(p => {
-      if (filterDomain     !== '__all__' && projectDomainId(p) !== filterDomain)     return false
-      if (filterTeam       !== '__all__' && projectTeamId(p)   !== filterTeam)       return false
-      if (filterInitiative !== '__all__' && p.initiativeId     !== filterInitiative) return false
-      if (filterPhase      !== '__all__' && p.phase            !== filterPhase)       return false
-      if (filterStatus     !== '__all__' && p.status           !== filterStatus)      return false
-      if (filterPriority   !== '__all__' && p.priority         !== filterPriority)    return false
-      if (filterDateFrom   && p.targetEndDate && p.targetEndDate < filterDateFrom)   return false
-      if (filterDateTo     && p.targetEndDate && p.targetEndDate > filterDateTo)     return false
-      if (search && !p.name.toLowerCase().includes(search.toLowerCase()))            return false
+      if (filterDomains.length    > 0 && !filterDomains.includes(projectDomainId(p)))    return false
+      if (filterTeams.length      > 0 && !filterTeams.includes(projectTeamId(p)))        return false
+      if (filterInits.length      > 0 && !filterInits.includes(p.initiativeId ?? ''))   return false
+      if (filterPhases.length     > 0 && !filterPhases.includes(p.phase))               return false
+      if (filterStatuses.length   > 0 && !filterStatuses.includes(p.status))            return false
+      if (filterPriorities.length > 0 && !filterPriorities.includes(p.priority))        return false
+      if (filterDateFrom && p.targetEndDate && p.targetEndDate < filterDateFrom)         return false
+      if (filterDateTo   && p.targetEndDate && p.targetEndDate > filterDateTo)           return false
+      if (search && !p.name.toLowerCase().includes(search.toLowerCase()))                return false
       return true
     })
-  }, [projects, filterDomain, filterTeam, filterInitiative, filterPhase, filterStatus, filterPriority, filterDateFrom, filterDateTo, search])
+  }, [projects, filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities, filterDateFrom, filterDateTo, search, projectDomainId, projectTeamId])
 
   // ── Sorted ────────────────────────────────────────────────────────────────
   const sorted = useMemo(() => {
@@ -480,11 +505,10 @@ export function AnalyticsPage() {
   }, [filtered, sortKey, sortDir])
 
   // ── Teams available for filter ────────────────────────────────────────────
-  // When a domain filter is active, only show teams within that domain so the
-  // team dropdown doesn't offer irrelevant options.
-  const filteredTeams = filterDomain === '__all__'
+  // When domain filters are active, only show teams within those domains.
+  const filteredTeams = filterDomains.length === 0
     ? teams
-    : teams.filter(t => t.domainId === filterDomain)
+    : teams.filter(t => filterDomains.includes(t.domainId))
 
   // ── Chart data ────────────────────────────────────────────────────────────
   const phases: ProjectPhase[] = ['Research','Discovery','Development','QA','Deployed','On Hold']
@@ -537,13 +561,14 @@ export function AnalyticsPage() {
   }
 
   function resetFilters() {
-    setFilterDomain('__all__'); setFilterTeam('__all__'); setFilterInit('__all__')
-    setFilterPhase('__all__'); setFilterStatus('__all__'); setFilterPriority('__all__')
+    setFilterDomains([]); setFilterTeams([]); setFilterInits([])
+    setFilterPhases([]); setFilterStatuses([]); setFilterPriorities([])
     setDateFrom(''); setDateTo(''); setSearch('')
   }
 
-  const hasFilters = [filterDomain, filterTeam, filterInitiative, filterPhase, filterStatus, filterPriority]
-    .some(f => f !== '__all__') || filterDateFrom || filterDateTo || search
+  const hasFilters =
+    [filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities].some(a => a.length > 0)
+    || filterDateFrom || filterDateTo || search
 
   // ── Financial tab — sort state ────────────────────────────────────────────
   const [finSortKey, setFinSortKey] = useState<FinSortKey>('estimatedValue')
@@ -693,138 +718,150 @@ export function AnalyticsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, members, teams, rateByRole, finSortKey, finSortDir])
 
+  // Stat counts derived from filtered projects for the stats bar.
+  const inProgressCount = filtered.filter(p => p.status === 'In Progress').length
+  const blockedCount    = filtered.filter(p => p.status === 'Blocked').length
+  const completeCount   = filtered.filter(p => p.status === 'Complete').length
+
   return (
     <div className="p-8 space-y-6 overflow-y-auto h-full">
       {/* Header + tab bar */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Portfolio Analytics</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-          Showing {filtered.length} of {projects.length} projects
-        </p>
 
-        {/* Tab switcher — sits below the subtitle */}
-        <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
-          {(['charts', 'financial'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors',
-                activeTab === tab
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300',
-              )}
-            >
-              {tab === 'financial' ? 'Financial' : 'Charts'}
-            </button>
-          ))}
+        {/* Tab switcher — same SegmentedControl used on Planning and PTO pages */}
+        <div className="mt-3">
+          <SegmentedControl
+            options={[
+              { value: 'charts',    label: 'Charts' },
+              { value: 'financial', label: 'Financial' },
+            ] as { value: 'charts' | 'financial'; label: string }[]}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
         </div>
       </div>
 
-      {/* Filters — shown on both tabs */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold text-slate-700">Filters</CardTitle>
-            {hasFilters && (
-              <Button variant="outline" size="sm" onClick={resetFilters}>Reset all</Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-            {/* Search */}
-            <div className="space-y-1 xl:col-span-2">
-              <Label className="text-xs">Search projects</Label>
-              <Input placeholder="Project name…" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+      {/* ── Stats bar — mirrors OrgPage's StatCard grid ───────────────────────── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          label={`of ${projects.length} total`}
+          value={filtered.length}
+          icon={<Layers2 size={18} />}
+          iconColor="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+        />
+        <StatCard
+          label="In Progress"
+          value={inProgressCount}
+          icon={<Clock size={18} />}
+          iconColor="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+        />
+        <StatCard
+          label="Blocked"
+          value={blockedCount}
+          icon={<AlertCircle size={18} />}
+          iconColor="bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+          cardTint={blockedCount > 0 ? 'bg-red-50/50 dark:bg-red-950/10' : undefined}
+        />
+        <StatCard
+          label="Complete"
+          value={completeCount}
+          icon={<CheckCircle2 size={18} />}
+          iconColor="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+        />
+      </div>
 
-            {/* Domain */}
-            <div className="space-y-1">
-              <Label className="text-xs">Domain</Label>
-              <Select value={filterDomain} onValueChange={v => { if (v) { setFilterDomain(v); setFilterTeam('__all__') } }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Domains</SelectItem>
-                  {domains.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* ── Inline filter bar — search + MultiSelectDropdowns matching OrgPage ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search with icon + clear */}
+        <div className="relative shrink-0 w-full sm:w-64">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <Input
+            placeholder="Search projects…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8 pr-8 h-9 text-sm dark:bg-slate-800 dark:border-slate-600"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              aria-label="Clear search"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
 
-            {/* Team */}
-            <div className="space-y-1">
-              <Label className="text-xs">Team</Label>
-              <Select value={filterTeam} onValueChange={v => v && setFilterTeam(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Teams</SelectItem>
-                  {filteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Domain — clearing domain also clears teams (dependent filter) */}
+        <MultiSelectDropdown
+          label="Domain"
+          options={domains.map(d => ({ id: d.id, label: d.name }))}
+          selected={filterDomains}
+          onChange={v => { setFilterDomains(v); setFilterTeams([]) }}
+        />
 
-            {/* Initiative */}
-            <div className="space-y-1">
-              <Label className="text-xs">Initiative</Label>
-              <Select value={filterInitiative} onValueChange={v => v && setFilterInit(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Initiatives</SelectItem>
-                  {initiatives.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Team — restricted to selected domains when any are active */}
+        <MultiSelectDropdown
+          label="Team"
+          options={filteredTeams.map(t => ({ id: t.id, label: t.name }))}
+          selected={filterTeams}
+          onChange={setFilterTeams}
+        />
 
-            {/* Phase */}
-            <div className="space-y-1">
-              <Label className="text-xs">Phase</Label>
-              <Select value={filterPhase} onValueChange={v => v && setFilterPhase(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Phases</SelectItem>
-                  {phases.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+        <MultiSelectDropdown
+          label="Initiative"
+          options={initiatives.map(i => ({ id: i.id, label: i.name }))}
+          selected={filterInits}
+          onChange={setFilterInits}
+        />
 
-            {/* Status */}
-            <div className="space-y-1">
-              <Label className="text-xs">Status</Label>
-              <Select value={filterStatus} onValueChange={v => v && setFilterStatus(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Statuses</SelectItem>
-                  {statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+        <MultiSelectDropdown
+          label="Phase"
+          options={phases.map(p => ({ id: p, label: p }))}
+          selected={filterPhases}
+          onChange={setFilterPhases}
+        />
 
-            {/* Priority */}
-            <div className="space-y-1">
-              <Label className="text-xs">Priority</Label>
-              <Select value={filterPriority} onValueChange={v => v && setFilterPriority(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Priorities</SelectItem>
-                  {(['Low','Medium','High','Critical'] as Priority[]).map(p =>
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+        <MultiSelectDropdown
+          label="Status"
+          options={statuses.map(s => ({ id: s, label: s }))}
+          selected={filterStatuses}
+          onChange={setFilterStatuses}
+        />
 
-            {/* Date range */}
-            <div className="space-y-1">
-              <Label className="text-xs">Target Date From</Label>
-              <Input type="date" value={filterDateFrom} onChange={e => setDateFrom(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Target Date To</Label>
-              <Input type="date" value={filterDateTo} onChange={e => setDateTo(e.target.value)} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <MultiSelectDropdown
+          label="Priority"
+          options={(['Low','Medium','High','Critical'] as Priority[]).map(p => ({ id: p, label: p }))}
+          selected={filterPriorities}
+          onChange={setFilterPriorities}
+        />
+
+        {/* Date range */}
+        <Input
+          type="date"
+          value={filterDateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+          className="h-9 w-36 text-sm dark:bg-slate-800 dark:border-slate-600"
+          title="Target date from"
+        />
+        <Input
+          type="date"
+          value={filterDateTo}
+          onChange={e => setDateTo(e.target.value)}
+          className="h-9 w-36 text-sm dark:bg-slate-800 dark:border-slate-600"
+          title="Target date to"
+        />
+
+        {hasFilters && (
+          <button
+            onClick={resetFilters}
+            className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-1"
+          >
+            Reset all
+          </button>
+        )}
+      </div>
 
       {/* ── Charts tab ─────────────────────────────────────────────────── */}
       {activeTab === 'charts' && <>
@@ -1061,44 +1098,13 @@ export function AnalyticsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* Sortable: name, estimatedValue, roi */}
-                    <TableHead
-                      className="cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
-                      onClick={() => handleFinSort('name')}
-                    >
-                      <span className="inline-flex items-center">
-                        Project
-                        {finSortKey === 'name'
-                          ? (finSortDir === 'asc' ? <ChevronUp size={13} className="text-blue-500 ml-1" /> : <ChevronDown size={13} className="text-blue-500 ml-1" />)
-                          : <ChevronsUpDown size={13} className="text-slate-300 ml-1" />}
-                      </span>
-                    </TableHead>
+                    <SortableHead col="name"           label="Project"    sortKey={finSortKey} sortDir={finSortDir} onSort={handleFinSort} />
                     <TableHead>Team</TableHead>
                     <TableHead>Value Type</TableHead>
-                    <TableHead
-                      className="cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
-                      onClick={() => handleFinSort('estimatedValue')}
-                    >
-                      <span className="inline-flex items-center">
-                        Est. Value
-                        {finSortKey === 'estimatedValue'
-                          ? (finSortDir === 'asc' ? <ChevronUp size={13} className="text-blue-500 ml-1" /> : <ChevronDown size={13} className="text-blue-500 ml-1" />)
-                          : <ChevronsUpDown size={13} className="text-slate-300 ml-1" />}
-                      </span>
-                    </TableHead>
+                    <SortableHead col="estimatedValue" label="Est. Value"  sortKey={finSortKey} sortDir={finSortDir} onSort={handleFinSort} />
                     <TableHead>Actual Value</TableHead>
                     <TableHead>Cost Share</TableHead>
-                    <TableHead
-                      className="cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
-                      onClick={() => handleFinSort('roi')}
-                    >
-                      <span className="inline-flex items-center">
-                        ROI
-                        {finSortKey === 'roi'
-                          ? (finSortDir === 'asc' ? <ChevronUp size={13} className="text-blue-500 ml-1" /> : <ChevronDown size={13} className="text-blue-500 ml-1" />)
-                          : <ChevronsUpDown size={13} className="text-slate-300 ml-1" />}
-                      </span>
-                    </TableHead>
+                    <SortableHead col="roi"            label="ROI"         sortKey={finSortKey} sortDir={finSortDir} onSort={handleFinSort} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -20,6 +20,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { SearchModal } from './SearchModal'
+import { FloatingChat } from '@/components/chat/FloatingChat'
 
 export function AppLayout() {
   // Controls the mobile overlay sidebar. Desktop ignores this state entirely.
@@ -39,6 +40,9 @@ export function AppLayout() {
       {/* Command palette — rendered at this level so it overlays all pages
           without being torn down on route changes. */}
       <SearchModal />
+      {/* AI Assistant — floating chat widget pinned to the bottom-right of
+          the viewport; persists across page navigations. */}
+      <FloatingChat />
     </div>
   )
 }

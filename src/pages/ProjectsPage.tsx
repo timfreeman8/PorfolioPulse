@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { JiraImportDialog } from '@/components/projects/JiraImportDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
+import { exportProjectsCsv, downloadCsv } from '@/lib/csv'
 import {
   STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS,
 } from '@/lib/colors'
@@ -248,6 +249,12 @@ export function ProjectsPage() {
     if (window.confirm('Delete this project? This cannot be undone.')) deleteProject(id)
   }
 
+  /** Export the currently visible (filtered) project list as a CSV download. */
+  function handleExportCsv() {
+    const ts = new Date().toISOString().slice(0, 10)
+    downloadCsv(`projects-${ts}.csv`, exportProjectsCsv(filtered, initiatives))
+  }
+
   return (
     <div className="p-8 space-y-6 overflow-y-auto h-full flex flex-col">
       {/* Page header */}
@@ -261,9 +268,18 @@ export function ProjectsPage() {
             )}
           </p>
         </div>
-        {/* Only admins can add or import projects */}
-        {isAdmin && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {/* Primary action first */}
+          {isAdmin && (
+            <Button
+              onClick={() => navigate('/projects/new')}
+              className="gap-2"
+            >
+              <Plus size={15} />
+              Add Project
+            </Button>
+          )}
+          {isAdmin && (
             <Button
               variant="outline"
               onClick={() => setJiraImportOpen(true)}
@@ -272,15 +288,21 @@ export function ProjectsPage() {
               <Download size={15} />
               Import from Jira
             </Button>
-            <Button
-              onClick={() => navigate('/projects/new')}
-              className="gap-2"
-            >
-              <Plus size={15} />
-              Add Project
-            </Button>
-          </div>
-        )}
+          )}
+          {/* Export respects current filters — exports only what the user sees */}
+          <Button
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={filtered.length === 0}
+            className="gap-2"
+          >
+            <Download size={15} />
+            Export CSV
+            {filtered.length !== projects.length && (
+              <span className="text-xs text-slate-400">({filtered.length})</span>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Search + filters — all in one row */}

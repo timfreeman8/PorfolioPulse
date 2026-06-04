@@ -21,10 +21,11 @@
  * common bug where a sortable member accidentally collides with a drop zone
  * in a nearby team when the user only intended to sort.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ChevronRight, ChevronDown, Plus, Pencil, Trash2,
   Building2, Users, UserCircle, GripVertical,
+  Download, Upload,
 } from 'lucide-react'
 import { memberQuarterAllocation } from '@/lib/fiscal'
 import {
@@ -49,6 +50,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { ColorBadge } from '@/components/ui/color-badge'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { cn } from '@/lib/utils'
@@ -594,6 +598,28 @@ function DomainForm({
   const [description, setDescription] = useState(initial?.description ?? '')
   const [owner, setOwner] = useState(initial?.owner ?? '')
 
+  // Build the list of selectable owners from the SAT Leadership domain so the
+  // dropdown always reflects the live roster rather than a hardcoded list.
+  // Three separate selectors avoid the infinite-loop that Zustand triggers when
+  // a selector returns a new object reference on every render.
+  const domains = usePortfolioStore(s => s.domains)
+  const teams = usePortfolioStore(s => s.teams)
+  const members = usePortfolioStore(s => s.members)
+  const leadershipDomain = domains.find(d => d.name === 'SAT Leadership')
+  const leadershipTeamIds = new Set(
+    leadershipDomain ? teams.filter(t => t.domainId === leadershipDomain.id).map(t => t.id) : []
+  )
+  const ownerCandidates = members
+    .filter(m => m.teamIds.some(tid => leadershipTeamIds.has(tid)))
+    .map(m => m.name)
+    .sort()
+
+  // If the stored owner isn't in the live roster (e.g. stale data), include it
+  // so the form never silently loses an existing value on save.
+  const selectItems = ownerCandidates.includes(owner) || !owner
+    ? ownerCandidates
+    : [...ownerCandidates, owner]
+
   return (
     <form
       onSubmit={e => { e.preventDefault(); onSubmit({ name, description, owner }) }}
@@ -608,8 +634,23 @@ function DomainForm({
         <Textarea id="d-desc" value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Short description of this domain" />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="d-owner" className="text-xs font-medium text-slate-600">Owner</Label>
-        <Input id="d-owner" value={owner} onChange={e => setOwner(e.target.value)} placeholder="Owner name" />
+        <Label className="text-xs font-medium text-slate-600">Owner</Label>
+        {/* Select is populated from SAT Leadership team members; falls back to a
+            plain input when no leadership members exist (e.g. empty data state). */}
+        {selectItems.length > 0 ? (
+          <Select value={owner || undefined} onValueChange={v => setOwner(v ?? '')}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select an owner" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectItems.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Owner name" />
+        )}
       </div>
       <DialogFooter className="pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -733,6 +774,75 @@ function MemberForm({
   )
 }
 
+// ─── CSV helpers ──────────────────────────────────────────────────────────
+
+/**
+ * CSV column order for export and import:
+ *   Domain, Team, Name, Role, Reports To, Capacity
+ *
+ * Multi-team members produce one row per team so the file stays flat and
+ * round-trips cleanly (import re-associates the member with each team).
+ */
+const CSV_HEADERS = ['Domain', 'Team', 'Name', 'Role', 'Reports To', 'Capacity']
+
+function escapeCell(v: string | number): string {
+  const s = String(v ?? '')
+  // Quote cells that contain commas, quotes, or newlines.
+  return s.includes(',') || s.includes('"') || s.includes('\n')
+    ? `"${s.replace(/"/g, '""')}"`
+    : s
+}
+
+function buildCSV(
+  domains: import('@/types').Domain[],
+  teams:   import('@/types').Team[],
+  members: import('@/types').Member[],
+): string {
+  const rows: string[] = [CSV_HEADERS.join(',')]
+  for (const domain of domains) {
+    const domainTeams = teams.filter(t => t.domainId === domain.id)
+    for (const team of domainTeams) {
+      const teamMembers = members.filter(m => m.teamIds.includes(team.id))
+      for (const member of teamMembers) {
+        rows.push([
+          escapeCell(domain.name),
+          escapeCell(team.name),
+          escapeCell(member.name),
+          escapeCell(member.role),
+          escapeCell(member.reportsTo ?? ''),
+          escapeCell(member.capacity),
+        ].join(','))
+      }
+    }
+  }
+  return rows.join('\n')
+}
+
+/** Parses a quoted or unquoted CSV cell value. */
+function parseCSVLine(line: string): string[] {
+  const cells: string[] = []
+  let i = 0
+  while (i < line.length) {
+    if (line[i] === '"') {
+      let cell = ''
+      i++ // skip opening quote
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') { cell += '"'; i += 2 }
+        else if (line[i] === '"') { i++; break }
+        else { cell += line[i++] }
+      }
+      cells.push(cell)
+      if (line[i] === ',') i++
+    } else {
+      const end = line.indexOf(',', i)
+      if (end === -1) { cells.push(line.slice(i)); break }
+      cells.push(line.slice(i, end))
+      i = end + 1
+    }
+  }
+  return cells
+}
+
 // ─── Portfolio page ───────────────────────────────────────────────────────
 
 export function PortfolioPage() {
@@ -747,8 +857,10 @@ export function PortfolioPage() {
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(
     () => new Set(domains.slice(0, 1).map(d => d.id))
   )
-  const [modal, setModal]             = useState<ModalState>(null)
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [modal, setModal]               = useState<ModalState>(null)
+  const [deleteTarget, setDeleteTarget]  = useState<DeleteTarget | null>(null)
+  const [importError, setImportError]    = useState<string | null>(null)
+  const fileInputRef                     = useRef<HTMLInputElement>(null)
 
   // Track the active drag so child components can highlight their drop zones.
   const [activeDragType, setActiveDragType] = useState<ActiveDragType>(null)
@@ -936,6 +1048,97 @@ export function PortfolioPage() {
     ? domains.find(d => d.id === activeDragId) ?? null
     : null
 
+  // ── CSV export ──────────────────────────────────────────────────────────
+  function handleDownloadCSV() {
+    const csv = buildCSV(domains, teams, members)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = 'portfolio-roster.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ── CSV import ──────────────────────────────────────────────────────────
+  // Finds or creates domains and teams by name, then adds or updates members.
+  // Members that already exist (matched by exact name, case-insensitive) have
+  // the new team merged into their teamIds rather than being duplicated.
+  function handleImportCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    setImportError(null)
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset so the same file can be re-imported after edits.
+    e.target.value = ''
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const text  = (ev.target?.result as string) ?? ''
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+        if (lines.length < 2) { setImportError('CSV has no data rows.'); return }
+
+        // Skip header row
+        const dataLines = lines.slice(1)
+        let added = 0
+
+        for (const line of dataLines) {
+          const cols = parseCSVLine(line)
+          const [domainName, teamName, memberName, role, reportsTo, capacityRaw] = cols.map(c => c.trim())
+          if (!domainName || !teamName || !memberName) continue
+
+          // Find or create domain
+          let domain = domains.find(d => d.name.toLowerCase() === domainName.toLowerCase())
+          if (!domain) {
+            addDomain({ name: domainName, description: '', owner: '' })
+            // After addDomain the store updates; re-read from the store snapshot
+            // isn't possible mid-loop — use a local cache instead.
+            domain = usePortfolioStore.getState().domains.find(d => d.name.toLowerCase() === domainName.toLowerCase())!
+          }
+
+          // Find or create team within domain
+          let team = teams.find(t => t.domainId === domain!.id && t.name.toLowerCase() === teamName.toLowerCase())
+            ?? usePortfolioStore.getState().teams.find(t => t.domainId === domain!.id && t.name.toLowerCase() === teamName.toLowerCase())
+          if (!team) {
+            addTeam({ domainId: domain.id, name: teamName, description: '', techLead: '' })
+            team = usePortfolioStore.getState().teams.find(t => t.domainId === domain!.id && t.name.toLowerCase() === teamName.toLowerCase())!
+          }
+
+          // Find or create member
+          const existing = members.find(m => m.name.toLowerCase() === memberName.toLowerCase())
+            ?? usePortfolioStore.getState().members.find(m => m.name.toLowerCase() === memberName.toLowerCase())
+
+          const capacity = Math.min(100, Math.max(0, Number(capacityRaw) || 100))
+          const initials = memberName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+          if (existing) {
+            // Merge team into existing member's teamIds if not already present
+            if (!existing.teamIds.includes(team.id)) {
+              updateMember(existing.id, { teamIds: [...existing.teamIds, team.id] })
+            }
+          } else {
+            addMember({
+              teamIds: [team.id],
+              name: memberName,
+              role: role ?? '',
+              reportsTo: reportsTo || undefined,
+              capacity,
+              avatarInitials: initials,
+            })
+            added++
+          }
+        }
+
+        // Expand all affected domains so user sees the imported data
+        const freshDomains = usePortfolioStore.getState().domains
+        setExpandedDomains(new Set(freshDomains.map(d => d.id)))
+      } catch {
+        setImportError('Failed to parse CSV. Check the file format and try again.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -952,10 +1155,36 @@ export function PortfolioPage() {
               {domains.length} domain{domains.length !== 1 ? 's' : ''} · Expand to see teams and members
             </p>
           </div>
-          <Button onClick={() => setModal({ type: 'domain', mode: 'add' })}>
-            <Plus size={15} /> Add Domain
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Hidden file input for CSV upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleImportCSV}
+            />
+            <Button onClick={() => setModal({ type: 'domain', mode: 'add' })}>
+              <Plus size={15} /> Add Domain
+            </Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload size={14} /> Import CSV
+            </Button>
+            <Button variant="outline" onClick={handleDownloadCSV}>
+              <Download size={14} /> Export CSV
+            </Button>
+          </div>
         </div>
+
+        {/* Import error banner */}
+        {importError && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            <span>{importError}</span>
+            <button type="button" onClick={() => setImportError(null)} className="shrink-0 text-red-400 hover:text-red-600">
+              <Download size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Domain list — wrapped in SortableContext for drag-to-reorder */}
         <div className="space-y-3">

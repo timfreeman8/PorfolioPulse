@@ -72,6 +72,8 @@ export interface Member {
   capacity: number
   avatarInitials: string
   projectIds: string[]
+  /** Kroger FTE (default) or external contractor (e.g. Deloitte). Optional — absence means FTE. */
+  employmentType?: 'FTE' | 'Contractor'
 }
 
 /**

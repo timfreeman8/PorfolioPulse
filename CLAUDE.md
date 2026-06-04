@@ -226,6 +226,91 @@ is finished.
 - [x] Step 11 — Intake page
 - [x] Step 12 — Portfolio Analytics page
 
+## Pages Beyond Original Scope
+
+The following pages and features were built after the original 12-step plan:
+
+- **Capacity Planner** (`/planning`) — Gantt-style chart of member workload across FY2026.
+  - Two views: By Member (stacked project bars + PTO) and By Project (per-member assignment bars).
+  - Zoom modes: Year / Quarter / Period (Kroger 4-5-4 NRF fiscal calendar).
+  - Bars are drag-to-resize and drag-to-move. Clicking an existing project bar navigates to `/projects/:id`.
+  - `+PTO` inline PTO block creation per member.
+  - Fiscal calendar built from `PERIOD_WEEKS = [4,5,4,  4,5,4,  4,5,4,  4,5,4]` (FY2026: Feb 1 – Jan 31).
+
+- **Project Detail Page** (`/projects/:id`, `/projects/new`) — Full-page project builder replacing the modal
+  for create/edit flows. Uses a phase-based model (`ProjectPhaseStep[]`) where each phase has its own
+  team, dates, status, and % complete. `deriveProjectFields()` computes root-level flat fields from phases.
+  Back navigation is context-aware: clicking a project from Planning sends `{ state: { from: '/planning' } }`
+  so the back button returns to Planning rather than the Projects list.
+
+- **PTO Page** (`/pto`) — Calendar-style PTO management page with FY Gantt view per member.
+
+- **Org Page** (`/org`) — Combined org chart + roster with drag-and-drop reorder, CSV import/export,
+  domain/team/member CRUD, and a stats bar.
+
+- **Roster Page** (`/roster`) — Read-only member roster with capacity stats, search, and filters.
+
+- **Escalations Page** (`/escalations`) — Blocked/at-risk project tracking.
+
+- **Settings Page** (`/settings`) — App configuration including resource rates for cost analytics.
+
+## Shared UI Components (built beyond shadcn/ui)
+
+| Component | Path | Purpose |
+|---|---|---|
+| `SegmentedControl` | `src/components/ui/segmented-control.tsx` | Pill-style toggle used on Planning, PTO, Analytics pages |
+| `MultiSelectDropdown` | `src/components/ui/multi-select-dropdown.tsx` | Search + checkbox multi-select for filter bars |
+| `FilterChip` | `src/components/ui/filter-chip.tsx` | Quick-filter toggle chip |
+| `StatCard` | `src/components/ui/stat-card.tsx` | Icon + value + label summary card (OrgPage, RosterPage, AnalyticsPage) |
+| `ColorBadge` | `src/components/ui/color-badge.tsx` | Status/phase/priority badge |
+| `DateRangePicker` | `src/components/ui/date-range-picker.tsx` | Custom date range picker |
+| `StakeholderTagInput` | `src/components/ui/stakeholder-tag-input.tsx` | Free-text tag input for stakeholder names |
+
+## Data Model Extensions
+
+Beyond the base schema in CLAUDE.md, the following fields have been added:
+
+**Project** additions:
+- `phases?: ProjectPhaseStep[]` — ordered phase plan; when present, root fields are derived from this
+- `estimatedValue?: number` — dollar value estimate for financial analytics
+- `valueType?: 'Revenue Impact' | 'Cost Savings'`
+- `blockedBy?: string[]` — project IDs blocking this one
+
+**ProjectPhaseStep** (new type):
+- `id: string`, `phase: ProjectPhase`, `startDate: string`, `endDate: string`
+- `status: 'Not Started' | 'In Progress' | 'Complete'`
+- `percentComplete: number`, `notes: string`
+- `assignments: ProjectMemberAssignment[]`
+
+**Member** additions:
+- `teamIds: string[]` (replaces single `teamId`) — members can span multiple teams
+- `reportsTo?: string`
+
+**ResourceRate** (new type):
+- `role: string`, `annualRate: number` — used in Financial analytics tab
+
+## Seed Data
+
+- **9 domains**, **35 teams**, **136+ members** sourced from real org roster (June 2026).
+- **30 projects**: 15 are multi-phase (use IIFE pattern to derive root fields from `ProjectPhaseStep[]`);
+  15 are legacy single-phase (auto-converted by `legacyToPhases()` on load).
+- To reload seed data: open browser console and run `localStorage.clear(); location.reload()`
+
+## Key Library Patterns
+
+- **`deriveProjectFields(phases)`** (`src/lib/projectBuilder.ts`) — computes root Project fields from phases array
+- **`legacyToPhases(project)`** — auto-wraps a flat project into a single-phase plan for backwards compat
+- **`buildFiscalCalendar()`** — generates FY2026 weeks/periods/quarters from the 4-5-4 NRF pattern
+- **`memberQuarterAllocation(memberId, projects, rates?)`** (`src/lib/fiscal.ts`) — total capacity % this quarter
+- **`GanttCtx`** context in CapacityPlannerPage — distributes `weekPx`, `chartWidth`, `dateToX`, `xToDate`
+  to all Gantt child components so they don't need prop drilling
+
+## Analytics Page Filter State
+
+Filters persist to localStorage under `sat-analytics-filters`. State uses 9 separate `string[]` arrays
+(one per dimension). `loadFilters()` migrates old single-string sentinel values (`'--all--'`, `'__all__'`)
+to empty arrays. Each `useState` uses a lazy initializer so localStorage is only read on mount.
+
 ---
 
 ## Seed Data Requirements
@@ -266,11 +351,10 @@ Analytics
 ## Future Enhancements (Do Not Build Now)
 
 - Bulk-assign multiple projects to an initiative at once
-- Calendar / timeline (Gantt-style) view of projects by member
 - Export portfolio data to CSV or PDF
 - Notifications / flags for members approaching or exceeding capacity
-- Project dependency tracking (blocked-by relationships between projects)
-- Dark mode toggle
+- `useClickOutside` shared hook — 8+ components use identical `useRef + useEffect + addEventListener('mousedown')` patterns; extract to `src/lib/useClickOutside.ts`
+- Real Jira import — `buildSampleProjectState()` in seedData.ts is the intended hook point
 
 ---
 
