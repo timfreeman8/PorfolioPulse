@@ -68,6 +68,38 @@ export const ROLE_ALIASES: Record<string, string> = {
   'Design': 'UI Design',
 }
 
+// ── Role discipline categories ────────────────────────────────────────────────
+// Used on the Planning page (Gantt filter) and People page (roster filter)
+// to bucket raw job titles into broad discipline groups.
+
+/**
+ * Priority-ordered regex rules for mapping raw role titles to discipline buckets.
+ * First matching rule wins; unmatched roles fall into "Other".
+ */
+export const ROLE_CATEGORY_RULES: [string, RegExp][] = [
+  ['Architecture',       /architect/i],
+  ['Product Design',     /designer/i],
+  ['Product Management', /product manager/i],
+  ['QA',                 /quality|qa manager/i],
+  ['DevOps / SRE',       /reliability|devops/i],
+  ['Leadership',         /director|manager/i],
+  ['Engineering',        /engineer|analyst/i],
+]
+
+/** Return the discipline bucket for a given raw role title. */
+export function roleCategoryOf(role: string): string {
+  for (const [cat, re] of ROLE_CATEGORY_RULES) {
+    if (re.test(role)) return cat
+  }
+  return 'Other'
+}
+
+/** All discipline categories in display order. */
+export const ALL_ROLE_CATEGORIES = [
+  'Leadership', 'Engineering', 'DevOps / SRE', 'QA',
+  'Product Management', 'Product Design', 'Architecture', 'Other',
+]
+
 /** Normalize a part string — splits on commas, maps aliases, rejoins. */
 export function normalizeRoles(part: string | undefined): string | undefined {
   if (!part) return part

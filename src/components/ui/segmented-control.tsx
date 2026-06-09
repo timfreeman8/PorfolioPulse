@@ -35,7 +35,8 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   return (
     <div className={cn(
-      'flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5',
+      // h-9 matches the standard Input/Button height (36px) used throughout the filter bars.
+      'flex items-center h-9 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5',
       className,
     )}>
       {options.map(opt => (

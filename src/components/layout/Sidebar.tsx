@@ -24,7 +24,6 @@ import {
   ClipboardList,
   BarChart3,
   Calendar,
-  CalendarOff,
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
@@ -44,11 +43,10 @@ const SIDEBAR_BG = 'var(--sidebar)'
 
 const NAV_ITEMS = [
   { to: '/',            label: 'Dashboard',   icon: LayoutDashboard, end: true },
-  { to: '/org',         label: 'People',      icon: Network },
+  { to: '/people',      label: 'People',      icon: Network },
   { to: '/initiatives', label: 'Initiatives', icon: Target },
-  { to: '/projects',    label: 'Projects',    icon: Layers },
+  { to: '/epics',    label: 'Epics',       icon: Layers },
   { to: '/planning',    label: 'Planning',    icon: Calendar },
-  { to: '/pto',         label: 'PTO',         icon: CalendarOff },
   { to: '/analytics',   label: 'Analytics',   icon: BarChart3 },
   { to: '/pipeline',    label: 'Pipeline',    icon: ClipboardList },
   { to: '/escalations', label: 'Escalations', icon: ShieldAlert },

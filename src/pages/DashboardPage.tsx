@@ -162,7 +162,6 @@ function PhaseDonut({ data }: { data: { name: string; value: number }[] }) {
 
 // ─── Status pills ─────────────────────────────────────────────────────────
 // Compact pill row summarizing project counts by status.
-// More space-efficient than a bar chart for this context.
 
 function StatusPills() {
   const { projects } = usePortfolioStore()
@@ -205,10 +204,9 @@ function ProjectsOverview() {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="pb-2">
-        <SectionHeader title="Projects" to="/projects" icon={FolderKanban} subtitle={`${projects.length} total across all teams`} />
+        <SectionHeader title="Epics" to="/epics" icon={FolderKanban} subtitle={`${projects.length} total across all teams`} />
       </CardHeader>
       <CardContent className="flex-1 space-y-3">
-        {/* Blocked alert — prominent if any projects are blocked */}
         {blockedCount > 0 && (
           <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800 rounded-lg">
             <AlertTriangle size={14} className="text-red-500 shrink-0" />
@@ -225,9 +223,7 @@ function ProjectsOverview() {
             </span>
           </div>
         )}
-        {/* Phase donut chart */}
         <PhaseDonut data={phaseData} />
-        {/* Status breakdown */}
         <div>
           <p className="text-xs text-slate-400 mb-2">By status</p>
           <StatusPills />
@@ -247,8 +243,10 @@ function InitiativesCard() {
     return initiatives.map(ini => {
       const iniProjects = projects.filter(p => p.initiativeId === ini.id)
       const complete = iniProjects.filter(p => p.status === 'Complete').length
+      // Use average percentComplete so in-progress work moves the bar, not just
+      // fully-complete projects — matches the same formula on InitiativesPage.
       const pct = iniProjects.length
-        ? Math.round((complete / iniProjects.length) * 100)
+        ? Math.round(iniProjects.reduce((sum, p) => sum + (p.percentComplete ?? 0), 0) / iniProjects.length)
         : 0
       return { ini, iniProjects, complete, pct }
     })
@@ -520,7 +518,7 @@ function RecentActivity() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <SectionHeader title="Recent Activity" to="/projects" icon={FolderKanban} subtitle="Last updated projects across the portfolio" />
+        <SectionHeader title="Recent Activity" to="/epics" icon={FolderKanban} subtitle="Last updated projects across the portfolio" />
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -602,10 +600,10 @@ export function DashboardPage() {
           accent="bg-indigo-500"
         />
         <NavCard
-          label="Projects"
+          label="Epics"
           value={projects.length}
           sublabel={`${activeProjects} in progress`}
-          to="/projects"
+          to="/epics"
           icon={Layers}
           accent="bg-blue-500"
         />
@@ -635,14 +633,10 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* ── Row 2: Projects overview + Initiatives ─────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        <div className="lg:col-span-3">
-          <ProjectsOverview />
-        </div>
-        <div className="lg:col-span-2">
-          <InitiativesCard />
-        </div>
+      {/* ── Row 2: Epics + Initiatives — equal 50/50 split ─────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <ProjectsOverview />
+        <InitiativesCard />
       </div>
 
       {/* ── Row 3: Capacity | Pipeline | Escalations ───────────────────── */}

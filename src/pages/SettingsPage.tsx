@@ -32,7 +32,7 @@ import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
   ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
-  FlaskConical, Save, History, Bot,
+  FlaskConical, Save, History, Bot, CalendarOff, CalendarX,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -889,8 +889,8 @@ export function SettingsPage() {
               onDownload={() => downloadCsv('roster.csv', exportRosterCsv(domains, teams, members))}
             />
             <ExportCard
-              label="Projects"
-              description={`${projects.length} projects — name, status, phase, priority, dates, % complete, initiative`}
+              label="Epics"
+              description={`${projects.length} epics — name, status, phase, priority, dates, % complete, initiative`}
               onDownload={() => downloadCsv('projects.csv', exportProjectsCsv(projects, initiatives))}
             />
             <ExportCard
@@ -1000,7 +1000,7 @@ export function SettingsPage() {
             <div className="flex items-start gap-3">
               <FlaskConical size={15} className="text-red-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample Projects</p>
+                <p className="text-sm font-medium text-slate-800">Load Sample Epics</p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Overlays 29 realistic projects, 5 initiatives, and 5 intake requests onto your
                   current roster so you can explore analytics, capacity planning, and other features
@@ -1044,6 +1044,68 @@ export function SettingsPage() {
             >
               <FlaskConical size={13} />
               Load Samples
+            </Button>
+          </div>
+
+          {/* Load sample PTO — overlays seed PTO blocks onto the live data */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <CalendarOff size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Load Sample PTO</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Replaces all PTO blocks with the 23 sample entries from the seed dataset
+                  (spread across FY2026). Does not affect people, epics, or other data.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => danger(
+                'Load Sample PTO',
+                'This replaces all current PTO blocks with the seed dataset. Your roster and epics will not be affected.',
+                'Load Sample PTO',
+                () => {
+                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                  const current = usePortfolioStore.getState()
+                  s.hydrate({ ...current, ptoBlocks: buildSeedState().ptoBlocks })
+                },
+              )}
+            >
+              <CalendarOff size={13} />
+              Load Sample PTO
+            </Button>
+          </div>
+
+          {/* Clear PTO — wipe all PTO blocks */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <CalendarX size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Clear All PTO</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Permanently deletes all PTO blocks. Does not affect people, epics, or other data.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => danger(
+                'Clear All PTO',
+                'This permanently deletes every PTO block. Your roster and epics will not be affected.',
+                'Clear All PTO',
+                () => {
+                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                  s.hydrate({ ...usePortfolioStore.getState(), ptoBlocks: [] })
+                },
+              )}
+            >
+              <CalendarX size={13} />
+              Clear All PTO
             </Button>
           </div>
 
@@ -1134,7 +1196,7 @@ export function SettingsPage() {
             <div className="flex items-start gap-3">
               <PackageOpen size={15} className="text-red-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-medium text-slate-800">Clear Project Data</p>
+                <p className="text-sm font-medium text-slate-800">Clear Epic Data</p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Deletes all projects, initiatives, and intake requests. Your roster (domains, teams,
                   and members) is kept intact so you can start tracking real work from scratch.
@@ -1163,7 +1225,7 @@ export function SettingsPage() {
               )}
             >
               <PackageOpen size={13} />
-              Clear Project Data
+              Clear Epic Data
             </Button>
           </div>
 

@@ -3,12 +3,14 @@
  *
  * Layout:
  *   - Stats bar: on PTO today | PTO blocks this quarter | upcoming in 14 days
- *   - Controls: zoom toggle (Year | Q1 | Q2 | Q3 | Q4) + domain/team/search filters
+ *   - Controls: zoom toggle (Year | Quarter | Month | Week) + domain/team/search filters
  *   - Scrollable timeline: sticky left column (domain → team → member) + amber PTO bars
  *
- * Zoom modes:
- *   Year   — all 52 weeks, weekPx scales to fill container width
- *   Q1–Q4  — 13 weeks for the selected quarter, fill-to-fit weekPx
+ * Zoom modes match the Planning (CapacityPlanner) page exactly:
+ *   Year    — all 52 weeks, weekPx scales to fill container width
+ *   Quarter — 13 weeks for the selected quarter, fill-to-fit weekPx
+ *   Period  — 4-5 weeks for the selected period (fiscal month), fill-to-fit
+ *   Week    — single week at maximum resolution; day-of-week row in headers
  *
  * Adding PTO:  click the "+" on a member row → Add PTO dialog (date range + note).
  * Deleting PTO: click an existing bar → confirm-delete dialog.
@@ -47,56 +49,127 @@ const FY_START = new Date('2026-02-01T00:00:00')
 // 4-5-4 repeating period lengths across 4 quarters (P1–P12)
 const PERIOD_WEEKS = [4, 5, 4,  4, 5, 4,  4, 5, 4,  4, 5, 4]
 
+/** Fiscal years covered by this calendar. FY2026 is the base (week 0). */
+const SUPPORTED_FY_YEARS = [2026, 2027, 2028]
+const WEEKS_PER_FY = 52
+
 interface FiscalWeek {
-  index: number
+  index: number        // global 0-based week index (continuous across all years)
   date: Date
-  periodIndex: number
-  quarterIndex: number
-  weekInPeriod: number  // 1-based position within the period (used for sparse week labels)
+  periodIndex: number  // global 0-based period index
+  quarterIndex: number // global 0-based quarter index
+  weekInPeriod: number // 1-based position within the period (used for sparse week labels)
+  fyYear: number       // which fiscal year this week belongs to (e.g. 2026)
 }
 
 interface FiscalPeriod {
   index: number
-  label: string
-  quarterIndex: number
-  weekStart: number
+  label: string        // "P1" … "P12" (restarts each year)
+  monthLabel: string   // abbreviated month name from the period's first week, e.g. "Feb"
+  quarterIndex: number // global quarter index
+  weekStart: number    // global first week index
   weekCount: number
+  fyYear: number       // which fiscal year this period belongs to
 }
 
 interface FiscalQuarter {
   index: number
-  label: string       // "Q1" … "Q4"
-  weekStart: number
+  label: string        // "Q1" … "Q4" (restarts each year)
+  weekStart: number    // global first week index
   weekCount: number
+  fyYear: number       // which fiscal year this quarter belongs to
 }
 
-function buildFiscalCalendar() {
+/** One fiscal year entry — tracks the global week boundaries for each FY. */
+interface FiscalYear {
+  fyYear: number    // e.g. 2026
+  weekStart: number // global week index of the first week in this FY
+  weekCount: number // 52
+}
+
+/**
+ * Build a multi-year 4-5-4 NRF fiscal calendar starting at FY_START (FY2026).
+ * Each supported year is exactly WEEKS_PER_FY (52) weeks. Global week indices
+ * are continuous: FY2026 = 0-51, FY2027 = 52-103, FY2028 = 104-155.
+ */
+function buildMultiYearCalendar(): {
+  weeks: FiscalWeek[]
+  periods: FiscalPeriod[]
+  quarters: FiscalQuarter[]
+  years: FiscalYear[]
+} {
   const weeks: FiscalWeek[] = []
   const periods: FiscalPeriod[] = []
   const quarters: FiscalQuarter[] = []
+  const years: FiscalYear[] = []
+
   let weekIndex = 0
 
-  for (let qi = 0; qi < 4; qi++) {
-    const qWeekStart = weekIndex
-    for (let pi = 0; pi < 3; pi++) {
-      const pWeekStart = weekIndex
-      const count = PERIOD_WEEKS[qi * 3 + pi]
-      const periodIdx = qi * 3 + pi
-      for (let w = 0; w < count; w++) {
-        const date = new Date(FY_START)
-        date.setDate(date.getDate() + weekIndex * 7)
-        weeks.push({ index: weekIndex, date, periodIndex: periodIdx, quarterIndex: qi, weekInPeriod: w + 1 })
-        weekIndex++
+  for (let yi = 0; yi < SUPPORTED_FY_YEARS.length; yi++) {
+    const fyYear = SUPPORTED_FY_YEARS[yi]
+    const yearWeekStart = weekIndex
+
+    for (let qi = 0; qi < 4; qi++) {
+      const qWeekStart = weekIndex
+      // Global quarter index: unique across all years so filter/lookup is unambiguous
+      const qGlobalIdx = yi * 4 + qi
+
+      for (let pi = 0; pi < 3; pi++) {
+        const pWeekStart = weekIndex
+        const pGlobalIdx = yi * 12 + qi * 3 + pi
+        const count = PERIOD_WEEKS[qi * 3 + pi]
+
+        for (let w = 0; w < count; w++) {
+          const date = new Date(FY_START)
+          date.setDate(date.getDate() + weekIndex * 7)
+          weeks.push({
+            index: weekIndex,
+            date,
+            periodIndex: pGlobalIdx,
+            quarterIndex: qGlobalIdx,
+            weekInPeriod: w + 1,
+            fyYear,
+          })
+          weekIndex++
+        }
+
+        // monthLabel derived from the period's first day — accurate for any year
+        const periodStartDate = new Date(FY_START)
+        periodStartDate.setDate(periodStartDate.getDate() + pWeekStart * 7)
+        const monthLabel = periodStartDate.toLocaleDateString('en-US', { month: 'short' })
+
+        periods.push({
+          index: pGlobalIdx,
+          label: `P${qi * 3 + pi + 1}`,
+          monthLabel,
+          quarterIndex: qGlobalIdx,
+          weekStart: pWeekStart,
+          weekCount: count,
+          fyYear,
+        })
       }
-      periods.push({ index: periodIdx, label: `P${periodIdx + 1}`, quarterIndex: qi, weekStart: pWeekStart, weekCount: count })
+
+      quarters.push({
+        index: qGlobalIdx,
+        label: `Q${qi + 1}`,
+        weekStart: qWeekStart,
+        weekCount: 13,
+        fyYear,
+      })
     }
-    quarters.push({ index: qi, label: `Q${qi + 1}`, weekStart: qWeekStart, weekCount: 13 })
+
+    years.push({
+      fyYear,
+      weekStart: yearWeekStart,
+      weekCount: WEEKS_PER_FY,
+    })
   }
 
-  return { weeks, periods, quarters }
+  return { weeks, periods, quarters, years }
 }
 
-const { weeks: FY_WEEKS, periods: FY_PERIODS, quarters: FY_QUARTERS } = buildFiscalCalendar()
+const { weeks: FY_WEEKS, periods: FY_PERIODS, quarters: FY_QUARTERS, years: FY_YEARS } =
+  buildMultiYearCalendar()
 
 /** Pixel width of the sticky left-column (member names). */
 const LEFT_COL_W = 192
@@ -116,6 +189,8 @@ interface PtoConfig {
   /** Pixel x of today inside the visible window, or -1 if outside. */
   todayXPos: number
   dateToX: (iso: string) => number
+  /** Populated only in week zoom mode: the 7 individual days of the visible week. */
+  weekDays?: { label: string; iso: string }[]
 }
 
 const PtoCtx = createContext<PtoConfig | null>(null)
@@ -139,17 +214,24 @@ function todayIso(): string {
 }
 
 /**
- * Determine which quarter index (0-based) is current. Walks right-to-left
- * so we always return the last quarter whose start is ≤ today.
+ * Returns the current fiscal year/quarter/week indices for the default state.
+ * yearIdx — index into FY_YEARS (0 = FY2026, 1 = FY2027, etc.)
+ * qIdx    — 0-3 within the year (Q1=0 … Q4=3)
+ * wkIdx   — global week index in FY_WEEKS
  */
-function currentQuarterIndex(): number {
-  const today = new Date(todayIso() + 'T00:00:00')
-  for (let i = FY_QUARTERS.length - 1; i >= 0; i--) {
-    const qStart = new Date(FY_START)
-    qStart.setDate(qStart.getDate() + FY_QUARTERS[i].weekStart * 7)
-    if (today >= qStart) return i
-  }
-  return 0
+function currentFYInfo(): { yearIdx: number; qIdx: number; wkIdx: number } {
+  const today = new Date()
+  const wkIdx = FY_WEEKS.findIndex(w => {
+    const end = new Date(w.date)
+    end.setDate(end.getDate() + 7)
+    return w.date <= today && today < end
+  })
+  const safeWkIdx = wkIdx >= 0 ? wkIdx : 0
+  const wk = FY_WEEKS[safeWkIdx]
+  const yearIdx = Math.max(0, FY_YEARS.findIndex(y => y.fyYear === wk.fyYear))
+  const yearQuarters = FY_QUARTERS.filter(q => q.fyYear === wk.fyYear)
+  const qIdx = Math.max(0, yearQuarters.findIndex(q => q.index === wk.quarterIndex))
+  return { yearIdx, qIdx, wkIdx: safeWkIdx }
 }
 
 /** Repeating alternating-week stripe for grid lines. */
@@ -181,32 +263,40 @@ function StatCard({ label, value, sub }: { label: string; value: number; sub?: s
   )
 }
 
-// ─── Timeline headers ────────────────────────────────────────────────────
+// ─── Timeline headers ─────────────────────────────────────────────────────
 // Renders quarter labels (top row) + period labels (middle) + week tick marks (bottom).
+// In week zoom mode, an additional day-of-week row appears at the bottom, matching
+// the layout used in CapacityPlannerPage's GanttHeaders.
 
 function PtoHeaders() {
-  const { weekPx, visibleWeeks, visiblePeriods, visibleQuarters, visibleOffset } = usePto()
+  const { weekPx, visibleWeeks, visiblePeriods, visibleQuarters, visibleOffset, weekDays } = usePto()
+  // dayPx is the pixel width of each day column in week zoom mode.
+  const dayPx = weekDays ? weekPx / 7 : 0
 
   return (
     <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 select-none">
-      {/* Quarter labels */}
+      {/* Quarter labels — bold dark text for clear hierarchy. Label includes the
+          calendar year derived from fyYear so multi-year views read "Q1 2026" etc. */}
       <div className="flex" style={{ height: 24 }}>
         {visibleQuarters.map(q => {
-          // How many weeks of this quarter fall inside the visible window?
           const visibleWeekCount = visibleWeeks.filter(w => w.quarterIndex === q.index).length
           return (
             <div
-              key={q.label}
-              className="shrink-0 flex items-center px-2 border-r border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60"
-              style={{ width: visibleWeekCount * weekPx }}
+              key={q.index}
+              className="shrink-0 flex items-center px-2 border-r border-slate-200 text-[10px] font-bold"
+              style={{
+                width: visibleWeekCount * weekPx,
+                background: q.index % 2 === 0 ? 'var(--gantt-q-even)' : 'var(--gantt-q-odd)',
+                color: 'var(--gantt-q-text)',
+              }}
             >
-              {q.label} FY2026
+              {q.label} {q.fyYear}
             </div>
           )
         })}
       </div>
 
-      {/* Period labels */}
+      {/* Period labels — show abbreviated month name (e.g. "Feb") for readability */}
       <div className="flex" style={{ height: 20 }}>
         {visiblePeriods.map(p => {
           const visibleWeekCount = visibleWeeks.filter(w => w.periodIndex === p.index).length
@@ -214,16 +304,20 @@ function PtoHeaders() {
           return (
             <div
               key={p.label}
-              className="shrink-0 flex items-center px-2 border-r border-slate-200 dark:border-slate-700 text-[10px] text-slate-400 dark:text-slate-500"
-              style={{ width: visibleWeekCount * weekPx }}
+              className="shrink-0 flex items-center px-2 border-r border-slate-200 text-[10px] font-semibold"
+              style={{
+                width: visibleWeekCount * weekPx,
+                background: p.index % 2 === 0 ? 'var(--gantt-p-even)' : 'var(--gantt-p-odd)',
+                color: 'var(--gantt-p-text)',
+              }}
             >
-              {p.label}
+              {p.monthLabel}
             </div>
           )
         })}
       </div>
 
-      {/* Week tick marks */}
+      {/* Week tick marks — near-white for a clean bar backdrop */}
       <div className="flex" style={{ height: 20 }}>
         {visibleWeeks.map(w => {
           const isFirst = w.index === visibleOffset
@@ -232,16 +326,40 @@ function PtoHeaders() {
             <div
               key={w.index}
               className={cn(
-                'shrink-0 flex items-center px-1 border-r border-slate-100 dark:border-slate-800 text-[9px] text-slate-300 dark:text-slate-600',
+                'shrink-0 flex items-center px-1 border-r border-slate-200 text-[9px] font-medium',
                 isFirst && 'pl-2',
               )}
-              style={{ width: weekPx }}
+              style={{
+                width: weekPx,
+                background: w.index % 2 === 0 ? 'var(--gantt-w-even)' : 'var(--gantt-w-odd)',
+                color: 'var(--gantt-w-text)',
+              }}
             >
               {weekPx >= 60 || w.weekInPeriod === 1 ? label : ''}
             </div>
           )
         })}
       </div>
+
+      {/* Day-of-week row — week zoom only; weekends get an indigo tint like Planning page */}
+      {weekDays && (
+        <div className="flex" style={{ height: 20 }}>
+          {weekDays.map((day, i) => (
+            <div
+              key={day.iso}
+              className="shrink-0 flex items-center px-1 border-r border-slate-200 text-[9px] font-semibold"
+              style={{
+                // All cells white; weekends use a lighter text color for distinction
+                width: dayPx,
+                background: '#ffffff',
+                color: i >= 5 ? '#94a3b8' : 'var(--gantt-w-text)',
+              }}
+            >
+              {day.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -481,26 +599,26 @@ function AddPtoDialog({
 
 // ─── Main page ─────────────────────────────────────────────────────────────
 
-/** Zoom mode for the PTO timeline. */
-type ZoomMode = 'year' | 'q1' | 'q2' | 'q3' | 'q4'
-
-const ZOOM_OPTIONS: { label: string; mode: ZoomMode; qIdx?: number }[] = [
-  { label: 'Year', mode: 'year' },
-  { label: 'Q1',   mode: 'q1', qIdx: 0 },
-  { label: 'Q2',   mode: 'q2', qIdx: 1 },
-  { label: 'Q3',   mode: 'q3', qIdx: 2 },
-  { label: 'Q4',   mode: 'q4', qIdx: 3 },
-]
+/**
+ * Zoom modes for the PTO timeline — intentionally identical to CapacityPlannerPage
+ * so the two calendars feel consistent when users switch between them.
+ */
+type ZoomMode = 'year' | 'quarter' | 'period' | 'week'
 
 export function PtoPage() {
   const { domains, teams, members, ptoBlocks, addPto, deletePto } = usePortfolioStore()
 
-  // ── Zoom state ──────────────────────────────────────────────────────────
-  const [zoomMode, setZoomMode] = useState<ZoomMode>(() => {
-    // Default to the current fiscal quarter
-    const qi = currentQuarterIndex()
-    return (['year', 'q1', 'q2', 'q3', 'q4'] as ZoomMode[])[qi + 1]
-  })
+  // ── Zoom state ─────────────────────────────────────────────────────────
+  // Default to quarter view (matching Planning page behaviour).
+  const [zoomMode,        setZoomMode]        = useState<ZoomMode>('quarter')
+  // selectedYearIdx: which fiscal year is shown (0 = FY2026, 1 = FY2027, 2 = FY2028)
+  const [selectedYearIdx, setSelectedYearIdx] = useState<number>(() => currentFYInfo().yearIdx)
+  // selectedQIdx: 0-3 within the selected year (Q1=0 … Q4=3)
+  const [selectedQIdx,    setSelectedQIdx]    = useState<number>(() => currentFYInfo().qIdx)
+  // selectedPIdx tracks the active fiscal period (0-11) within the selected year.
+  const [selectedPIdx,    setSelectedPIdx]    = useState<number>(0)
+  // selectedWkIdx: global index across all years — defaults to current week
+  const [selectedWkIdx,   setSelectedWkIdx]   = useState<number>(() => currentFYInfo().wkIdx)
 
   // ── Filter state ────────────────────────────────────────────────────────
   const [searchText,      setSearchText]      = useState('')
@@ -525,39 +643,61 @@ export function PtoPage() {
   }, [])
 
   // ── Derived chart config ─────────────────────────────────────────────────
-  // Compute the visible date window + weekPx based on zoom mode and container size.
+  // Compute the visible date window + weekPx based on zoom mode and selected year.
+  // Logic mirrors CapacityPlannerPage.ganttConfig so the two pages feel identical.
+  // Scopes weeks/periods/quarters to the selected fiscal year before further
+  // narrowing to quarter/period/week zoom windows within that year.
   const ptoConfig = useMemo<PtoConfig>(() => {
     // Available chart space (subtract left column)
     const available = containerWidth > LEFT_COL_W ? containerWidth - LEFT_COL_W : 0
 
+    // Scope the calendar to the selected fiscal year first
+    const fyYear = FY_YEARS[selectedYearIdx]
+    const yearWeeks    = FY_WEEKS.filter(w => w.fyYear === fyYear.fyYear)
+    const yearQuarters = FY_QUARTERS.filter(q => q.fyYear === fyYear.fyYear)
+    const yearPeriods  = FY_PERIODS.filter(p => p.fyYear === fyYear.fyYear)
+
     let visibleWeeks: FiscalWeek[]
     let visibleOffset: number
     let weekPx: number
+    let windowStart: Date
 
     if (zoomMode === 'year') {
-      visibleWeeks  = FY_WEEKS
-      visibleOffset = 0
-      // Fill to fit, but floor at 40px so week labels remain readable
-      weekPx = available > 0 ? Math.max(40, Math.floor(available / FY_WEEKS.length)) : 80
-    } else {
-      // Quarter mode — find the selected quarter index from the mode string
-      const qIdx = ZOOM_OPTIONS.find(o => o.mode === zoomMode)?.qIdx ?? 0
-      const q = FY_QUARTERS[qIdx]
-      visibleWeeks  = FY_WEEKS.filter(w => w.quarterIndex === qIdx)
+      // Show entire selected fiscal year; fill to fit (min 40px so labels remain readable)
+      visibleWeeks  = yearWeeks
+      windowStart   = new Date(FY_START)
+      windowStart.setDate(windowStart.getDate() + fyYear.weekStart * 7)
+      visibleOffset = fyYear.weekStart
+      weekPx = available > 0 ? Math.max(40, Math.floor(available / yearWeeks.length)) : 80
+    } else if (zoomMode === 'quarter') {
+      const q = yearQuarters[selectedQIdx] ?? yearQuarters[0]
+      visibleWeeks  = yearWeeks.filter(w => w.quarterIndex === q.index)
       visibleOffset = q.weekStart
-      weekPx = available > 0 ? Math.floor(available / 13) : 120
+      windowStart   = new Date(FY_WEEKS[q.weekStart].date)
+      weekPx = available > 0 ? Math.floor(available / visibleWeeks.length) : 120
+    } else if (zoomMode === 'period') {
+      const p = yearPeriods[selectedPIdx] ?? yearPeriods[0]
+      visibleWeeks  = yearWeeks.filter(w => w.periodIndex === p.index)
+      visibleOffset = p.weekStart
+      windowStart   = new Date(FY_WEEKS[p.weekStart].date)
+      weekPx = available > 0 ? Math.floor(available / visibleWeeks.length) : 200
+    } else {
+      // Week mode — single week fills the full available width
+      const w = FY_WEEKS[selectedWkIdx]
+      visibleWeeks  = [w]
+      visibleOffset = selectedWkIdx
+      windowStart   = new Date(w.date)
+      weekPx = available > 0 ? available : 980
     }
 
     const chartWidth = visibleWeeks.length * weekPx
 
-    // Periods and quarters visible in the current window
+    // Periods and quarters visible in the current window — weekCount is adjusted
+    // to the number of visible weeks so header cells sum exactly to chartWidth.
     const visiblePeriodIndices  = new Set(visibleWeeks.map(w => w.periodIndex))
     const visibleQuarterIndices = new Set(visibleWeeks.map(w => w.quarterIndex))
     const visiblePeriods  = FY_PERIODS.filter(p => visiblePeriodIndices.has(p.index))
     const visibleQuarters = FY_QUARTERS.filter(q => visibleQuarterIndices.has(q.index))
-
-    // First day of the visible window — dateToX is relative to this date
-    const windowStart = visibleWeeks[0]?.date ?? FY_START
 
     function dateToX(iso: string): number {
       if (!iso) return -1
@@ -565,9 +705,22 @@ export function PtoPage() {
       return (daysBetween(windowStart, d) / 7) * weekPx
     }
 
-    // Today marker
+    // Today marker — hide if today is outside the visible window
     const todayX = dateToX(todayIso())
     const todayXPos = todayX >= 0 && todayX <= chartWidth ? todayX : -1
+
+    // In week mode, generate the 7 individual days so PtoHeaders can render
+    // a day-of-week row identical to the one on the Planning page.
+    const weekDays = zoomMode === 'week'
+      ? Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(windowStart)
+          d.setDate(d.getDate() + i)
+          return {
+            label: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
+            iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+          }
+        })
+      : undefined
 
     return {
       weekPx,
@@ -578,8 +731,9 @@ export function PtoPage() {
       visibleOffset,
       todayXPos,
       dateToX,
+      weekDays,
     }
-  }, [zoomMode, containerWidth])
+  }, [zoomMode, selectedYearIdx, selectedQIdx, selectedPIdx, selectedWkIdx, containerWidth])
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -678,12 +832,105 @@ export function PtoPage() {
 
         {/* Controls row: zoom toggle + filters */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Zoom toggle */}
+          {/* "View" section label */}
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">View</span>
+
+          {/* Zoom toggle — identical options to Planning page for consistency */}
           <SegmentedControl
-            options={ZOOM_OPTIONS.map(o => ({ value: o.mode, label: o.label }))}
+            options={[
+              { value: 'year',    label: 'Year' },
+              { value: 'quarter', label: 'Quarter' },
+              { value: 'period',  label: 'Month' },
+              { value: 'week',    label: 'Week' },
+            ] as { value: ZoomMode; label: string }[]}
             value={zoomMode}
             onChange={setZoomMode}
           />
+
+          {/* Year navigation — always visible so the user can switch fiscal years in any zoom mode */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setSelectedYearIdx(i => Math.max(0, i - 1))}
+              disabled={selectedYearIdx === 0}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Previous fiscal year"
+            >‹</button>
+            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+              FY{FY_YEARS[selectedYearIdx].fyYear}
+            </span>
+            <button
+              onClick={() => setSelectedYearIdx(i => Math.min(FY_YEARS.length - 1, i + 1))}
+              disabled={selectedYearIdx === FY_YEARS.length - 1}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Next fiscal year"
+            >›</button>
+          </div>
+
+          {/* Quarter navigation arrows — 0-3 within the selected year */}
+          {zoomMode === 'quarter' && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSelectedQIdx(i => Math.max(0, i - 1))}
+                disabled={selectedQIdx === 0}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Previous quarter"
+              >‹</button>
+              <span className="text-xs font-semibold text-slate-700 w-6 text-center">
+                {FY_QUARTERS.filter(q => q.fyYear === FY_YEARS[selectedYearIdx].fyYear)[selectedQIdx]?.label}
+              </span>
+              <button
+                onClick={() => setSelectedQIdx(i => Math.min(FY_QUARTERS.filter(q => q.fyYear === FY_YEARS[selectedYearIdx].fyYear).length - 1, i + 1))}
+                disabled={selectedQIdx === FY_QUARTERS.filter(q => q.fyYear === FY_YEARS[selectedYearIdx].fyYear).length - 1}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Next quarter"
+              >›</button>
+            </div>
+          )}
+
+          {/* Period (Month) navigation arrows — periods are scoped to the selected year */}
+          {zoomMode === 'period' && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSelectedPIdx(i => Math.max(0, i - 1))}
+                disabled={selectedPIdx === 0}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Previous period"
+              >‹</button>
+              <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                {FY_PERIODS.filter(p => p.fyYear === FY_YEARS[selectedYearIdx].fyYear)[selectedPIdx]?.monthLabel}
+              </span>
+              <button
+                onClick={() => setSelectedPIdx(i => Math.min(FY_PERIODS.filter(p => p.fyYear === FY_YEARS[selectedYearIdx].fyYear).length - 1, i + 1))}
+                disabled={selectedPIdx === FY_PERIODS.filter(p => p.fyYear === FY_YEARS[selectedYearIdx].fyYear).length - 1}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Next period"
+              >›</button>
+            </div>
+          )}
+
+          {/* Week navigation arrows */}
+          {zoomMode === 'week' && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSelectedWkIdx(i => Math.max(0, i - 1))}
+                disabled={selectedWkIdx === 0}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Previous week"
+              >‹</button>
+              <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                {FY_WEEKS[selectedWkIdx].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+              <button
+                onClick={() => setSelectedWkIdx(i => Math.min(FY_WEEKS.length - 1, i + 1))}
+                disabled={selectedWkIdx === FY_WEEKS.length - 1}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                title="Next week"
+              >›</button>
+            </div>
+          )}
+
+          {/* "Filter" section label */}
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-3">Filter</span>
 
           {/* Domain filter */}
           <MultiSelectDropdown

@@ -62,6 +62,7 @@ import { StatCard } from '@/components/ui/stat-card'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { cn } from '@/lib/utils'
 import { avatarColor } from '@/lib/colors'
+import { roleCategoryOf, ALL_ROLE_CATEGORIES } from '@/lib/roles'
 import type { Domain, Team, Member, Project } from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -305,7 +306,11 @@ function OrgMemberCard({
                   Contractor
                 </span>
               )}
-              {member.role}{member.reportsTo ? ` · ${member.reportsTo}` : ''}
+              {member.role}
+              {/* Arrow pointing to manager name instead of a dot separator */}
+              {member.reportsTo && (
+                <><span className="text-slate-300 dark:text-slate-600">→</span>{member.reportsTo}</>
+              )}
             </p>
           </div>
         </div>
@@ -331,8 +336,8 @@ function OrgMemberCard({
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-[11px] text-slate-400 dark:text-slate-500">
             {qProjectCount === 0
-              ? 'No projects this quarter'
-              : `${qProjectCount} project${qProjectCount !== 1 ? 's' : ''} this quarter`}
+              ? 'No epics this quarter'
+              : `${qProjectCount} epic${qProjectCount !== 1 ? 's' : ''} this quarter`}
           </span>
           {isOver   && <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">Over</span>}
           {isAtRisk && <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">At Risk</span>}
@@ -1101,9 +1106,11 @@ export function OrgPage() {
   const fileInputRef                   = useRef<HTMLInputElement>(null)
 
   // Roster filter state
-  const [search, setSearch]                   = useState('')
-  const [selectedDomains, setSelectedDomains] = useState<string[]>([])
-  const [allocFilter, setAllocFilter]         = useState<AllocFilter>('all')
+  const [search, setSearch]                       = useState('')
+  const [selectedDomains, setSelectedDomains]     = useState<string[]>([])
+  const [allocFilter, setAllocFilter]             = useState<AllocFilter>('all')
+  // Role discipline filter — matches the same category buckets as the Planning page
+  const [selectedRoleCategories, setSelectedRoleCategories] = useState<string[]>([])
 
   // Building mode shows compact member chips instead of full cards — easier to
   // see the whole org at once and drag-and-drop people between teams.
@@ -1160,6 +1167,8 @@ export function OrgPage() {
         if (allocFilter === 'over'    && alloc <= cap) return false
         if (allocFilter === 'at-risk' && !(alloc <= cap && cap > 0 && alloc / cap > 0.8)) return false
       }
+      // Role discipline filter — bucket the raw title and compare to selected categories
+      if (selectedRoleCategories.length > 0 && !selectedRoleCategories.includes(roleCategoryOf(m.role))) return false
       return true
     }
 
@@ -1177,7 +1186,7 @@ export function OrgPage() {
           .filter(t => t.members.length > 0),
       }))
       .filter(d => d.teams.length > 0)
-  }, [domains, teams, members, projects, search, selectedDomains, allocFilter])
+  }, [domains, teams, members, projects, search, selectedDomains, allocFilter, selectedRoleCategories])
 
   // Deduplicate by member id — members in multiple teams would otherwise be
   // counted once per team, producing a totalShowing that exceeds stats.total.
@@ -1189,12 +1198,13 @@ export function OrgPage() {
           seen.add(m.id)
     return seen.size
   }, [filteredData])
-  const hasActiveFilters = search.trim() !== '' || selectedDomains.length > 0 || allocFilter !== 'all'
+  const hasActiveFilters = search.trim() !== '' || selectedDomains.length > 0 || allocFilter !== 'all' || selectedRoleCategories.length > 0
 
   function clearFilters() {
     setSearch('')
     setSelectedDomains([])
     setAllocFilter('all')
+    setSelectedRoleCategories([])
   }
 
   // ── Drag start ────────────────────────────────────────────────────────
@@ -1512,7 +1522,7 @@ export function OrgPage() {
               </button>
             )}
           </div>
-          <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">Filter</span>
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-1">Filter</span>
           {([
             { key: 'all',     label: 'All' },
             { key: 'at-risk', label: '>80% allocated' },
@@ -1530,6 +1540,13 @@ export function OrgPage() {
             options={domains.map(d => ({ id: d.id, label: d.name }))}
             selected={selectedDomains}
             onChange={setSelectedDomains}
+          />
+          {/* Role discipline filter — same buckets as the Planning page */}
+          <MultiSelectDropdown
+            label="Role"
+            options={ALL_ROLE_CATEGORIES.map(cat => ({ id: cat, label: cat }))}
+            selected={selectedRoleCategories}
+            onChange={setSelectedRoleCategories}
           />
           {hasActiveFilters && (
             <button

@@ -24,7 +24,7 @@ import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
 import { exportProjectsCsv, downloadCsv } from '@/lib/csv'
 import {
-  STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS,
+  STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS, avatarColor,
 } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import type { Project } from '@/types'
@@ -260,7 +260,7 @@ export function ProjectsPage() {
       {/* Page header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Projects</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Epics</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
             {projects.length} total
             {unassignedCount > 0 && (
@@ -272,11 +272,11 @@ export function ProjectsPage() {
           {/* Primary action first */}
           {isAdmin && (
             <Button
-              onClick={() => navigate('/projects/new')}
+              onClick={() => navigate('/epics/new')}
               className="gap-2"
             >
               <Plus size={15} />
-              Add Project
+              Add Epic
             </Button>
           )}
           {isAdmin && (
@@ -312,13 +312,13 @@ export function ProjectsPage() {
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search projects…"
+            placeholder="Search epics…"
             className="pl-8 h-9 text-sm"
           />
         </div>
 
-        {/* Sort + Unassigned filter chips — directly beside search */}
-        <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">Sort</span>
+        {/* Sort label — matches Planning page "Filter" label style */}
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-1">Sort</span>
         <FilterChip label="Date"   active={sortKey === 'startDate'}       onClick={() => setSortKey('startDate')} />
         <FilterChip label="Name"   active={sortKey === 'name'}            onClick={() => setSortKey('name')} />
         {isAdmin && (
@@ -350,42 +350,35 @@ export function ProjectsPage() {
         )}
       </div>
 
-      {/* Project list — or an appropriate empty state */}
-      <div className="flex flex-col gap-2">
+      {/* Project grid — 3-column cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filtered.length === 0 ? (
           projects.length === 0 ? (
-            /* No projects at all — full empty state with add CTA for admins */
-            <div className="flex flex-col items-center justify-center py-24 text-center">
+            /* No projects at all — spans full grid width */
+            <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
               <Layers size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                No projects found
-              </h3>
-              <p className="text-sm text-slate-400 mb-6 max-w-xs">
-                Add your first project to start tracking work across the portfolio.
-              </p>
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">No epics found</h3>
+              <p className="text-sm text-slate-400 mb-6 max-w-xs">Add your first epic to start tracking work across the portfolio.</p>
               {isAdmin && (
-                <Button onClick={() => navigate('/projects/new')} className="gap-2">
-                  <Plus size={15} /> Add Project
+                <Button onClick={() => navigate('/epics/new')} className="gap-2">
+                  <Plus size={15} /> Add Epic
                 </Button>
               )}
             </div>
           ) : (
-            /* Projects exist but filters reduced the list to zero */
-            <div className="flex flex-col items-center justify-center py-16 text-center">
+            /* Filters returned zero results */
+            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
               <SearchX size={40} className="text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                No projects found
-              </h3>
-              <p className="text-sm text-slate-400">
-                No projects match your current search or filters.
-              </p>
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">No epics found</h3>
+              <p className="text-sm text-slate-400">No epics match your current search or filters.</p>
             </div>
           )
         ) : filtered.map(project => {
           const initiative = initiatives.find(i => i.id === project.initiativeId)
-          const assignedMembers = project.assignments
-            .map(a => members.find(m => m.id === a.memberId)?.name)
-            .filter(Boolean)
+          // Deduplicate by memberId — a member can appear in multiple phases
+          const assignedMemberObjs = [...new Set(project.assignments.map(a => a.memberId))]
+            .map(id => members.find(m => m.id === id))
+            .filter(Boolean) as typeof members
           const isUnassigned = project.assignments.length === 0
 
           return (
@@ -393,122 +386,89 @@ export function ProjectsPage() {
               key={project.id}
               onClick={() => navigate(`/projects/${project.id}`)}
               className={cn(
-                'bg-white dark:bg-slate-800/60 border rounded-xl px-5 py-4 flex items-start gap-4 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all cursor-pointer',
+                'group relative flex flex-col gap-2 bg-white dark:bg-slate-800/60 border rounded-xl p-3.5',
+                'hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all cursor-pointer',
                 isUnassigned ? 'border-amber-200 dark:border-amber-800/50' : 'border-slate-200 dark:border-slate-700',
               )}
             >
-              {/* Main content */}
-              <div className="flex-1 min-w-0 space-y-2">
-                {/* Name + badges */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{project.name}</p>
-                  {isUnassigned && (
-                    <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
-                      <UserX size={9} />
-                      Unassigned
-                    </span>
-                  )}
-                </div>
-
-                {/* Phase · Status · Priority */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full', PHASE_COLORS[project.phase])}>
-                    {project.phase}
-                  </span>
-                  <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full', STATUS_COLORS[project.status])}>
-                    {project.status}
-                  </span>
-                  <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full', PRIORITY_COLORS[project.priority])}>
-                    {project.priority}
-                  </span>
-                  {initiative && (
-                    <span className="text-[10px] text-slate-400 font-medium">· {initiative.name}</span>
-                  )}
-                </div>
-
-                {/* Description */}
-                {project.description && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{project.description}</p>
-                )}
-
-                {/* Blocked-by attribution — shown only when the project is Blocked
-                    and at least one blocking project has been identified. Renders
-                    project names (resolved from store) separated by commas. */}
-                {project.status === 'Blocked' && (project.blockedByIds?.length ?? 0) > 0 && (
-                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                    Blocked by:{' '}
-                    {project.blockedByIds!
-                      .map(id => projects.find(p => p.id === id)?.name)
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
-                )}
-
-                {/* Stakeholder group tags — highlight the active filter chip */}
-                {parseStakeholders(project.stakeholders).length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap" onClick={e => e.stopPropagation()}>
-                    {parseStakeholders(project.stakeholders).map(group => (
-                      <span
-                        key={group}
-                        className={cn(
-                          'text-[10px] font-medium px-2 py-0.5 rounded-full',
-                          stakeholderFilter.includes(group)
-                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400',
-                        )}
-                      >
-                        {group}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Progress + dates + members */}
-                <div className="flex items-center gap-6 flex-wrap">
-                  <div className="w-32">
-                    <ProgressBar value={project.percentComplete} />
-                  </div>
-                  {(project.startDate || project.targetEndDate) && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
-                      {fmtDate(project.startDate)} → {fmtDate(project.targetEndDate)}
-                    </span>
-                  )}
-                  {assignedMembers.length > 0 && (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {assignedMembers.slice(0, 5).map((name, i) => (
-                        <span key={i} className="pl-2.5 pr-2.5 py-0.5 bg-blue-600 dark:bg-blue-700 text-white rounded-full text-xs font-medium">
-                          {name}
-                        </span>
-                      ))}
-                      {assignedMembers.length > 5 && (
-                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400 rounded-full text-xs font-medium">
-                          +{assignedMembers.length - 5} more
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions — stop propagation so row click doesn't also fire */}
-              <div className="flex items-center gap-1 shrink-0 mt-0.5" onClick={e => e.stopPropagation()}>
+              {/* Action buttons — top-right corner, shown on hover */}
+              <div
+                className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={e => e.stopPropagation()}
+              >
                 <button
                   onClick={() => navigate(`/projects/${project.id}`)}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
-                  title="Edit project"
+                  className="p-1 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
+                  title="Edit"
                 >
-                  <Pencil size={14} />
+                  <Pencil size={12} />
                 </button>
                 {isAdmin && (
                   <button
                     onClick={() => handleDelete(project.id)}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/40 transition-colors"
-                    title="Delete project"
+                    className="p-1 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/40 transition-colors"
+                    title="Delete"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={12} />
                   </button>
                 )}
               </div>
+
+              {/* Row 1: Epic name */}
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight pr-12 line-clamp-2">
+                {project.name}
+                {isUnassigned && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 align-middle">
+                    <UserX size={8} /> Unassigned
+                  </span>
+                )}
+              </p>
+
+              {/* Row 2: Description */}
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-snug line-clamp-2">
+                {project.description || (initiative ? initiative.name : '—')}
+              </p>
+
+              {/* Row 3: Status + Priority chips */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', STATUS_COLORS[project.status])}>
+                  {project.status}
+                </span>
+                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PRIORITY_COLORS[project.priority])}>
+                  {project.priority}
+                </span>
+              </div>
+
+              {/* Row 4: Phase chip + % complete (same line, phase left, % right) */}
+              <div className="flex items-center justify-between gap-1">
+                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PHASE_COLORS[project.phase])}>
+                  {project.phase}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {project.percentComplete}%
+                </span>
+              </div>
+
+              {/* Row 5: People — avatar initials on their own line */}
+              {assignedMemberObjs.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap pt-0.5 border-t border-slate-100 dark:border-slate-700">
+                  {assignedMemberObjs.slice(0, 6).map(m => {
+                    const { bg, text } = avatarColor(m.name)
+                    return (
+                      <span
+                        key={m.id}
+                        className={cn('text-[9px] font-bold rounded-full size-5 flex items-center justify-center shrink-0', bg, text)}
+                        title={m.name}
+                      >
+                        {m.avatarInitials}
+                      </span>
+                    )
+                  })}
+                  {assignedMemberObjs.length > 6 && (
+                    <span className="text-[10px] text-slate-400">+{assignedMemberObjs.length - 6}</span>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}

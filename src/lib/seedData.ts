@@ -36,6 +36,7 @@ import type {
   PortfolioState,
   Project,
   ProjectPhaseStep,
+  PtoBlock,
   ResourceRate,
   Team,
 } from '@/types'
@@ -138,6 +139,38 @@ const initiatives: Initiative[] = [
     description: 'Build foundational data pipelines, core APIs, and platform services for the SAT ecosystem.',
     targetQuarter: 'Q3 2026',
     status: 'Active',
+  },
+
+  // ── FY2025 completed initiatives — historical context for year-over-year comparison ──
+  {
+    id: 'i6',
+    name: 'FY2025 Associate Experience Foundation',
+    description: 'First-generation DEX products: IRIS v1 mobile overhaul, Cookie Monster v2, and the HomeBase team collaboration hub. All shipped FY2025.',
+    targetQuarter: 'Q4 FY2025',
+    status: 'Complete',
+  },
+  {
+    id: 'i7',
+    name: 'FY2025 Platform & Security Hardening',
+    description: 'CI/CD foundation, unified authentication service, and observability baseline rolled out across all SAT product teams in FY2025.',
+    targetQuarter: 'Q3 FY2025',
+    status: 'Complete',
+  },
+
+  // ── FY2027 planning initiatives — future roadmap items ────────────────────
+  {
+    id: 'i8',
+    name: 'Next-Gen Store Intelligence',
+    description: 'AI/ML-powered store analytics: predictive labor, smart inventory replenishment, and a unified real-time store intelligence dashboard. Planned for FY2027.',
+    targetQuarter: 'Q3 FY2027',
+    status: 'Planning',
+  },
+  {
+    id: 'i9',
+    name: 'Associate Platform 3.0',
+    description: 'Convergence of IRIS, Cookie Monster, and HomeBase into a single unified associate platform with personalized workspaces. Planned for FY2027.',
+    targetQuarter: 'Q4 FY2027',
+    status: 'Planning',
   },
 ]
 
@@ -272,7 +305,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm14', teamIds: ['t4'],  name: 'Rajasekhar Mummaneni',          role: 'Sr Software Engineer',                  reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'RM' },
   { id: 'm15', teamIds: ['t4'],  name: 'Avinash Prakash',               role: 'Advanced Software Engineer',            reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'AP' },
   { id: 'm16', teamIds: ['t4'],  name: 'Bhargavi Tammina',              role: 'Senior Quality Engineer',               reportsTo: 'Venkata Sanjay Penmetsa', capacity: 80, avatarInitials: 'BT' },
-  { id: 'm17', teamIds: ['t4'],  name: 'Mary Kathryn Strang',           role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'MKS' },
+  { id: 'm17', teamIds: ['t4'],  name: 'Mary Kathryn Pease',           role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'MKS' },
   { id: 'm19', teamIds: ['t4'],  name: 'Daniel Henning',                role: 'Product Designer',                      reportsTo: 'Timothy Freeman',         capacity: 80, avatarInitials: 'DH' },
   // ── Seamless AX — In Store Communications (t39) ────────────────────
   { id: 'm18', teamIds: ['t39'], name: 'Chris Uhl',                     role: 'Senior Product Manager',                reportsTo: 'Mike Silverman',          capacity: 75, avatarInitials: 'CU' },
@@ -1594,6 +1627,231 @@ const projects: Project[] = [
     notes: 'Competitive analysis complete. Requirements gathering in progress.',
     updatedAt: '2026-05-15T09:00:00Z',
   },
+  // ── FY2025 COMPLETED PROJECTS ──────────────────────────────────────────
+  // All five shipped during FY2025 (Feb 2025 – Jan 2026).  Status = Complete,
+  // percentComplete = 100.  Included so analytics charts show a historical
+  // baseline to compare against current FY2026 delivery pace.
+
+  {
+    id: 'p31',
+    assignments: [
+      { memberId: 'm12', part: 'Backend',            allocation: 60, startDate: '2025-02-01', endDate: '2025-07-31' },
+      { memberId: 'm14', part: 'Backend',            allocation: 50, startDate: '2025-02-01', endDate: '2025-07-31' },
+      { memberId: 'm19', part: 'UX Research',        allocation: 40, startDate: '2025-02-01', endDate: '2025-04-30' },
+    ],
+    name: 'IRIS v1 Mobile Overhaul',
+    description: 'Rebuilt the IRIS associate app on a native mobile framework with offline support, biometric login, and a redesigned task-management UI.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i6', priority: 'Critical',
+    startDate: '2025-02-01', targetEndDate: '2025-07-31', percentComplete: 100,
+    stakeholders: 'Store Ops, Seamless AX',
+    notes: 'Shipped to all stores July 2025. 94% associate adoption within 60 days.',
+    updatedAt: '2025-07-31T17:00:00Z',
+    estimatedValue: 3800000, valueType: 'Revenue Impact',
+  },
+  {
+    id: 'p32',
+    assignments: [
+      { memberId: 'm20', part: 'Product Management', allocation: 60, startDate: '2025-03-01', endDate: '2025-10-31' },
+      { memberId: 'm23', part: 'UX Research',        allocation: 50, startDate: '2025-03-01', endDate: '2025-06-30' },
+      { memberId: 'm24', part: 'UI Design',          allocation: 60, startDate: '2025-04-01', endDate: '2025-10-31' },
+      { memberId: 'm25', part: 'Backend',            allocation: 70, startDate: '2025-05-01', endDate: '2025-10-31' },
+    ],
+    name: 'Cookie Monster v2',
+    description: 'Second major version of Cookie Monster: rule engine rewrite, drag-and-drop discount builder, and real-time preview across all store formats.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i6', priority: 'High',
+    startDate: '2025-03-01', targetEndDate: '2025-10-31', percentComplete: 100,
+    stakeholders: 'Merchandising, Store Ops',
+    notes: 'Launched Oct 2025. Promotion config time reduced by 70%.',
+    updatedAt: '2025-10-31T16:00:00Z',
+    estimatedValue: 2200000, valueType: 'Cost Savings',
+  },
+  {
+    id: 'p33',
+    assignments: [
+      { memberId: 'm97', part: 'DevOps',     allocation: 80, startDate: '2025-04-01', endDate: '2025-09-30' },
+      { memberId: 'm98', part: 'Security',   allocation: 70, startDate: '2025-04-01', endDate: '2025-09-30' },
+      { memberId: 'm96', part: 'DevOps',     allocation: 60, startDate: '2025-04-01', endDate: '2025-09-30' },
+    ],
+    name: 'SAT CI/CD Foundation',
+    description: 'Standardized CI/CD pipelines across all 35 SAT teams: GitHub Actions templates, automated security gates, and container image scanning.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i7', priority: 'High',
+    startDate: '2025-04-01', targetEndDate: '2025-09-30', percentComplete: 100,
+    stakeholders: 'All engineering teams',
+    notes: 'Shipped Sep 2025. All 35 teams migrated. Mean deploy time down 45%.',
+    updatedAt: '2025-09-30T15:00:00Z',
+    estimatedValue: 1200000, valueType: 'Cost Savings',
+  },
+  {
+    id: 'p34',
+    assignments: [
+      { memberId: 'm5',  part: 'Backend',      allocation: 70, startDate: '2025-05-01', endDate: '2025-11-30' },
+      { memberId: 'm6',  part: 'Backend',      allocation: 60, startDate: '2025-05-01', endDate: '2025-11-30' },
+      { memberId: 'm8',  part: 'Architecture', allocation: 50, startDate: '2025-05-01', endDate: '2025-08-31' },
+    ],
+    name: 'Unified Auth Service',
+    description: 'Centralized OAuth 2.0 / SAML SSO service replacing 8 separate login systems across SAT products.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i7', priority: 'Critical',
+    startDate: '2025-05-01', targetEndDate: '2025-11-30', percentComplete: 100,
+    stakeholders: 'Security, All engineering teams',
+    notes: 'Launched Nov 2025. All SAT products migrated off legacy auth.',
+    updatedAt: '2025-11-30T17:00:00Z',
+    estimatedValue: 900000, valueType: 'Cost Savings',
+  },
+  {
+    id: 'p35',
+    assignments: [
+      { memberId: 'm68', part: 'Backend',      allocation: 70, startDate: '2025-06-01', endDate: '2025-12-31' },
+      { memberId: 'm69', part: 'Architecture', allocation: 60, startDate: '2025-06-01', endDate: '2025-10-31' },
+      { memberId: 'm70', part: 'QA',           allocation: 60, startDate: '2025-09-01', endDate: '2025-12-31' },
+    ],
+    name: 'FAST Labor Scheduler v1',
+    description: 'First version of the AI-assisted labor scheduling engine for production departments, replacing the legacy spreadsheet-based process.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i6', priority: 'High',
+    startDate: '2025-06-01', targetEndDate: '2025-12-31', percentComplete: 100,
+    stakeholders: 'Store Ops, HR',
+    notes: 'Deployed to 120 stores by Dec 2025. Labor waste down 18%.',
+    updatedAt: '2025-12-31T16:00:00Z',
+    estimatedValue: 4100000, valueType: 'Cost Savings',
+  },
+
+  // ── EARLY FY2026 COMPLETED PROJECTS ────────────────────────────────────
+  // Shipped in Q1–Q2 FY2026 (Feb–Jul 2026); status = Complete.
+  // Show that the team continued to ship even while FY2026 programs ramped up.
+
+  {
+    id: 'p36',
+    assignments: [
+      { memberId: 'm7',  part: 'Frontend', allocation: 70, startDate: '2026-02-01', endDate: '2026-04-30' },
+      { memberId: 'm9',  part: 'Backend',  allocation: 60, startDate: '2026-02-01', endDate: '2026-04-30' },
+      { memberId: 'm19', part: 'UI Design', allocation: 40, startDate: '2026-02-01', endDate: '2026-03-31' },
+    ],
+    name: 'HomeBase Team Hub v1',
+    description: 'Launched the HomeBase team collaboration hub with shift handoff notes, team announcements, and direct manager messaging.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i1', priority: 'Medium',
+    startDate: '2026-02-01', targetEndDate: '2026-04-30', percentComplete: 100,
+    stakeholders: 'Store Ops, Seamless AX',
+    notes: 'Launched Apr 2026. 4,200 associates active in first week.',
+    updatedAt: '2026-04-30T15:00:00Z',
+    estimatedValue: 1500000, valueType: 'Revenue Impact',
+  },
+  {
+    id: 'p37',
+    assignments: [
+      { memberId: 'm86', part: 'QA Architect', allocation: 70, startDate: '2026-02-01', endDate: '2026-05-31' },
+      { memberId: 'm87', part: 'Automation',   allocation: 80, startDate: '2026-02-01', endDate: '2026-05-31' },
+      { memberId: 'm88', part: 'QA',           allocation: 70, startDate: '2026-03-01', endDate: '2026-05-31' },
+    ],
+    name: 'DEX Shared Test Framework',
+    description: 'Common test harness adopted by IRIS, Cookie Monster, and HomeBase teams: shared fixtures, data factories, and contract-test runner.',
+    status: 'Complete', phase: 'Deployed', initiativeId: 'i3', priority: 'High',
+    startDate: '2026-02-01', targetEndDate: '2026-05-31', percentComplete: 100,
+    stakeholders: 'QAOps, All Seamless AX teams',
+    notes: 'Shipped May 2026. Reduced regression suite runtime by 60%.',
+    updatedAt: '2026-05-31T16:00:00Z',
+    estimatedValue: 800000, valueType: 'Cost Savings',
+  },
+
+  // ── FY2026 BLOCKED PROJECTS ────────────────────────────────────────────
+  // Two projects stalled mid-flight — dependency gaps or resourcing issues.
+  // Realistic to include in analytics for blocked-project tracking.
+
+  {
+    id: 'p38',
+    assignments: [
+      { memberId: 'm61', part: 'Analysis',     allocation: 50, startDate: '2026-04-01', endDate: '2026-12-31' },
+      { memberId: 'm64', part: 'Analysis',     allocation: 50, startDate: '2026-04-01', endDate: '2026-12-31' },
+    ],
+    name: 'Digital Shelf Label Integration',
+    description: 'API integration between the SAT ordering system and Hanshow digital shelf label hardware across 200 pilot stores.',
+    status: 'Blocked', phase: 'Development', initiativeId: 'i2', priority: 'High',
+    startDate: '2026-04-01', targetEndDate: '2026-12-31', percentComplete: 20,
+    stakeholders: 'Store Ops, Merchandising, Hanshow',
+    notes: 'Blocked: Hanshow API documentation incomplete. Vendor engagement ongoing.',
+    updatedAt: '2026-05-15T10:00:00Z',
+    blockedByIds: [],
+  },
+  {
+    id: 'p39',
+    assignments: [
+      { memberId: 'm107', part: 'Analysis',          allocation: 60, startDate: '2026-05-01', endDate: '2027-03-31' },
+      { memberId: 'm33',  part: 'Product Management', allocation: 50, startDate: '2026-05-01', endDate: '2027-03-31' },
+    ],
+    name: 'Money Services Platform Rewrite',
+    description: 'Full rewrite of the KPF money services backend on a modern microservices stack with enhanced regulatory reporting.',
+    status: 'Blocked', phase: 'Discovery', initiativeId: 'i4', priority: 'Critical',
+    startDate: '2026-05-01', targetEndDate: '2027-03-31', percentComplete: 10,
+    stakeholders: 'KPF, Legal, Compliance, Finance',
+    notes: 'Blocked: pending legal sign-off on new data residency requirements. Expected Q3 2026.',
+    updatedAt: '2026-05-28T11:00:00Z',
+    blockedByIds: [],
+  },
+
+  // ── FY2027 PLANNED PROJECTS ────────────────────────────────────────────
+  // Backlog / Planning status — dates in FY2027 (Feb 2027 – Jan 2028).
+  // Assignments are sparse or absent: staffing decisions happen closer to start.
+  // These give the analytics page future-roadmap visibility.
+
+  {
+    id: 'p40',
+    assignments: [],
+    name: 'Real-Time Store Intelligence Dashboard',
+    description: 'Unified AI analytics dashboard surfacing live labor, inventory, and sales signals to store managers and district leads.',
+    status: 'Backlog', phase: 'Discovery', initiativeId: 'i8', priority: 'Critical',
+    startDate: '2027-02-01', targetEndDate: '2027-09-30', percentComplete: 0,
+    stakeholders: 'Store Ops, Finance, HR',
+    notes: 'In roadmap planning. Requires FY2027 headcount approval.',
+    updatedAt: '2026-05-01T09:00:00Z',
+    estimatedValue: 6000000, valueType: 'Revenue Impact',
+  },
+  {
+    id: 'p41',
+    assignments: [],
+    name: 'Predictive Labor Planning Engine',
+    description: 'Extend FAST with multi-week forecasting: demand signals from Merchandising + historical patterns to auto-generate 4-week labor plans.',
+    status: 'Backlog', phase: 'Research', initiativeId: 'i8', priority: 'High',
+    startDate: '2027-03-01', targetEndDate: '2027-11-30', percentComplete: 0,
+    stakeholders: 'HR, Store Ops, Finance',
+    notes: 'Scoping in progress. Estimated XL effort — 6 engineers for 9 months.',
+    updatedAt: '2026-05-10T09:00:00Z',
+    estimatedValue: 5500000, valueType: 'Cost Savings',
+  },
+  {
+    id: 'p42',
+    assignments: [],
+    name: 'Smart Inventory Replenishment',
+    description: 'ML-driven replenishment recommendations integrated into the ordering workflow, replacing static reorder points with dynamic demand sensing.',
+    status: 'Backlog', phase: 'Research', initiativeId: 'i8', priority: 'High',
+    startDate: '2027-04-01', targetEndDate: '2027-12-31', percentComplete: 0,
+    stakeholders: 'Supply Chain, Merchandising',
+    notes: 'Dependent on Intelligent Ordering System (p17) shipping and stabilizing first.',
+    updatedAt: '2026-04-20T09:00:00Z',
+    estimatedValue: 7200000, valueType: 'Revenue Impact',
+  },
+  {
+    id: 'p43',
+    assignments: [],
+    name: 'Associate Platform 3.0 — Core Shell',
+    description: 'Single unified shell app replacing IRIS, Cookie Monster, and HomeBase with a shared navigation, notification, and personalization layer.',
+    status: 'Backlog', phase: 'Discovery', initiativeId: 'i9', priority: 'Critical',
+    startDate: '2027-02-01', targetEndDate: '2027-12-31', percentComplete: 0,
+    stakeholders: 'Seamless AX, Store Ops, HR',
+    notes: 'Requires completion of IRIS Platform v2 (p1) and Cookie Monster Promotions Engine (p3).',
+    updatedAt: '2026-05-15T09:00:00Z',
+    estimatedValue: 9500000, valueType: 'Revenue Impact',
+  },
+  {
+    id: 'p44',
+    assignments: [],
+    name: 'Personalized Associate Workspace',
+    description: 'Role-based personalization layer for Associate Platform 3.0: customizable task tiles, department-specific widgets, and adaptive notifications.',
+    status: 'Backlog', phase: 'Discovery', initiativeId: 'i9', priority: 'High',
+    startDate: '2027-06-01', targetEndDate: '2028-01-31', percentComplete: 0,
+    stakeholders: 'Seamless AX, HR, Store Ops',
+    notes: 'Blocked by Associate Platform 3.0 Core Shell (p43). Planned for H2 FY2027.',
+    updatedAt: '2026-05-15T09:00:00Z',
+    estimatedValue: 4800000, valueType: 'Revenue Impact',
+  },
+
   // ── Unassigned — shown as examples of backlog work ────────────────────
   {
     id: 'p28',
@@ -1821,9 +2079,50 @@ function buildState(): PortfolioState {
     blockedByIds: p.blockedByIds ?? [],
   }))
 
+  // ── PTO blocks ──────────────────────────────────────────────────────────
+  // Spread across FY2026 to give realistic stats in the Planning page.
+  // Current date: 2026-06-05. Ranges chosen so stats show:
+  //   On PTO Today (active on 2026-06-05): m3, m8, m15
+  //   Upcoming 14 days (starts 2026-06-06 to 2026-06-19): m6, m11, m17
+  //   PTO Blocks This Qtr (Q2: ~May 3 – Aug 1): all of the above + Q2 blocks
+  const ptoBlocks: PtoBlock[] = [
+    // ── Active today (2026-06-05) ──────────────────────────────────────────
+    { id: 'pto1',  memberId: 'm3',   startDate: '2026-06-03', endDate: '2026-06-07', note: 'Family vacation' },
+    { id: 'pto2',  memberId: 'm8',   startDate: '2026-06-05', endDate: '2026-06-05', note: 'Personal day' },
+    { id: 'pto3',  memberId: 'm15',  startDate: '2026-06-02', endDate: '2026-06-10', note: 'Trip abroad' },
+
+    // ── Upcoming within 14 days (starts after today, before 2026-06-19) ───
+    { id: 'pto4',  memberId: 'm6',   startDate: '2026-06-08', endDate: '2026-06-12', note: 'Vacation' },
+    { id: 'pto5',  memberId: 'm11',  startDate: '2026-06-09', endDate: '2026-06-10', note: 'Doctor appointments' },
+    { id: 'pto6',  memberId: 'm17',  startDate: '2026-06-16', endDate: '2026-06-20', note: 'Wedding' },
+
+    // ── Earlier Q2 FY2026 blocks (May 3 – Aug 1) ─────────────────────────
+    { id: 'pto7',  memberId: 'm1',   startDate: '2026-05-18', endDate: '2026-05-22', note: 'Spring break' },
+    { id: 'pto8',  memberId: 'm5',   startDate: '2026-05-25', endDate: '2026-05-29', note: 'Memorial Day week' },
+    { id: 'pto9',  memberId: 'm7',   startDate: '2026-06-22', endDate: '2026-06-26', note: 'Summer vacation' },
+    { id: 'pto10', memberId: 'm12',  startDate: '2026-06-29', endDate: '2026-07-03', note: 'Fourth of July trip' },
+    { id: 'pto11', memberId: 'm16',  startDate: '2026-07-06', endDate: '2026-07-10', note: 'Vacation' },
+    { id: 'pto12', memberId: 'm20',  startDate: '2026-07-13', endDate: '2026-07-17', note: 'Beach trip' },
+    { id: 'pto13', memberId: 'm25',  startDate: '2026-07-20', endDate: '2026-07-24', note: 'Family reunion' },
+
+    // ── Q3 FY2026 (Aug – Oct) ─────────────────────────────────────────────
+    { id: 'pto14', memberId: 'm2',   startDate: '2026-08-10', endDate: '2026-08-14', note: 'Summer vacation' },
+    { id: 'pto15', memberId: 'm14',  startDate: '2026-08-24', endDate: '2026-08-28', note: 'Back-to-school travel' },
+    { id: 'pto16', memberId: 'm26',  startDate: '2026-09-07', endDate: '2026-09-11', note: 'Labor Day extension' },
+    { id: 'pto17', memberId: 'm4',   startDate: '2026-09-21', endDate: '2026-09-25', note: 'Personal trip' },
+    { id: 'pto18', memberId: 'm21',  startDate: '2026-10-05', endDate: '2026-10-09', note: 'Fall break' },
+
+    // ── Q4 FY2026 (Oct – Jan) ─────────────────────────────────────────────
+    { id: 'pto19', memberId: 'm28',  startDate: '2026-11-23', endDate: '2026-11-27', note: 'Thanksgiving' },
+    { id: 'pto20', memberId: 'm29',  startDate: '2026-11-23', endDate: '2026-11-27', note: 'Thanksgiving week' },
+    { id: 'pto21', memberId: 'm9',   startDate: '2026-12-21', endDate: '2026-12-31', note: 'Holiday break' },
+    { id: 'pto22', memberId: 'm13',  startDate: '2026-12-24', endDate: '2026-12-31', note: 'Holiday travel' },
+    { id: 'pto23', memberId: 'm32',  startDate: '2027-01-02', endDate: '2027-01-02', note: 'New Year bridge day' },
+  ]
+
   return {
     domains, teams, members, projects: projectsWithBlockedBy,
-    initiatives, intakeRequests, escalations: [], ptoBlocks: [],
+    initiatives, intakeRequests, escalations: [], ptoBlocks,
     resourceRates,
   }
 }

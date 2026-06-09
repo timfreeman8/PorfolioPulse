@@ -183,25 +183,36 @@
 :root {
   --gantt-surface:  #ffffff;            /* sticky col + row background */
   --gantt-section:  #f8fafc;            /* team/phase divider row bg   */
-  --gantt-q-even:   #f1f5f9;
-  --gantt-q-odd:    #e2e8f0;
-  --gantt-p-even:   #eff6ff;
-  --gantt-p-odd:    #eef2ff;
-  --gantt-w-even:   #f8fafc;
-  --gantt-w-odd:    #f1f5f9;
+  /* All header rows use a pure white background. Hierarchy is expressed
+     purely through font weight and text color — no background tinting.
+     The alternating -odd vars are also white so divider lines are the
+     only visual rhythm between same-level cells. */
+  --gantt-q-even:   #ffffff;
+  --gantt-q-odd:    #ffffff;
+  --gantt-p-even:   #ffffff;
+  --gantt-p-odd:    #ffffff;
+  --gantt-w-even:   #ffffff;
+  --gantt-w-odd:    #f8fafc;
   --gantt-stripe:   rgba(148, 163, 184, 0.07);
+  /* Text colors — darker shades give clear hierarchy without colored bg */
+  --gantt-q-text:   #1e293b;            /* slate-800 */
+  --gantt-p-text:   #334155;            /* slate-700 */
+  --gantt-w-text:   #64748b;            /* slate-500 */
 }
 
 .dark {
   --gantt-surface:  oklch(0.205 0 0);
   --gantt-section:  oklch(0.175 0 0);
-  --gantt-q-even:   oklch(0.245 0 0);
-  --gantt-q-odd:    oklch(0.22 0 0);
-  --gantt-p-even:   oklch(0.235 0.006 250);
-  --gantt-p-odd:    oklch(0.235 0.006 260);
+  --gantt-q-even:   oklch(0.205 0 0);
+  --gantt-q-odd:    oklch(0.19 0 0);
+  --gantt-p-even:   oklch(0.205 0 0);
+  --gantt-p-odd:    oklch(0.19 0 0);
   --gantt-w-even:   oklch(0.205 0 0);
   --gantt-w-odd:    oklch(0.19 0 0);
   --gantt-stripe:   rgba(255, 255, 255, 0.03);
+  --gantt-q-text:   #e2e8f0;            /* slate-200 */
+  --gantt-p-text:   #cbd5e1;            /* slate-300 */
+  --gantt-w-text:   #94a3b8;            /* slate-400 */
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */

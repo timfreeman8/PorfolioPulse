@@ -31,7 +31,7 @@ const TOPBAR_BG_DARK  = '#0a1628'          // Very dark navy — keeps blue bran
 // Top nav links — map label to route. Evenly spaced via consistent px-5 padding.
 const NAV_ITEMS: { label: string; to: string; end?: boolean }[] = [
   { label: 'Dashboard',   to: '/',           end: true },
-  { label: 'Projects',    to: '/projects' },
+  { label: 'Epics',       to: '/epics' },
   { label: 'Planning',    to: '/planning' },
   { label: 'People',      to: '/roster' },
   { label: 'Analytics',   to: '/analytics' },

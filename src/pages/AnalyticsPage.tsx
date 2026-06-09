@@ -793,6 +793,9 @@ export function AnalyticsPage() {
           )}
         </div>
 
+        {/* "Filter" section label — matches Planning page style */}
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-3">Filter</span>
+
         {/* Domain — clearing domain also clears teams (dependent filter) */}
         <MultiSelectDropdown
           label="Domain"
@@ -869,11 +872,11 @@ export function AnalyticsPage() {
       {/* Charts 2×2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Projects by Phase</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Epics by Phase</CardTitle></CardHeader>
           <CardContent><PhaseDonut data={phaseData} isDark={isDark} /></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Projects by Status</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Epics by Status</CardTitle></CardHeader>
           <CardContent><StatusBar data={statusData} isDark={isDark} /></CardContent>
         </Card>
         <Card>
@@ -897,7 +900,7 @@ export function AnalyticsPage() {
         <CardHeader className="pb-0 pt-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm">
-              All Projects
+              All Epics
               <span className="ml-2 text-slate-400 font-normal">({filtered.length})</span>
             </CardTitle>
             {filtered.length === 0 && hasFilters && (
@@ -916,7 +919,7 @@ export function AnalyticsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableHead col="name"            label="Project"      sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                    <SortableHead col="name"            label="Epic"         sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                     <TableHead>Domain</TableHead>
                     <TableHead>Team</TableHead>
                     <TableHead>Assigned To</TableHead>
@@ -997,7 +1000,7 @@ export function AnalyticsPage() {
         {/* Total estimated portfolio value */}
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Estimated Project Value</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Estimated Epic Value</p>
             <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
               {totalEstimatedValue > 0 ? fmtCompact(totalEstimatedValue) : '—'}
             </p>
@@ -1025,7 +1028,7 @@ export function AnalyticsPage() {
         {/* Projects with value defined */}
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Projects with Value Defined</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Epics with Value Defined</p>
             <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{projectsWithValue}</p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
               of {projects.length} total projects
@@ -1098,7 +1101,7 @@ export function AnalyticsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableHead col="name"           label="Project"    sortKey={finSortKey} sortDir={finSortDir} onSort={handleFinSort} />
+                    <SortableHead col="name"           label="Epic"       sortKey={finSortKey} sortDir={finSortDir} onSort={handleFinSort} />
                     <TableHead>Team</TableHead>
                     <TableHead>Value Type</TableHead>
                     <SortableHead col="estimatedValue" label="Est. Value"  sortKey={finSortKey} sortDir={finSortDir} onSort={handleFinSort} />

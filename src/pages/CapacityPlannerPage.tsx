@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, createContext, useContext } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Palmtree, Trash2, Flag, Search, Printer } from 'lucide-react'
+import { Palmtree, Trash2, Flag, Search, Printer, CalendarOff, Users2, Zap, AlertTriangle, TrendingUp } from 'lucide-react'
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
 import { PHASE_COLORS, CHART_COLORS, avatarColor } from '@/lib/colors'
 import { deriveProjectFields } from '@/lib/projectBuilder'
-import { SDLC_ROLES, ROLE_COLORS, DEFAULT_ROLE_COLOR } from '@/lib/roles'
+import { SDLC_ROLES, ROLE_COLORS, DEFAULT_ROLE_COLOR, roleCategoryOf, ALL_ROLE_CATEGORIES } from '@/lib/roles'
 import { getCurrentQBounds } from '@/lib/fiscal'
 import { cn } from '@/lib/utils'
 import type { Project, ProjectPhase, Member, Team, PtoBlock, ProjectMemberAssignment, ProjectPhaseStep } from '@/types'
@@ -30,96 +30,170 @@ import type { Project, ProjectPhase, Member, Team, PtoBlock, ProjectMemberAssign
  *   By Project — one row per project, bars = each assigned member's work window,
  *                colored by their SDLC role (Frontend, QA, PM, etc.).
  *
- * The horizontal axis is the Kroger 4-5-4 NRF fiscal calendar. All pixel
- * positions are derived from `dateToX()` which converts an ISO date to a pixel
- * offset from FY_START. WEEK_PX controls the zoom level.
+ * The horizontal axis is the Kroger 4-5-4 NRF fiscal calendar spanning FY2026–FY2028
+ * (156 continuous weeks). All pixel positions are computed by ganttConfig.dateToX()
+ * which converts an ISO date to a pixel offset from the visible window's start date.
  */
 
-// ─── Fiscal calendar — Kroger 4-5-4 NRF FY2026 ───────────────────────────
+// ─── Fiscal calendar — Kroger 4-5-4 NRF FY2025–FY2028 ────────────────────
+// FY2025: Feb 2, 2025 (Sun) – Feb 1, 2026  (52 weeks exactly)
 // FY2026: Feb 1, 2026 (Sun) – Jan 31, 2027
+// FY2027 / FY2028 follow at 52-week intervals.
+// FY_START is the Sunday that begins FY2025 — the global week-0 origin.
 
-const FY_START = new Date('2026-02-01T00:00:00')   // Sunday
-const WEEK_PX  = 80
+const FY_START = new Date('2025-02-02T00:00:00')   // Sunday — global origin for all week date math
 
 // The 4-5-4 pattern groups weeks into periods (months): 4 weeks, 5 weeks, 4 weeks,
 // repeating across 4 quarters. This gives 12 periods and exactly 52 weeks per year.
 // Each quarter = 13 weeks (4+5+4). P1 starts on FY_START.
 const PERIOD_WEEKS = [4, 5, 4,  4, 5, 4,  4, 5, 4,  4, 5, 4]  // P1–P12
 
+/** Fiscal years covered by this calendar. FY2025 is the base (week 0). */
+const SUPPORTED_FY_YEARS = [2025, 2026, 2027, 2028]
+const WEEKS_PER_FY = 52
+
 interface FiscalWeek {
-  index: number       // 0-based week index from FY_START
-  date: Date          // Sunday of the week
-  periodIndex: number // 0-based (P1 = 0)
-  quarterIndex: number // 0-based (Q1 = 0)
-  weekInPeriod: number // 1-based
+  index: number        // global 0-based week index from FY_START (continuous across all years)
+  date: Date           // Sunday of the week
+  periodIndex: number  // global 0-based period index (P1 of FY2026 = 0, P1 of FY2027 = 12, etc.)
+  quarterIndex: number // global 0-based quarter index (Q1 of FY2026 = 0, Q1 of FY2027 = 4, etc.)
+  weekInPeriod: number // 1-based position within the period
+  fyYear: number       // which fiscal year this week belongs to (e.g. 2026)
 }
 
 interface FiscalPeriod {
-  index: number       // 0-based
-  label: string       // "P1" … "P12"
-  quarterIndex: number
-  weekStart: number   // first week index
+  index: number        // global 0-based
+  label: string        // "P1" … "P12" (used in full calendar headers; restarts each year)
+  monthLabel: string   // abbreviated month name derived from the period's first week date, e.g. "Feb"
+  quarterIndex: number // global quarter index
+  weekStart: number    // global first week index
   weekCount: number
+  fyYear: number       // which fiscal year this period belongs to
 }
 
 interface FiscalQuarter {
   index: number
-  label: string       // "Q1" … "Q4"
-  weekStart: number
-  weekCount: number   // always 13
+  label: string        // "Q1" … "Q4" (restarts each year)
+  weekStart: number    // global first week index
+  weekCount: number    // always 13
+  fyYear: number       // which fiscal year this quarter belongs to
 }
 
-function buildFiscalCalendar(): { weeks: FiscalWeek[]; periods: FiscalPeriod[]; quarters: FiscalQuarter[] } {
+/** One fiscal year entry — tracks the global week boundaries for each FY. */
+interface FiscalYear {
+  fyYear: number    // e.g. 2026
+  weekStart: number // global week index of the first week in this FY
+  weekCount: number // 52
+}
+
+/**
+ * Build a multi-year 4-5-4 NRF fiscal calendar starting at FY_START (FY2025).
+ * Each supported year is exactly WEEKS_PER_FY (52) weeks. Global week indices
+ * are continuous: FY2025 = 0-51, FY2026 = 52-103, FY2027 = 104-155, FY2028 = 156-207.
+ */
+function buildMultiYearCalendar(): {
+  weeks: FiscalWeek[]
+  periods: FiscalPeriod[]
+  quarters: FiscalQuarter[]
+  years: FiscalYear[]
+} {
   const weeks: FiscalWeek[] = []
   const periods: FiscalPeriod[] = []
   const quarters: FiscalQuarter[] = []
+  const years: FiscalYear[] = []
 
   let weekIndex = 0
 
-  for (let qi = 0; qi < 4; qi++) {
-    const qWeekStart = weekIndex
-    const pattern = [PERIOD_WEEKS[qi * 3], PERIOD_WEEKS[qi * 3 + 1], PERIOD_WEEKS[qi * 3 + 2]]
+  for (let yi = 0; yi < SUPPORTED_FY_YEARS.length; yi++) {
+    const fyYear = SUPPORTED_FY_YEARS[yi]
+    const yearWeekStart = weekIndex
 
-    for (let pi = 0; pi < 3; pi++) {
-      const pWeekStart = weekIndex
-      const count = pattern[pi]
-      const periodIdx = qi * 3 + pi
+    for (let qi = 0; qi < 4; qi++) {
+      const qWeekStart = weekIndex
+      // Global quarter index: unique across all years so filter/lookup is unambiguous
+      const qGlobalIdx = yi * 4 + qi
 
-      for (let w = 0; w < count; w++) {
-        const date = new Date(FY_START)
-        date.setDate(date.getDate() + weekIndex * 7)
-        weeks.push({
-          index: weekIndex,
-          date,
-          periodIndex: periodIdx,
-          quarterIndex: qi,
-          weekInPeriod: w + 1,
+      for (let pi = 0; pi < 3; pi++) {
+        const pWeekStart = weekIndex
+        const pGlobalIdx = yi * 12 + qi * 3 + pi
+        const count = PERIOD_WEEKS[qi * 3 + pi]
+
+        for (let w = 0; w < count; w++) {
+          const date = new Date(FY_START)
+          date.setDate(date.getDate() + weekIndex * 7)
+          weeks.push({
+            index: weekIndex,
+            date,
+            periodIndex: pGlobalIdx,
+            quarterIndex: qGlobalIdx,
+            weekInPeriod: w + 1,
+            fyYear,
+          })
+          weekIndex++
+        }
+
+        // monthLabel derived from the period's first day — keeps it accurate
+        // for any year without hard-coding the 12 month names.
+        const periodStartDate = new Date(FY_START)
+        periodStartDate.setDate(periodStartDate.getDate() + pWeekStart * 7)
+        const monthLabel = periodStartDate.toLocaleDateString('en-US', { month: 'short' })
+
+        periods.push({
+          index: pGlobalIdx,
+          label: `P${qi * 3 + pi + 1}`,
+          monthLabel,
+          quarterIndex: qGlobalIdx,
+          weekStart: pWeekStart,
+          weekCount: count,
+          fyYear,
         })
-        weekIndex++
       }
 
-      periods.push({
-        index: periodIdx,
-        label: `P${periodIdx + 1}`,
-        quarterIndex: qi,
-        weekStart: pWeekStart,
-        weekCount: count,
+      quarters.push({
+        index: qGlobalIdx,
+        label: `Q${qi + 1}`,
+        weekStart: qWeekStart,
+        weekCount: 13,
+        fyYear,
       })
     }
 
-    quarters.push({
-      index: qi,
-      label: `Q${qi + 1}`,
-      weekStart: qWeekStart,
-      weekCount: 13,
+    years.push({
+      fyYear,
+      weekStart: yearWeekStart,
+      weekCount: WEEKS_PER_FY,
     })
   }
 
-  return { weeks, periods, quarters }
+  return { weeks, periods, quarters, years }
 }
 
-const { weeks: FY_WEEKS, periods: FY_PERIODS, quarters: FY_QUARTERS } = buildFiscalCalendar()
+const { weeks: FY_WEEKS, periods: FY_PERIODS, quarters: FY_QUARTERS, years: FY_YEARS } =
+  buildMultiYearCalendar()
 const LEFT_COL_W = 200  // px — width of the sticky member/project name column
+
+// ── Virtual-scroll constants ───────────────────────────────────────────────
+const ROW_BAR_H  = 28  // px height of one project or PTO bar slot
+const ROW_PAD_H  = 8   // extra vertical padding at the top/bottom of each row
+const PTO_SLOT_H = 28  // additional height added when a member has PTO blocks
+const DIVIDER_H  = 28  // height of team/phase section divider rows
+const OVERSCAN   = 8   // extra rows rendered above/below the visible window
+                        // to avoid visible blank gaps during fast scrolling
+
+/**
+ * Binary search: returns the largest index i such that cum[i] <= target.
+ * cum is the prefix-sum array produced by the cumHeights useMemo below.
+ * Used to find the first and last visible row given a scrollTop value in O(log N).
+ */
+function lowerBound(cum: number[], target: number): number {
+  let lo = 0, hi = cum.length - 2
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (cum[mid] <= target) lo = mid
+    else hi = mid - 1
+  }
+  return lo
+}
 
 // Gantt bar colors come from the shared roles file — same source as the form's
 // Part/Responsibility chip picker, so bar color always matches the chip color.
@@ -139,6 +213,8 @@ interface GanttConfig {
   todayXPos: number                 // pixel x of today relative to visibleStart (or -1 if outside window)
   dateToX: (iso: string) => number  // convert ISO date → pixel x relative to visibleStart
   xToDate: (px: number) => string   // convert pixel x back to ISO date
+  /** Populated only in week zoom mode: the 7 individual days of the visible week. */
+  weekDays?: { label: string; iso: string }[]
 }
 const GanttCtx = createContext<GanttConfig | null>(null)
 
@@ -155,9 +231,9 @@ function makeStripe(weekPx: number): string {
 }
 
 // ─── Calendar math helpers ────────────────────────────────────────────────
-// Core idea: every date on the timeline maps to a pixel offset from the left
-// edge of the chart. dateToX() is the single conversion point — everything
-// else (bar positions, today line, auto-scroll target) is derived from it.
+// All pixel-position math is context-relative: ganttConfig.dateToX() converts
+// an ISO date to pixels from the visible window's start date. The module-level
+// daysBetween() is the only shared primitive; everything else lives in the memo.
 
 /** Number of whole days from a to b. Negative when b is before a. */
 function daysBetween(a: Date, b: Date): number {
@@ -165,42 +241,24 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 /**
- * Convert an ISO date string to a pixel x-position relative to FY_START.
- * Days are converted to fractional weeks, then multiplied by WEEK_PX.
- * Returns -1 for empty/invalid input so callers can detect missing dates.
+ * Returns the current fiscal year/quarter/week indices for the default state.
+ * yearIdx — index into FY_YEARS (0 = FY2026, 1 = FY2027, etc.)
+ * qIdx    — 0-3 within the year (Q1=0 … Q4=3)
+ * wkIdx   — global week index in FY_WEEKS
  */
-function dateToX(iso: string): number {
-  if (!iso) return -1
-  const d = new Date(iso + 'T00:00:00')
-  const days = daysBetween(FY_START, d)
-  return (days / 7) * WEEK_PX
-}
-
-/**
- * Pixel position of today's date on the chart.
- * Uses local date parts (not toISOString which returns UTC) to avoid
- * the line appearing one day behind near midnight in negative-offset timezones.
- */
-function todayX(): number {
-  const now = new Date()
-  const localIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  // Add half a day so the line sits in the middle of today rather than at
-  // its left edge — prevents it from looking like it's on the previous day
-  // when today falls near the start of a week column.
-  return dateToX(localIso) + WEEK_PX / 14
-}
-
-/**
- * Which fiscal quarter contains today, as a 0-based index (Q1=0 … Q4=3).
- * Walks quarters right-to-left and returns the first one whose start is
- * at or before today. Returns 0 if today is before the fiscal year starts.
- */
-function currentQuarterIndex(): number {
-  const tx = todayX()
-  for (let i = FY_QUARTERS.length - 1; i >= 0; i--) {
-    if (tx >= FY_QUARTERS[i].weekStart * WEEK_PX) return i
-  }
-  return 0
+function currentFYInfo(): { yearIdx: number; qIdx: number; wkIdx: number } {
+  const today = new Date()
+  const wkIdx = FY_WEEKS.findIndex(w => {
+    const end = new Date(w.date)
+    end.setDate(end.getDate() + 7)
+    return w.date <= today && today < end
+  })
+  const safeWkIdx = wkIdx >= 0 ? wkIdx : 0
+  const wk = FY_WEEKS[safeWkIdx]
+  const yearIdx = Math.max(0, FY_YEARS.findIndex(y => y.fyYear === wk.fyYear))
+  const yearQuarters = FY_QUARTERS.filter(q => q.fyYear === wk.fyYear)
+  const qIdx = Math.max(0, yearQuarters.findIndex(q => q.index === wk.quarterIndex))
+  return { yearIdx, qIdx, wkIdx: safeWkIdx }
 }
 
 /**
@@ -396,68 +454,88 @@ const PHASE_ORDER: ProjectPhase[] = ['Research', 'Discovery', 'Development', 'QA
 function GanttHeaders() {
   // Pull all chart dimensions and visible-window data from context so this
   // component re-renders automatically when the zoom mode or selection changes.
-  const { weekPx, chartWidth, visibleWeeks, visiblePeriods, visibleQuarters, todayXPos } = useGantt()
+  const { weekPx, chartWidth, visibleWeeks, visiblePeriods, visibleQuarters, todayXPos, weekDays } = useGantt()
+  // dayPx is the pixel width of each day column in week zoom mode.
+  const dayPx = weekDays ? weekPx / 7 : 0
 
   return (
     <div className="relative" style={{ width: chartWidth }}>
-      {/* FY row — very subtle; just an anchor label */}
-      <div
-        className="flex items-center text-xs text-slate-500 font-medium px-2 border-b border-slate-100"
-        style={{ height: 24, width: chartWidth, background: 'var(--gantt-surface)' }}
-      >
-        FY2026
-      </div>
-
-      {/* Quarter row — alternating bg so Q boundaries are immediately visible.
-          Uses CSS vars instead of hardcoded hex so dark mode works without JS.
-          visibleQuarters may contain partial quarters (fewer than 13 weeks) in
-          quarter/period zoom modes; weekCount is already clamped by the context. */}
+      {/* Quarter row — bold dark text establishes the hierarchy. Label includes the
+          calendar year derived from fyYear so multi-year views read "Q1 2026" etc.
+          Vertical dividers mark Q boundaries clearly. */}
       <div className="flex border-b border-slate-200" style={{ height: 24 }}>
         {visibleQuarters.map(q => (
           <div
-            key={q.label}
-            className="flex items-center justify-center text-xs font-semibold text-slate-500 border-r border-slate-200"
+            key={q.index}
+            className="flex items-center justify-center text-xs font-bold border-r border-slate-200"
             style={{
               width: q.weekCount * weekPx,
               background: q.index % 2 === 0 ? 'var(--gantt-q-even)' : 'var(--gantt-q-odd)',
+              color: 'var(--gantt-q-text)',
             }}
           >
-            {q.label}
+            {q.label} {q.fyYear}
           </div>
         ))}
       </div>
 
-      {/* Period row — alternating bg matches its parent quarter's shade for rhythm */}
+      {/* Period row — shows abbreviated month name (e.g. "Feb") in period zoom,
+          or full month + P-number label (e.g. "Feb (P1)") when there are multiple
+          periods visible so users can cross-reference Jira sprint names if needed. */}
       <div className="flex border-b border-slate-200" style={{ height: 22 }}>
         {visiblePeriods.map(p => (
           <div
             key={p.label}
-            className="flex items-center justify-center text-xs font-medium text-slate-500 border-r border-slate-200 font-semibold"
+            className="flex items-center justify-center text-xs font-semibold border-r border-slate-200"
             style={{
               width: p.weekCount * weekPx,
               background: p.index % 2 === 0 ? 'var(--gantt-p-even)' : 'var(--gantt-p-odd)',
+              color: 'var(--gantt-p-text)',
             }}
           >
-            {p.label}
+            {p.monthLabel}
           </div>
         ))}
       </div>
 
-      {/* Week date row — subtle alternating bg so individual weeks are easy to scan */}
+      {/* Week date row — near-white so colored bars have a clean backdrop */}
       <div className="flex border-b border-slate-200" style={{ height: 22 }}>
         {visibleWeeks.map(w => (
           <div
             key={w.index}
-            className="flex items-center justify-center text-xs text-slate-500 border-r border-slate-100 shrink-0"
+            className="flex items-center justify-center text-xs font-medium border-r border-slate-200 shrink-0"
             style={{
               width: weekPx,
               background: w.index % 2 === 0 ? 'var(--gantt-w-even)' : 'var(--gantt-w-odd)',
+              color: 'var(--gantt-w-text)',
             }}
           >
             {formatWeekLabel(w.date)}
           </div>
         ))}
       </div>
+
+      {/* Day-of-week row — visible only in week zoom mode. Shows Mon–Sun labels
+          across the single visible week, each cell = weekPx/7 wide.
+          Weekends (Sat/Sun, index ≥ 5) get a slightly tinted background. */}
+      {weekDays && (
+        <div className="flex border-b border-slate-200" style={{ height: 22 }}>
+          {weekDays.map((day, i) => (
+            <div
+              key={day.iso}
+              className="flex items-center justify-center text-[10px] font-semibold border-r border-slate-200 shrink-0"
+              style={{
+                width: dayPx,
+                // All day cells white; weekends get a slightly dimmer text color only
+                background: '#ffffff',
+                color: i >= 5 ? '#94a3b8' : 'var(--gantt-w-text)',
+              }}
+            >
+              {day.label}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Today marker — container sits at exactly left: todayXPos (no transform),
           so the w-px stem line inside stays pixel-perfect with the rows' today line.
@@ -786,7 +864,7 @@ function MemberGanttRow({
                 className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                 title="Add project"
               >
-                + Project
+                + Epic
               </button>
               <button
                 onClick={() => setPtoOpen(true)}
@@ -859,7 +937,7 @@ function MemberGanttRow({
 
           {memberProjects.length === 0 && (
             <div className="absolute flex items-center px-3" style={{ top: projectOffset, bottom: 0, left: 0, right: 0 }}>
-              <span className="text-xs text-slate-300 italic">No projects — click + to add</span>
+              <span className="text-xs text-slate-300 italic">No epics — click + to add</span>
             </div>
           )}
         </div>
@@ -1284,6 +1362,27 @@ function TeamDivider({ team }: { team: Team }) {
   )
 }
 
+// roleCategoryOf and ALL_ROLE_CATEGORIES are imported from '@/lib/roles'
+// (shared with OrgPage so the filter buckets stay in sync).
+
+// ─── PTO stats helpers ────────────────────────────────────────────────────
+
+/** Today's local date as an ISO string, e.g. "2026-06-05". */
+function todayIsoStr(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+/** True when a PTO block's [startDate, endDate] range contains the given ISO date. */
+function ptoContainsDate(block: PtoBlock, isoDate: string): boolean {
+  return block.startDate <= isoDate && block.endDate >= isoDate
+}
+
+/** True when a PTO block overlaps the given ISO date range [from, to]. */
+function ptoOverlapsRange(block: PtoBlock, from: string, to: string): boolean {
+  return block.startDate < to && block.endDate >= from
+}
+
 // ─── Capacity Planner page ────────────────────────────────────────────────
 
 export function PlanningPage() {
@@ -1298,24 +1397,40 @@ export function PlanningPage() {
   const [search, setSearch] = useState('')
   // People/team/domain multiselect filters — each is independent; all three
   // are ANDed together so a member must pass every active filter to appear.
-  const [selectedDomains,  setSelectedDomains]  = useState<string[]>([])
-  const [selectedTeams,    setSelectedTeams]    = useState<string[]>([])
-  const [selectedMembers,  setSelectedMembers]  = useState<string[]>([])
-  // Zoom mode: year shows all 52 weeks, quarter shows 13 weeks, period shows 4-5 weeks.
-  // selectedQIdx / selectedPIdx track which quarter/period is shown in those modes.
-  type ZoomMode = 'year' | 'quarter' | 'period'
-  const [zoomMode, setZoomMode]       = useState<ZoomMode>('year')
-  const [selectedQIdx, setSelectedQIdx] = useState<number>(() => currentQuarterIndex())
-  const [selectedPIdx, setSelectedPIdx] = useState<number>(0)
+  const [selectedDomains,         setSelectedDomains]         = useState<string[]>([])
+  const [selectedTeams,           setSelectedTeams]           = useState<string[]>([])
+  const [selectedMembers,         setSelectedMembers]         = useState<string[]>([])
+  const [selectedRoleCategories,  setSelectedRoleCategories]  = useState<string[]>([])
+  // Zoom mode: year shows all 52 weeks of the selected FY, quarter shows 13 weeks,
+  // period shows 4-5 weeks, week shows 7 days of a single selected week.
+  // selectedYearIdx / selectedQIdx / selectedPIdx / selectedWkIdx track which window is shown.
+  type ZoomMode = 'year' | 'quarter' | 'period' | 'week'
+  const [zoomMode, setZoomMode]             = useState<ZoomMode>('year')
+  // selectedYearIdx: which fiscal year is shown (0 = FY2025, 1 = FY2026, 2 = FY2027, 3 = FY2028)
+  const [selectedYearIdx, setSelectedYearIdx] = useState<number>(() => currentFYInfo().yearIdx)
+  // selectedQIdx: 0-3 within the selected year (Q1=0 … Q4=3)
+  const [selectedQIdx, setSelectedQIdx]     = useState<number>(() => currentFYInfo().qIdx)
+  const [selectedPIdx, setSelectedPIdx]     = useState<number>(0)
+  // selectedWkIdx: global index across all years — defaults to current week
+  const [selectedWkIdx, setSelectedWkIdx]   = useState<number>(() => currentFYInfo().wkIdx)
 
   // Measured width of the scroll container — updated via ResizeObserver so
   // quarter and period views can fill the available space rather than using
   // a fixed px/week value that leaves empty space on wide screens.
-  const [containerWidth, setContainerWidth] = useState(0)
+  const [containerWidth,  setContainerWidth]  = useState(0)
+  // containerHeight tracks the visible height of the scroll panel — needed to
+  // compute how many rows fit in the viewport for virtual scrolling.
+  const [containerHeight, setContainerHeight] = useState(600)
+  // scrollTop mirrors the panel's vertical scroll position so the visible row
+  // range can be derived in the render phase without an extra effect.
+  const [scrollTop, setScrollTop] = useState(0)
+
   useEffect(() => {
     if (!scrollRef.current) return
     const ro = new ResizeObserver(entries => {
-      setContainerWidth(entries[0].contentRect.width)
+      const { width, height } = entries[0].contentRect
+      setContainerWidth(width)
+      setContainerHeight(height)
     })
     ro.observe(scrollRef.current)
     return () => ro.disconnect()
@@ -1323,51 +1438,71 @@ export function PlanningPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const txPx = todayX()
-  const qIdx = currentQuarterIndex()
-  const currentQ = FY_QUARTERS[qIdx]
+  // Derive display values for the selected year/quarter — used in the page header summary.
+  const selectedFYYear = FY_YEARS[selectedYearIdx]
+  const yearQuartersForDisplay = FY_QUARTERS.filter(q => q.fyYear === selectedFYYear.fyYear)
+  const currentQ = yearQuartersForDisplay[selectedQIdx] ?? yearQuartersForDisplay[0]
 
-  // Build the Gantt context value for the current zoom mode and selection.
-  // visibleOffset is the week index (in FY_WEEKS) of the first visible week,
-  // used to convert global week positions to chart-relative pixel positions.
-  // Re-computed whenever zoomMode, selectedQIdx, selectedPIdx, or containerWidth changes.
+  // hasScrolled prevents repeat auto-scroll when zoom/year changes after mount.
+  const hasScrolled = useRef(false)
+
+  // Build the Gantt context value for the current zoom mode and selected year.
+  // Scopes all weeks/periods/quarters to the selected fiscal year first, then
+  // further narrows to the selected quarter/period/week window within that year.
+  // visibleOffset is the global week index of the first visible week, used to
+  // convert global positions to chart-relative pixel positions.
+  // Re-computed whenever zoomMode, selectedYearIdx, selectedQIdx, selectedPIdx,
+  // selectedWkIdx, or containerWidth changes.
   const ganttConfig = useMemo((): GanttConfig => {
+    const availableWidth = containerWidth > LEFT_COL_W ? containerWidth - LEFT_COL_W : 0
+
+    // Scope the calendar to the selected fiscal year first
+    const fyYear = FY_YEARS[selectedYearIdx]
+    const yearWeeks    = FY_WEEKS.filter(w => w.fyYear === fyYear.fyYear)
+    const yearQuarters = FY_QUARTERS.filter(q => q.fyYear === fyYear.fyYear)
+    const yearPeriods  = FY_PERIODS.filter(p => p.fyYear === fyYear.fyYear)
+
     let visibleWeeks: FiscalWeek[]
     let visibleStart: Date
     let weekPx: number
     let visibleOffset: number
 
-    // Available pixel width for bars = scroll container width minus the sticky left column.
-    // Falls back to a sensible default while the ResizeObserver hasn't fired yet (first render).
-    const availableWidth = containerWidth > LEFT_COL_W ? containerWidth - LEFT_COL_W : 0
-
     if (zoomMode === 'year') {
-      // Show the entire fiscal year at the default zoom (80px/week)
-      visibleWeeks  = FY_WEEKS
-      visibleStart  = FY_START
+      // Show the entire selected fiscal year at the default zoom (80px/week)
+      visibleWeeks  = yearWeeks
+      visibleStart  = new Date(FY_START)
+      visibleStart.setDate(visibleStart.getDate() + fyYear.weekStart * 7)
       weekPx        = 80
-      visibleOffset = 0
+      visibleOffset = fyYear.weekStart
     } else if (zoomMode === 'quarter') {
-      // Fill available space across 13 weeks; fall back to 120px if width unknown
-      const q = FY_QUARTERS[selectedQIdx]
-      visibleWeeks  = FY_WEEKS.filter(w => w.quarterIndex === selectedQIdx)
+      // Fill available space across 13 weeks of the selected quarter
+      const q = yearQuarters[selectedQIdx] ?? yearQuarters[0]
+      visibleWeeks  = yearWeeks.filter(w => w.quarterIndex === q.index)
       visibleStart  = new Date(FY_WEEKS[q.weekStart].date)
-      weekPx        = availableWidth > 0 ? Math.floor(availableWidth / visibleWeeks.length) : 120
+      weekPx        = availableWidth > 0 ? availableWidth / visibleWeeks.length : 120
       visibleOffset = q.weekStart
-    } else {
-      // Fill available space across 4-5 weeks; fall back to 200px if width unknown
-      const p = FY_PERIODS[selectedPIdx]
-      visibleWeeks  = FY_WEEKS.filter(w => w.periodIndex === selectedPIdx)
+    } else if (zoomMode === 'period') {
+      // Fill available space across 4-5 weeks of the selected period
+      const p = yearPeriods[selectedPIdx] ?? yearPeriods[0]
+      visibleWeeks  = yearWeeks.filter(w => w.periodIndex === p.index)
       visibleStart  = new Date(FY_WEEKS[p.weekStart].date)
-      weekPx        = availableWidth > 0 ? Math.floor(availableWidth / visibleWeeks.length) : 200
+      weekPx        = availableWidth > 0 ? availableWidth / visibleWeeks.length : 200
       visibleOffset = p.weekStart
+    } else {
+      // Week mode — single week fills the entire available width so each day is clearly readable.
+      // weekPx here represents the full week; individual day columns use weekPx/7.
+      const w = FY_WEEKS[selectedWkIdx]
+      visibleWeeks  = [w]
+      visibleStart  = new Date(w.date)
+      weekPx        = availableWidth > 0 ? availableWidth : 980
+      visibleOffset = selectedWkIdx
     }
 
     const chartWidth = visibleWeeks.length * weekPx
 
     // Periods visible in the window — include a period if any of its weeks are visible.
     // weekCount is clamped to the number of visible weeks so the header cell widths sum
-    // to exactly chartWidth (important for the FY label and today marker alignment).
+    // to exactly chartWidth (important for today marker alignment).
     const visiblePeriodIndices = new Set(visibleWeeks.map(w => w.periodIndex))
     const visiblePeriods: FiscalPeriod[] = FY_PERIODS
       .filter(p => visiblePeriodIndices.has(p.index))
@@ -1412,6 +1547,20 @@ export function PlanningPage() {
     const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const todayXPos = dToX(todayIso) + weekPx / 14
 
+    // In week mode, generate the 7 individual days of the visible week so
+    // GanttHeaders can render a day-of-week row below the week date row.
+    // Each day label uses short weekday + numeric date (e.g. "Mon 2").
+    const weekDays = zoomMode === 'week'
+      ? Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(visibleStart)
+          d.setDate(d.getDate() + i)
+          return {
+            label: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
+            iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+          }
+        })
+      : undefined
+
     return {
       weekPx,
       chartWidth,
@@ -1422,16 +1571,18 @@ export function PlanningPage() {
       todayXPos,
       dateToX: dToX,
       xToDate: xToD,
+      weekDays,
     }
-  }, [zoomMode, selectedQIdx, selectedPIdx, containerWidth])
+  }, [zoomMode, selectedYearIdx, selectedQIdx, selectedPIdx, selectedWkIdx, containerWidth])
 
-  // Auto-scroll to current week on mount
+  // Auto-scroll to today on first render, using the context's todayXPos which is
+  // already relative to the visible window's start — no need for a module-level todayX().
   useEffect(() => {
-    if (scrollRef.current && txPx > 0) {
-      const scrollTarget = Math.max(0, txPx - LEFT_COL_W - WEEK_PX * 2)
-      scrollRef.current.scrollLeft = scrollTarget
-    }
-  }, [txPx])
+    if (!scrollRef.current || hasScrolled.current || ganttConfig.todayXPos <= 0) return
+    hasScrolled.current = true
+    const scrollTarget = Math.max(0, ganttConfig.todayXPos - 2 * ganttConfig.weekPx)
+    scrollRef.current.scrollLeft = scrollTarget
+  }, [ganttConfig.todayXPos, ganttConfig.weekPx])
 
   // Unique phases used by plotted projects, sorted in SDLC order, for the By Member legend.
   const legendPhases = useMemo(() => {
@@ -1465,7 +1616,8 @@ export function PlanningPage() {
   // member IDs. null means no restriction (all filters are empty).
   // A member must pass ALL active filters (Domain AND Team AND Member).
   const selectedMemberIds = useMemo((): Set<string> | null => {
-    const anyActive = selectedDomains.length > 0 || selectedTeams.length > 0 || selectedMembers.length > 0
+    const anyActive = selectedDomains.length > 0 || selectedTeams.length > 0 ||
+                      selectedMembers.length > 0 || selectedRoleCategories.length > 0
     if (!anyActive) return null
 
     return new Set(
@@ -1479,11 +1631,13 @@ export function PlanningPage() {
           if (selectedTeams.length > 0 && !selectedTeams.includes(memberTeam.id)) return false
           // Member filter
           if (selectedMembers.length > 0 && !selectedMembers.includes(m.id)) return false
+          // Role category filter
+          if (selectedRoleCategories.length > 0 && !selectedRoleCategories.includes(roleCategoryOf(m.role))) return false
           return true
         })
         .map(m => m.id)
     )
-  }, [selectedDomains, selectedTeams, selectedMembers, members, teams])
+  }, [selectedDomains, selectedTeams, selectedMembers, selectedRoleCategories, members, teams])
 
   // Normalised search term — used to filter both views
   const q = search.trim().toLowerCase()
@@ -1546,7 +1700,63 @@ export function PlanningPage() {
     }).filter(d => d.teams.length > 0)
   }, [domains, teams, members, activeMemberId, isAdmin, q, projects, selectedMemberIds])
 
-  // Summary stats
+  // ── Virtual scroll flat-row list ──────────────────────────────────────────
+  // Flatten the nested domain→team→member (or phase→project) hierarchy into a
+  // 1-D array with a pre-computed pixel height for each row. The virtual scroll
+  // logic uses this to render only the subset of rows that fall inside (or just
+  // outside) the visible viewport, keeping the DOM small even with 5 000+ rows.
+  //
+  // Row heights mirror the same formulas used inside MemberGanttRow /
+  // ProjectGanttRow to ensure the spacers are exactly the right size.
+
+  type FlatGanttRow =
+    | { kind: 'team-divider';  team: Team;       height: number }
+    | { kind: 'member';        member: Member;    mProjects: Project[]; mPto: PtoBlock[]; height: number }
+    | { kind: 'phase-divider'; phase: ProjectPhase; height: number }
+    | { kind: 'project';       project: Project;  height: number }
+
+  const flatRows = useMemo<FlatGanttRow[]>(() => {
+    const rows: FlatGanttRow[] = []
+    if (view === 'member') {
+      for (const { teams: dTeams } of grouped) {
+        for (const { team, members: teamMembers } of dTeams) {
+          rows.push({ kind: 'team-divider', team, height: DIVIDER_H })
+          for (const m of teamMembers) {
+            const mProjects = projects.filter(p => p.assignments.some(a => a.memberId === m.id))
+            const mPto      = ptoBlocks.filter(b => b.memberId === m.id)
+            const rowCount  = Math.max(mProjects.length, 1)
+            const height    = (mPto.length > 0 ? PTO_SLOT_H : 0) + rowCount * ROW_BAR_H + ROW_PAD_H
+            rows.push({ kind: 'member', member: m, mProjects, mPto, height })
+          }
+        }
+      }
+    } else {
+      for (const { phase, projects: phaseProjects } of projectsByPhase) {
+        rows.push({ kind: 'phase-divider', phase, height: DIVIDER_H })
+        for (const p of phaseProjects) {
+          // Mirror ProjectGanttRow's own height calculation:
+          //   multi-phase projects → one slot per phase
+          //   legacy projects       → one slot per assignment (or 1 if unassigned)
+          const rowCount = p.phases?.length
+            ? Math.max(p.phases.length, 1)
+            : Math.max(p.assignments.length, 1)
+          rows.push({ kind: 'project', project: p, height: rowCount * ROW_BAR_H + ROW_PAD_H })
+        }
+      }
+    }
+    return rows
+  }, [view, grouped, projectsByPhase, projects, ptoBlocks])
+
+  // Prefix-sum array over flatRows heights — cum[i] is the pixel offset of the
+  // top of row i from the very top of the rows container.
+  const cumHeights = useMemo(() => {
+    const cum = new Array<number>(flatRows.length + 1)
+    cum[0] = 0
+    for (let i = 0; i < flatRows.length; i++) cum[i + 1] = cum[i] + flatRows[i].height
+    return cum
+  }, [flatRows])
+
+  // ── Capacity summary stats ────────────────────────────────────────────────
   const totalMembers = members.length
   const memberAllocations = members.map(m => {
     const mProjects = projects.filter(p => p.assignments.some(a => a.memberId === m.id))
@@ -1555,50 +1765,98 @@ export function PlanningPage() {
   const avgAlloc = totalMembers
     ? Math.round(memberAllocations.reduce((a, b) => a + b, 0) / totalMembers)
     : 0
+  const overCapacity = memberAllocations.filter(a => a > 100).length
+  const atRisk       = memberAllocations.filter(a => a > 80 && a <= 100).length
+
+  // ── PTO summary stats ─────────────────────────────────────────────────────
+  const ptoStats = useMemo(() => {
+    const today = todayIsoStr()
+    const { qStart, qEnd } = getCurrentQBounds()
+    const qStartIso = qStart.toISOString().slice(0, 10)
+    const qEndIso   = qEnd.toISOString().slice(0, 10)
+    const in14 = new Date()
+    in14.setDate(in14.getDate() + 14)
+    const in14Iso = `${in14.getFullYear()}-${String(in14.getMonth() + 1).padStart(2, '0')}-${String(in14.getDate()).padStart(2, '0')}`
+    return {
+      onPtoToday:    ptoBlocks.filter(b => ptoContainsDate(b, today)).length,
+      thisQuarter:   ptoBlocks.filter(b => ptoOverlapsRange(b, qStartIso, qEndIso)).length,
+      upcomingBlocks: ptoBlocks.filter(b => b.startDate > today && b.startDate <= in14Iso).length,
+    }
+  }, [ptoBlocks])
 
   return (
     <div className="flex flex-col h-full px-8 pt-8 pb-4 w-full gap-3">
-      {/* Compact header + summary inline */}
-      <div className="flex items-center gap-6 shrink-0">
-        <div className="flex-1 min-w-0">
+      {/* Page header */}
+      <div className="flex items-center justify-between shrink-0">
+        <div>
           <h1 className="text-2xl font-bold text-slate-900">Planning</h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            {currentQ.label} FY2026 ·{' '}
-            {view === 'member'
-              ? <>Colors = project phase · <span className="text-amber-500 font-medium">Amber = PTO</span> · Click bar to edit</>
-              : <>Rows = projects · Bars = members · Colors = SDLC role · Click bar to edit</>
-            }
+            {(() => {
+              const active   = projects.filter(p => p.status === 'In Progress').length
+              const blocked  = projects.filter(p => p.status === 'Blocked').length
+              const complete = projects.filter(p => p.status === 'Complete').length
+              return (
+                <>
+                  <span className="text-slate-700 font-medium">{active}</span> in flight
+                  {' · '}
+                  <span className={blocked > 0 ? 'text-red-500 font-medium' : 'text-slate-700 font-medium'}>{blocked}</span> blocked
+                  {' · '}
+                  <span className="text-green-600 font-medium">{complete}</span> complete
+                  {overCapacity > 0 && (
+                    <> · <span className="text-red-500 font-medium">{overCapacity} over capacity</span></>
+                  )}
+                </>
+              )
+            })()}
           </p>
         </div>
+        {/* Print report — navigates to the standalone PrintPage (/print) */}
+        <Link
+          to="/print"
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg px-3 py-1.5 transition-colors shrink-0"
+          title="Open printable capacity report"
+        >
+          <Printer size={13} />
+          Print Report
+        </Link>
+      </div>
 
-        <div className="flex items-center gap-5 shrink-0 text-center">
-          <div>
-            <p className="text-base font-bold text-slate-900">{totalMembers}</p>
-            <p className="text-xs text-slate-400">Members</p>
+      {/* Stats bar — 7 equal-width metric cards in one row.
+          Capacity cards on the left, PTO cards on the right, divided by a hairline. */}
+      <div className="flex gap-2 shrink-0">
+        {([
+          { label: 'Total Members',  value: totalMembers,         sub: 'in the org',       icon: <Users2 size={14} />,        iconCls: 'bg-blue-100 text-blue-600'     },
+          { label: 'Over Capacity',  value: overCapacity,         sub: 'over 100%',         icon: <Zap size={14} />,           iconCls: 'bg-red-100 text-red-500'       },
+          { label: 'At Risk (>80%)', value: atRisk,               sub: '80–100% alloc',     icon: <AlertTriangle size={14} />, iconCls: 'bg-amber-100 text-amber-500'   },
+          { label: 'Avg Allocation', value: `${avgAlloc}%`,       sub: 'across all members', icon: <TrendingUp size={14} />,   iconCls: 'bg-violet-100 text-violet-500' },
+        ] as const).map(c => (
+          <div key={c.label} className="flex-1 min-w-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className={cn('inline-flex items-center justify-center w-5 h-5 rounded', c.iconCls)}>{c.icon}</span>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider truncate">{c.label}</p>
+            </div>
+            <p className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-none">{c.value}</p>
+            <p className="text-[11px] text-slate-400 truncate">{c.sub}</p>
           </div>
-          <div className="h-6 w-px bg-slate-200" />
-          <div>
-            <p className="text-base font-bold text-slate-900">{currentQ.label} FY2026</p>
-            <p className="text-xs text-slate-400">{currentQ.weekCount} weeks</p>
+        ))}
+
+        {/* Divider between capacity and PTO sections */}
+        <div className="w-px bg-slate-200 dark:bg-slate-700 self-stretch mx-1" />
+
+        {([
+          { label: 'On PTO Today',        value: ptoStats.onPtoToday,     sub: 'currently out',  icon: <CalendarOff size={14} />, iconCls: 'bg-amber-100 text-amber-500' },
+          { label: 'PTO Blocks This Qtr', value: ptoStats.thisQuarter,    sub: 'all members',    icon: <CalendarOff size={14} />, iconCls: 'bg-amber-100 text-amber-500' },
+          { label: 'Upcoming (14 Days)',   value: ptoStats.upcomingBlocks, sub: 'starting soon',  icon: <CalendarOff size={14} />, iconCls: 'bg-amber-100 text-amber-500' },
+        ] as const).map(c => (
+          <div key={c.label} className="flex-1 min-w-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className={cn('inline-flex items-center justify-center w-5 h-5 rounded', c.iconCls)}>{c.icon}</span>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider truncate">{c.label}</p>
+            </div>
+            <p className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-none">{c.value}</p>
+            <p className="text-[11px] text-slate-400 truncate">{c.sub}</p>
           </div>
-          <div className="h-6 w-px bg-slate-200" />
-          <div>
-            <p className={cn('text-base font-bold',
-              avgAlloc > 100 ? 'text-red-500' : avgAlloc > 80 ? 'text-amber-500' : 'text-green-500'
-            )}>{avgAlloc}%</p>
-            <p className="text-xs text-slate-400">Avg Alloc</p>
-          </div>
-          <div className="h-6 w-px bg-slate-200" />
-          {/* Print report — navigates to the standalone PrintPage (/print) */}
-          <Link
-            to="/print"
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg px-3 py-1.5 transition-colors"
-            title="Open printable capacity report"
-          >
-            <Printer size={13} />
-            Print Report
-          </Link>
-        </div>
+        ))}
       </div>
 
       {/* Color legends — phase legend for member view, SDLC role legend for project view */}
@@ -1649,6 +1907,9 @@ export function PlanningPage() {
           )}
         </div>
 
+        {/* "Filter" section label — visually groups the domain/team/member selects */}
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-3">Filter</span>
+
         {/* Domain filter */}
         <MultiSelectDropdown
           label="Domain"
@@ -1673,80 +1934,138 @@ export function PlanningPage() {
           onChange={setSelectedMembers}
         />
 
-        {/* Clear all — only shown when any multiselect filter is active */}
-        {(selectedDomains.length > 0 || selectedTeams.length > 0 || selectedMembers.length > 0) && (
+        {/* Role category filter — groups members by discipline (Engineering, QA, etc.) */}
+        <MultiSelectDropdown
+          label="Role"
+          options={ALL_ROLE_CATEGORIES.map(cat => ({ id: cat, label: cat }))}
+          selected={selectedRoleCategories}
+          onChange={setSelectedRoleCategories}
+        />
+
+        {/* "View" section label — visually groups the zoom mode toggle and year/Q/P/W nav */}
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-2">View</span>
+
+        {/* Zoom mode toggle — inline, right after the View label so it's close
+            to the content it affects. Navigation arrows appear beside it when a
+            sub-window (quarter / period / week) is selected. */}
+        <SegmentedControl
+          options={[
+            { value: 'year',    label: 'Year' },
+            { value: 'quarter', label: 'Quarter' },
+            { value: 'period',  label: 'Month' },
+            { value: 'week',    label: 'Week' },
+          ] as { value: ZoomMode; label: string }[]}
+          value={zoomMode}
+          onChange={setZoomMode}
+        />
+
+        {/* Year navigation — always visible so the user can switch fiscal years in any zoom mode */}
+        <div className="flex items-center gap-0.5">
           <button
-            onClick={() => { setSelectedDomains([]); setSelectedTeams([]); setSelectedMembers([]) }}
+            onClick={() => setSelectedYearIdx(i => Math.max(0, i - 1))}
+            disabled={selectedYearIdx === 0}
+            className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+            title="Previous fiscal year"
+          >
+            ‹
+          </button>
+          <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+            FY{FY_YEARS[selectedYearIdx].fyYear}
+          </span>
+          <button
+            onClick={() => setSelectedYearIdx(i => Math.min(FY_YEARS.length - 1, i + 1))}
+            disabled={selectedYearIdx === FY_YEARS.length - 1}
+            className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+            title="Next fiscal year"
+          >
+            ›
+          </button>
+        </div>
+
+        {/* Quarter navigation — prev/next arrows with the current quarter label (within selected year) */}
+        {zoomMode === 'quarter' && (
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setSelectedQIdx(i => Math.max(0, i - 1))}
+              disabled={selectedQIdx === 0}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Previous quarter"
+            >
+              ‹
+            </button>
+            <span className="text-xs font-semibold text-slate-700 w-6 text-center">
+              {yearQuartersForDisplay[selectedQIdx]?.label}
+            </span>
+            <button
+              onClick={() => setSelectedQIdx(i => Math.min(yearQuartersForDisplay.length - 1, i + 1))}
+              disabled={selectedQIdx === yearQuartersForDisplay.length - 1}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Next quarter"
+            >
+              ›
+            </button>
+          </div>
+        )}
+
+        {/* Period (Month) navigation — shows abbreviated month name; periods are scoped to selected year */}
+        {zoomMode === 'period' && (
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setSelectedPIdx(i => Math.max(0, i - 1))}
+              disabled={selectedPIdx === 0}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Previous period"
+            >
+              ‹
+            </button>
+            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+              {FY_PERIODS.filter(p => p.fyYear === FY_YEARS[selectedYearIdx].fyYear)[selectedPIdx]?.monthLabel}
+            </span>
+            <button
+              onClick={() => setSelectedPIdx(i => Math.min(FY_PERIODS.filter(p => p.fyYear === FY_YEARS[selectedYearIdx].fyYear).length - 1, i + 1))}
+              disabled={selectedPIdx === FY_PERIODS.filter(p => p.fyYear === FY_YEARS[selectedYearIdx].fyYear).length - 1}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Next period"
+            >
+              ›
+            </button>
+          </div>
+        )}
+
+        {/* Week navigation — prev/next arrows with the week's start date label */}
+        {zoomMode === 'week' && (
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setSelectedWkIdx(i => Math.max(0, i - 1))}
+              disabled={selectedWkIdx === 0}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Previous week"
+            >
+              ‹
+            </button>
+            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+              {formatWeekLabel(FY_WEEKS[selectedWkIdx].date)}
+            </span>
+            <button
+              onClick={() => setSelectedWkIdx(i => Math.min(FY_WEEKS.length - 1, i + 1))}
+              disabled={selectedWkIdx === FY_WEEKS.length - 1}
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+              title="Next week"
+            >
+              ›
+            </button>
+          </div>
+        )}
+
+        {/* Clear all — only shown when any multiselect filter is active */}
+        {(selectedDomains.length > 0 || selectedTeams.length > 0 || selectedMembers.length > 0 || selectedRoleCategories.length > 0) && (
+          <button
+            onClick={() => { setSelectedDomains([]); setSelectedTeams([]); setSelectedMembers([]); setSelectedRoleCategories([]) }}
             className="text-xs text-slate-400 hover:text-slate-700 transition-colors"
           >
             Clear all
           </button>
         )}
-
-        {/* Zoom mode toggle — Year shows the full FY, Quarter and Period zoom into a
-            selected window at a wider pixel-per-week scale.  Placed at the right end
-            of the filter bar so it doesn't disrupt the search/dropdown group. */}
-        <div className="ml-auto flex items-center gap-2">
-          <SegmentedControl
-            options={[
-              { value: 'year',    label: 'Year' },
-              { value: 'quarter', label: 'Quarter' },
-              { value: 'period',  label: 'Month' },
-            ] as { value: ZoomMode; label: string }[]}
-            value={zoomMode}
-            onChange={setZoomMode}
-          />
-
-          {/* Quarter navigation — prev/next arrows with the current quarter label */}
-          {zoomMode === 'quarter' && (
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => setSelectedQIdx(i => Math.max(0, i - 1))}
-                disabled={selectedQIdx === 0}
-                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
-                title="Previous quarter"
-              >
-                ‹
-              </button>
-              <span className="text-xs font-semibold text-slate-700 w-6 text-center">
-                {FY_QUARTERS[selectedQIdx].label}
-              </span>
-              <button
-                onClick={() => setSelectedQIdx(i => Math.min(FY_QUARTERS.length - 1, i + 1))}
-                disabled={selectedQIdx === FY_QUARTERS.length - 1}
-                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
-                title="Next quarter"
-              >
-                ›
-              </button>
-            </div>
-          )}
-
-          {/* Period (Month) navigation — prev/next arrows with the current period label */}
-          {zoomMode === 'period' && (
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => setSelectedPIdx(i => Math.max(0, i - 1))}
-                disabled={selectedPIdx === 0}
-                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
-                title="Previous period"
-              >
-                ‹
-              </button>
-              <span className="text-xs font-semibold text-slate-700 w-6 text-center">
-                {FY_PERIODS[selectedPIdx].label}
-              </span>
-              <button
-                onClick={() => setSelectedPIdx(i => Math.min(FY_PERIODS.length - 1, i + 1))}
-                disabled={selectedPIdx === FY_PERIODS.length - 1}
-                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
-                title="Next period"
-              >
-                ›
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Gantt — wrapped in GanttCtx.Provider so all descendant components (headers,
@@ -1757,6 +2076,7 @@ export function PlanningPage() {
         ref={scrollRef}
         className="flex-1 overflow-x-auto overflow-y-auto border border-slate-200 rounded-xl"
         style={{ minHeight: 0, background: 'var(--gantt-surface)' }}
+        onScroll={e => setScrollTop(e.currentTarget.scrollTop)}
       >
         {/* Sticky header (calendar rows).
             minWidth uses ganttConfig.chartWidth so the header always spans exactly
@@ -1770,7 +2090,7 @@ export function PlanningPage() {
             <SegmentedControl
               options={[
                 { value: 'member',  label: 'Member' },
-                { value: 'project', label: 'Project' },
+                { value: 'project', label: 'Epic' },
               ] as { value: typeof view; label: string }[]}
               value={view}
               onChange={setView}
@@ -1780,54 +2100,45 @@ export function PlanningPage() {
           <GanttHeaders />
         </div>
 
-        {/* Rows — single today line on the container so it's never broken at row boundaries.
-            Uses a large explicit height (not bottom:0) because the container has auto height,
-            which makes bottom:0 resolve to 0. The scroll container clips any excess.
-            Today line position and visibility come from ganttConfig so they track the
-            visible window correctly in quarter/period zoom modes. */}
-        <div className="relative" style={{ minWidth: LEFT_COL_W + ganttConfig.chartWidth }}>
-          {ganttConfig.todayXPos >= 0 && ganttConfig.todayXPos <= ganttConfig.chartWidth && (
-            <div
-              className="absolute w-px bg-red-500 pointer-events-none"
-              style={{ left: LEFT_COL_W + ganttConfig.todayXPos, top: 0, height: 9999, zIndex: 5 }}
-            />
-          )}
-          {view === 'member' ? (
-            grouped.map(({ teams: dTeams }) =>
-              dTeams.map(({ team, members: teamMembers }) => (
-                <div key={team.id}>
-                  <TeamDivider team={team} />
-                  {teamMembers.map(m => {
-                    const mProjects = projects.filter(p => p.assignments.some(a => a.memberId === m.id))
-                    const mPto = ptoBlocks.filter(b => b.memberId === m.id)
-                    return (
-                      <MemberGanttRow
-                        key={m.id}
-                        member={m}
-                        memberProjects={mProjects}
-                        memberPto={mPto}
-                      />
-                    )
-                  })}
-                </div>
-              ))
-            )
-          ) : (
-            projectsByPhase.map(({ phase, projects: phaseProjects }) => (
-              <div key={phase}>
-                <PhaseDivider phase={phase} />
-                {phaseProjects.map(p => (
+        {/* Rows — virtual-scrolled so only the rows visible in the viewport (plus
+            OVERSCAN buffer rows above/below) are mounted. With large datasets (5 000+
+            epics) this keeps the DOM small and prevents the browser from locking up.
+            paddingTop / paddingBottom spacers give the scrollbar the correct travel
+            distance as if all rows were rendered. The today line spans the full total
+            height so it's never clipped by the spacers. */}
+        {(() => {
+          const totalH     = cumHeights[flatRows.length]
+          const startIdx   = Math.max(0, lowerBound(cumHeights, scrollTop) - OVERSCAN)
+          const endIdx     = Math.min(flatRows.length - 1, lowerBound(cumHeights, scrollTop + containerHeight) + OVERSCAN)
+          const paddingTop = cumHeights[startIdx]
+          const paddingBot = totalH - cumHeights[Math.min(endIdx + 1, flatRows.length)]
+
+          return (
+            <div className="relative" style={{ minWidth: LEFT_COL_W + ganttConfig.chartWidth }}>
+              {ganttConfig.todayXPos >= 0 && ganttConfig.todayXPos <= ganttConfig.chartWidth && (
+                <div
+                  className="absolute w-px bg-red-500 pointer-events-none"
+                  style={{ left: LEFT_COL_W + ganttConfig.todayXPos, top: 0, height: Math.max(totalH, 400), zIndex: 5 }}
+                />
+              )}
+              <div style={{ height: paddingTop }} />
+              {flatRows.slice(startIdx, endIdx + 1).map(row => {
+                if (row.kind === 'team-divider')  return <TeamDivider  key={row.team.id}  team={row.team} />
+                if (row.kind === 'member')         return <MemberGanttRow key={row.member.id} member={row.member} memberProjects={row.mProjects} memberPto={row.mPto} />
+                if (row.kind === 'phase-divider')  return <PhaseDivider  key={row.phase}    phase={row.phase} />
+                return (
                   <ProjectGanttRow
-                    key={p.id}
-                    project={p}
+                    key={row.project.id}
+                    project={row.project}
                     members={members}
                     onEdit={proj => navigate(`/projects/${proj.id}`, { state: { from: '/planning' } })}
                   />
-                ))}
-              </div>
-            ))
-          )}
-        </div>
+                )
+              })}
+              <div style={{ height: paddingBot }} />
+            </div>
+          )
+        })()}
       </div>
       </GanttCtx.Provider>
     </div>

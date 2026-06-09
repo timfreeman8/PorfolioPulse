@@ -226,7 +226,7 @@ export function MemberDetailPage() {
           <div className="flex items-center gap-8 shrink-0 text-center">
             <div>
               <p className="text-3xl font-bold text-slate-900">{memberProjects.length}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Projects</p>
+              <p className="text-xs text-slate-400 mt-0.5">Epics</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-blue-600">{active}</p>
@@ -246,14 +246,14 @@ export function MemberDetailPage() {
         <div className="flex items-center justify-between px-6 py-4 border-b bg-slate-50">
           <div>
             <p className="text-sm font-semibold text-slate-700">
-              Projects <span className="text-slate-400 font-normal">({memberProjects.length})</span>
+              Epics <span className="text-slate-400 font-normal">({memberProjects.length})</span>
             </p>
             {memberProjects.length > 1 && (
               <p className="text-xs text-slate-400 mt-0.5">Drag rows to set priority order — top is highest priority</p>
             )}
           </div>
           <Button size="sm" onClick={() => setProjectModal({ open: true, project: undefined })}>
-            <Plus size={14} className="mr-1.5" /> Add Project
+            <Plus size={14} className="mr-1.5" /> Add Epic
           </Button>
         </div>
 
@@ -261,8 +261,8 @@ export function MemberDetailPage() {
         {memberProjects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <FolderOpen size={40} className="mb-3 opacity-30" />
-            <p className="font-medium">No projects yet</p>
-            <p className="text-sm mt-1">Click "Add Project" to get started</p>
+            <p className="font-medium">No epics yet</p>
+            <p className="text-sm mt-1">Click "Add Epic" to get started</p>
           </div>
         ) : (
           <ScrollArea className="max-h-[calc(100vh-420px)]">
@@ -273,7 +273,7 @@ export function MemberDetailPage() {
                     <TableRow>
                       {/* Grip + rank column */}
                       <TableHead className="py-3 w-10" />
-                      <TableHead className="py-3">Project</TableHead>
+                      <TableHead className="py-3">Epic</TableHead>
                       <TableHead className="py-3">Phase</TableHead>
                       <TableHead className="py-3">Status</TableHead>
                       <TableHead className="py-3">Priority</TableHead>

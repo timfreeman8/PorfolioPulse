@@ -44,7 +44,7 @@ function matches(query: string, ...fields: (string | undefined)[]): boolean {
 
 const GROUP_META: Record<SearchResult['group'], { icon: React.ElementType; label: string }> = {
   Members:     { icon: Users,         label: 'Members' },
-  Projects:    { icon: Layers,        label: 'Projects' },
+  Projects:    { icon: Layers,        label: 'Epics' },
   Initiatives: { icon: Target,        label: 'Initiatives' },
   Intake:      { icon: ClipboardList, label: 'Intake Requests' },
 }
@@ -93,7 +93,7 @@ export function SearchModal() {
     projects
       .filter(p => matches(q, p.name, p.description))
       .slice(0, MAX_PER_GROUP)
-      .forEach(p => out.push({ key: `project-${p.id}`, group: 'Projects', label: p.name, sub: `${p.phase} · ${p.status}`, href: `/projects/${p.id}` }))
+      .forEach(p => out.push({ key: `project-${p.id}`, group: 'Projects', label: p.name, sub: `${p.phase} · ${p.status}`, href: `/epics/${p.id}` }))
 
     initiatives
       .filter(i => matches(q, i.name, i.description))
@@ -172,7 +172,7 @@ export function SearchModal() {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search members, projects, initiatives…"
+            placeholder="Search members, epics, initiatives…"
             value={query}
             onChange={e => { setQuery(e.target.value); setCursor(0) }}
             onKeyDown={onInputKeyDown}

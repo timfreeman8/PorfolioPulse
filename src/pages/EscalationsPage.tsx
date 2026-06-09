@@ -83,7 +83,7 @@ function EscalationCard({ escalation }: { escalation: Escalation }) {
       {/* Project tag */}
       {escalation.projectName && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Project:</span>
+          <span className="text-xs text-slate-400">Epic:</span>
           <span className="text-xs font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
             {escalation.projectName}
           </span>

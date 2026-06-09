@@ -171,12 +171,12 @@ function BlockedByMultiSelect({ allProjects, selectedIds, onToggle }: {
             </button>
           </span>
         ))}
-        <input value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setOpen(true)} placeholder={selected.length === 0 ? 'Search projects…' : ''} className="flex-1 min-w-[100px] text-sm outline-none bg-transparent placeholder:text-slate-400" />
+        <input value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setOpen(true)} placeholder={selected.length === 0 ? 'Search epics…' : ''} className="flex-1 min-w-[100px] text-sm outline-none bg-transparent placeholder:text-slate-400" />
       </div>
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
           {filtered.length === 0
-            ? <p className="px-3 py-2 text-sm text-slate-400">No projects found</p>
+            ? <p className="px-3 py-2 text-sm text-slate-400">No epics found</p>
             : filtered.map(p => {
               const sel = selectedIds.includes(p.id)
               return (
@@ -509,8 +509,8 @@ export function ProjectDetailPage() {
   const location      = useLocation()
   // Respect the caller's back destination (e.g. /planning) so the back button
   // returns to wherever the user navigated from, not always /projects.
-  const backTo   = (location.state as { from?: string } | null)?.from ?? '/projects'
-  const backLabel = backTo === '/planning' ? 'Planning' : 'Projects'
+  const backTo   = (location.state as { from?: string } | null)?.from ?? '/epics'
+  const backLabel = backTo === '/planning' ? 'Planning' : 'Epics'
   const { projects, members, initiatives, addProject, updateProject } = usePortfolioStore()
 
   // Resolve existing project (undefined for /projects/new).
@@ -616,7 +616,7 @@ export function ProjectDetailPage() {
           </Link>
           <span className="text-slate-300">/</span>
           <h1 className="text-base font-semibold text-slate-800 truncate">
-            {name.trim() || (isEdit ? 'Edit Project' : 'New Project')}
+            {name.trim() || (isEdit ? 'Edit Epic' : 'New Epic')}
           </h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -624,7 +624,7 @@ export function ProjectDetailPage() {
             Cancel
           </Button>
           <Button type="button" size="sm" onClick={handleSave} disabled={!name.trim()}>
-            {isEdit ? 'Save Changes' : 'Create Project'}
+            {isEdit ? 'Save Changes' : 'Create Epic'}
           </Button>
         </div>
       </div>
@@ -634,9 +634,9 @@ export function ProjectDetailPage() {
 
         {/* Left panel — static project metadata */}
         <aside className="w-96 shrink-0 bg-white border-r border-slate-200 overflow-y-auto p-5 space-y-5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Project Details</h2>
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Epic Details</h2>
 
-          <Field label="Project Name *">
+          <Field label="Epic Name *">
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
@@ -650,7 +650,7 @@ export function ProjectDetailPage() {
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              placeholder="What is this project trying to achieve?"
+              placeholder="What is this epic trying to achieve?"
               className="resize-none"
             />
           </Field>
@@ -736,7 +736,7 @@ export function ProjectDetailPage() {
             <StakeholderTagInput value={stakeholders} onChange={setStakeholders} />
           </Field>
 
-          <Field label="Project Notes">
+          <Field label="Epic Notes">
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Latest status notes…" className="resize-none" />
           </Field>
         </aside>
@@ -748,7 +748,7 @@ export function ProjectDetailPage() {
             {/* Panel header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-slate-800">Project Plan</h2>
+                <h2 className="text-base font-semibold text-slate-800">Epic Plan</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Break the project into sequential phases. Each phase has its own team, timeline, and progress.
                 </p>

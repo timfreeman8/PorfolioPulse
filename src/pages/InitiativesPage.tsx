@@ -188,8 +188,8 @@ function LinkProjectsDialog({
           {filtered.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-6">
               {linkable.length === 0
-                ? 'All projects are already linked to this initiative.'
-                : 'No projects match your search.'}
+                ? 'All epics are already linked to this initiative.'
+                : 'No epics match your search.'}
             </p>
           )}
 
@@ -277,7 +277,11 @@ function InitiativeCard({
   const complete    = iniProjects.filter(p => p.status === 'Complete').length
   const inProgress  = iniProjects.filter(p => p.status === 'In Progress').length
   const blocked     = iniProjects.filter(p => p.status === 'Blocked').length
-  const pct         = iniProjects.length ? Math.round((complete / iniProjects.length) * 100) : 0
+  // Use average percentComplete across all linked projects rather than counting
+  // only status=Complete — gives continuous progress as work advances.
+  const pct = iniProjects.length
+    ? Math.round(iniProjects.reduce((sum, p) => sum + (p.percentComplete ?? 0), 0) / iniProjects.length)
+    : 0
 
   function memberNames(memberIds: string[]) {
     return memberIds
@@ -357,7 +361,7 @@ function InitiativeCard({
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50 dark:bg-slate-800/50">
-                      <TableHead className="text-xs">Project</TableHead>
+                      <TableHead className="text-xs">Epic</TableHead>
                       <TableHead className="text-xs">Assigned To</TableHead>
                       <TableHead className="text-xs">Phase</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
@@ -409,7 +413,7 @@ function InitiativeCard({
 
         {iniProjects.length === 0 && (
           <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400 text-center">
-            No projects linked to this initiative yet
+            No epics linked to this initiative yet
           </div>
         )}
       </CardContent>

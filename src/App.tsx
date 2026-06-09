@@ -12,7 +12,7 @@
  */
 
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 
 // ---------------------------------------------------------------------------
@@ -34,8 +34,6 @@ const EscalationsPage = lazy(() => import('@/pages/EscalationsPage').then(m => (
 const MemberDetailPage = lazy(() => import('@/pages/MemberDetailPage').then(m => ({ default: m.MemberDetailPage })))
 const SettingsPage   = lazy(() => import('@/pages/SettingsPage').then(m   => ({ default: m.SettingsPage   })))
 const OrgPage        = lazy(() => import('@/pages/OrgPage').then(m        => ({ default: m.OrgPage        })))
-const PtoPage        = lazy(() => import('@/pages/PtoPage').then(m        => ({ default: m.PtoPage        })))
-
 // PrintPage renders outside AppLayout and is also lazy-loaded so it doesn't
 // bloat the initial bundle even though it lives on a separate route.
 const PrintPage      = lazy(() => import('@/pages/PrintPage').then(m      => ({ default: m.PrintPage      })))
@@ -45,6 +43,12 @@ const PrintPage      = lazy(() => import('@/pages/PrintPage').then(m      => ({ 
 // Kept intentionally minimal: a centered spinner using only Tailwind classes
 // so it works before any page-specific CSS is available.
 // ---------------------------------------------------------------------------
+/** Redirect /projects/:projectId → /epics/:projectId so old deep links still work. */
+function RedirectToEpic() {
+  const { projectId } = useParams()
+  return <Navigate to={`/epics/${projectId}`} replace />
+}
+
 function PageLoadingFallback() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -67,21 +71,28 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="portfolio"   element={<PortfolioPage />} />
-            <Route path="projects"             element={<ProjectsPage />} />
-            {/* /projects/new must come before :projectId so "new" isn't treated as an ID */}
-            <Route path="projects/new"         element={<ProjectDetailPage />} />
-            <Route path="projects/:projectId"  element={<ProjectDetailPage />} />
+            <Route path="epics"                element={<ProjectsPage />} />
+            {/* /epics/new must come before :projectId so "new" isn't treated as an ID */}
+            <Route path="epics/new"            element={<ProjectDetailPage />} />
+            <Route path="epics/:projectId"     element={<ProjectDetailPage />} />
+            {/* Redirect old /projects URLs so bookmarks still work */}
+            <Route path="projects"             element={<Navigate to="/epics" replace />} />
+            <Route path="projects/new"         element={<Navigate to="/epics/new" replace />} />
+            <Route path="projects/:projectId"  element={<RedirectToEpic />} />
             <Route path="roster"      element={<RosterPage />} />
             <Route path="members/:id" element={<MemberDetailPage />} />
             <Route path="initiatives" element={<InitiativesPage />} />
             <Route path="pipeline"    element={<PipelinePage />} />
             <Route path="analytics"   element={<AnalyticsPage />} />
             <Route path="planning"    element={<PlanningPage />} />
-            <Route path="pto"         element={<PtoPage />} />
+            {/* /pto merged into Planning — redirect so old bookmarks still work */}
+            <Route path="pto"         element={<Navigate to="/planning" replace />} />
             <Route path="escalations" element={<EscalationsPage />} />
             {/* /teams redirects to /roster — old bookmarks and nav links are preserved */}
             <Route path="teams"       element={<Navigate to="/roster" replace />} />
-            <Route path="org"         element={<OrgPage />} />
+            <Route path="people"      element={<OrgPage />} />
+            {/* Redirect old /org links so bookmarks still work */}
+            <Route path="org"         element={<Navigate to="/people" replace />} />
             <Route path="settings"    element={<SettingsPage />} />
             {/* Legacy redirects so old bookmarks still work */}
             <Route path="capacity"    element={<Navigate to="/planning" replace />} />

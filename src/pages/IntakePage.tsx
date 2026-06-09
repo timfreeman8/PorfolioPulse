@@ -633,7 +633,7 @@ export function PipelinePage() {
                     onClick={() => { startConvert(modal.request); setModal(null) }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 font-medium"
                   >
-                    <FolderKanban size={13} /> Convert to Project
+                    <FolderKanban size={13} /> Convert to Epic
                   </button>
                 )}
               </div>
