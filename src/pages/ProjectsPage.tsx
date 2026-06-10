@@ -24,7 +24,7 @@ import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
 import { exportProjectsCsv, downloadCsv } from '@/lib/csv'
 import {
-  STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS, avatarColor,
+  STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS,
 } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import type { Project } from '@/types'
@@ -386,7 +386,7 @@ export function ProjectsPage() {
               key={project.id}
               onClick={() => navigate(`/projects/${project.id}`)}
               className={cn(
-                'group relative flex flex-col gap-2 bg-white dark:bg-slate-800/60 border rounded-xl p-3.5',
+                'group relative flex flex-col gap-3 bg-white dark:bg-slate-800/60 border rounded-xl p-4',
                 'hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all cursor-pointer',
                 isUnassigned ? 'border-amber-200 dark:border-amber-800/50' : 'border-slate-200 dark:border-slate-700',
               )}
@@ -439,33 +439,35 @@ export function ProjectsPage() {
                 </span>
               </div>
 
-              {/* Row 4: Phase chip + % complete (same line, phase left, % right) */}
-              <div className="flex items-center justify-between gap-1">
-                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PHASE_COLORS[project.phase])}>
-                  {project.phase}
-                </span>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  {project.percentComplete}%
-                </span>
+              {/* Row 4: Phase chip + % label, then a thin progress bar below */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PHASE_COLORS[project.phase])}>
+                    {project.phase}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {project.percentComplete}%
+                  </span>
+                </div>
+                {/* Progress bar — fills proportionally to percentComplete */}
+                <div className="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all"
+                    style={{ width: `${project.percentComplete}%` }}
+                  />
+                </div>
               </div>
 
-              {/* Row 5: People — avatar initials on their own line */}
+              {/* Row 5: People — full names as comma-separated text */}
               {assignedMemberObjs.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap pt-0.5 border-t border-slate-100 dark:border-slate-700">
-                  {assignedMemberObjs.slice(0, 6).map(m => {
-                    const { bg, text } = avatarColor(m.name)
-                    return (
-                      <span
-                        key={m.id}
-                        className={cn('text-[9px] font-bold rounded-full size-5 flex items-center justify-center shrink-0', bg, text)}
-                        title={m.name}
-                      >
-                        {m.avatarInitials}
-                      </span>
-                    )
-                  })}
-                  {assignedMemberObjs.length > 6 && (
-                    <span className="text-[10px] text-slate-400">+{assignedMemberObjs.length - 6}</span>
+                <div className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap pt-0.5 border-t border-slate-100 dark:border-slate-700">
+                  {assignedMemberObjs.slice(0, 4).map((m, i) => (
+                    <span key={m.id} className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">
+                      {m.name}{i < Math.min(assignedMemberObjs.length, 4) - 1 ? ',' : ''}
+                    </span>
+                  ))}
+                  {assignedMemberObjs.length > 4 && (
+                    <span className="text-[10px] text-slate-400">+{assignedMemberObjs.length - 4} more</span>
                   )}
                 </div>
               )}

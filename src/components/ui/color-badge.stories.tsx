@@ -6,6 +6,7 @@
  * src/lib/colors.ts (PHASE_COLORS, STATUS_COLORS, PRIORITY_COLORS).
  */
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect } from 'storybook/test'
 import { ColorBadge } from './color-badge'
 
 const meta: Meta<typeof ColorBadge> = {
@@ -71,6 +72,25 @@ export const Allocation: Story = {
       <ColorBadge className="bg-red-50 text-red-700">120% — over capacity</ColorBadge>
     </div>
   ),
+}
+
+/**
+ * CssCheck — proves the shared preview loaded Tailwind CSS.
+ * bg-blue-100 is a concrete utility class; if the stylesheet didn't load
+ * the computed backgroundColor would be 'rgba(0, 0, 0, 0)' (transparent).
+ */
+export const CssCheck: Story = {
+  args: {
+    className: 'bg-blue-100 text-blue-700',
+    children: 'CSS loaded',
+  },
+  play: async ({ canvas }) => {
+    const badge = canvas.getByText('CSS loaded')
+    const bg = getComputedStyle(badge).backgroundColor
+    // Any non-transparent value proves Tailwind is applied
+    await expect(bg).not.toBe('rgba(0, 0, 0, 0)')
+    await expect(bg).not.toBe('transparent')
+  },
 }
 
 /** Utility counts used on team/domain headers. */
