@@ -17,14 +17,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { cn } from '@/lib/utils'
+import { relativeDate } from '@/lib/dates'
 import type { Escalation } from '@/types'
-
-function timeAgo(iso: string) {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
-  if (mins < 60)  return `${mins}m ago`
-  if (mins < 1440) return `${Math.floor(mins / 60)}h ago`
-  return `${Math.floor(mins / 1440)}d ago`
-}
 
 function EscalationCard({ escalation }: { escalation: Escalation }) {
   const { resolveEscalation, deleteEscalation, members } = usePortfolioStore()
@@ -69,7 +63,7 @@ function EscalationCard({ escalation }: { escalation: Escalation }) {
             {escalation.status}
           </span>
           <span className="text-xs text-slate-400 flex items-center gap-1">
-            <Clock size={11} /> {timeAgo(escalation.submittedAt)}
+            <Clock size={11} /> {relativeDate(escalation.submittedAt)}
           </span>
           <button
             onClick={() => setConfirmDelete(true)}

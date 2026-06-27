@@ -794,6 +794,99 @@ function PtoDialog({
   )
 }
 
+// ─── Epic picker dialog ───────────────────────────────────────────────────
+// Shown when clicking "+ Epic" on a member row. Lets the user either assign
+// the member to an existing epic they're not already on, or open the full
+// project form to create a brand-new epic.
+
+function EpicPickerDialog({
+  open,
+  member,
+  onAssignExisting,
+  onCreateNew,
+  onClose,
+}: {
+  open: boolean
+  member: Member
+  onAssignExisting: (project: Project) => void
+  onCreateNew: () => void
+  onClose: () => void
+}) {
+  const { projects } = usePortfolioStore()
+  const [search, setSearch] = useState('')
+
+  // Epics the member is NOT already assigned to, sorted by name
+  const available = useMemo(() =>
+    projects
+      .filter(p => !p.assignments.some(a => a.memberId === member.id))
+      .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [projects, member.id, search]
+  )
+
+  return (
+    <Dialog open={open} onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Epic for {member.name}</DialogTitle>
+        </DialogHeader>
+
+        {/* Create new option — always at the top */}
+        <button
+          onClick={onCreateNew}
+          className="flex items-center gap-2 w-full text-left px-3 py-2.5 rounded-lg border-2 border-dashed border-blue-200 text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium"
+        >
+          <span className="text-lg leading-none">+</span>
+          Create new epic
+        </button>
+
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
+          Or assign to existing
+        </div>
+
+        {/* Search input */}
+        <Input
+          placeholder="Search epics…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="h-8 text-sm"
+          autoFocus
+        />
+
+        {/* Scrollable epic list */}
+        <div className="max-h-64 overflow-y-auto flex flex-col gap-1 -mx-1 px-1">
+          {available.length === 0 && (
+            <p className="text-sm text-slate-400 py-4 text-center">
+              {search ? 'No epics match your search' : 'No unassigned epics available'}
+            </p>
+          )}
+          {available.map(p => (
+            <button
+              key={p.id}
+              onClick={() => onAssignExisting(p)}
+              className="flex flex-col items-start gap-0.5 w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors group"
+            >
+              <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 leading-tight">
+                {p.name}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', PHASE_COLORS[p.phase])}>
+                  {p.phase}
+                </span>
+                <span className="text-[10px] text-slate-400">{p.status}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Member row ───────────────────────────────────────────────────────────
 
 function MemberGanttRow({
@@ -805,9 +898,10 @@ function MemberGanttRow({
   memberProjects: Project[]
   memberPto: PtoBlock[]
 }) {
-  const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false })
-  const [ptoOpen, setPtoOpen]          = useState(false)
-  const { addProject, deletePto } = usePortfolioStore()
+  const [projectModal, setProjectModal]   = useState<{ open: boolean; project?: Project }>({ open: false })
+  const [ptoOpen, setPtoOpen]             = useState(false)
+  const [epicPickerOpen, setEpicPickerOpen] = useState(false)
+  const { addProject, updateProject, deletePto } = usePortfolioStore()
   const navigate = useNavigate()
   // In User mode, only this member (the active member) can manage their own row.
   const { activeMemberId } = useViewStore()
@@ -860,9 +954,9 @@ function MemberGanttRow({
           {canEdit && (
             <div className="flex items-center gap-1 flex-wrap mt-0.5">
               <button
-                onClick={() => setProjectModal({ open: true, project: undefined })}
+                onClick={() => setEpicPickerOpen(true)}
                 className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                title="Add project"
+                title="Add epic"
               >
                 + Epic
               </button>
@@ -943,12 +1037,33 @@ function MemberGanttRow({
         </div>
       </div>
 
+      {/* Epic picker — shown when clicking "+ Epic"; choose existing or create new */}
+      <EpicPickerDialog
+        open={epicPickerOpen}
+        member={member}
+        onClose={() => setEpicPickerOpen(false)}
+        onAssignExisting={project => {
+          // Append a new assignment for this member with a default allocation of 50%
+          updateProject(project.id, {
+            assignments: [
+              ...project.assignments,
+              { memberId: member.id, allocation: 50 },
+            ],
+          })
+          setEpicPickerOpen(false)
+        }}
+        onCreateNew={() => {
+          setEpicPickerOpen(false)
+          setProjectModal({ open: true, project: undefined })
+        }}
+      />
+
       {/* PTO dialog */}
       {ptoOpen && (
         <PtoDialog open={ptoOpen} onOpenChange={setPtoOpen} member={member} />
       )}
 
-      {/* Project form — shared with rest of app */}
+      {/* Project form — opened when user chooses "Create new epic" from the picker */}
       <ProjectFormDialog
         key={projectModal.project?.id ?? 'new'}
         open={projectModal.open}

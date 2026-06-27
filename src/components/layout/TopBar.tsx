@@ -16,7 +16,7 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { Settings, Bell, ChevronDown, Shield, Search, Menu } from 'lucide-react'
+import { Settings, Bell, ChevronDown, Shield, Search, Menu, Camera } from 'lucide-react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
 import { useTheme } from '@/lib/useTheme'
@@ -59,6 +59,52 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
   const activeMember = members.find(m => m.id === activeMemberId) ?? null
   // Sort alphabetically so the list is easy to scan.
   const sortedMembers = [...members].sort((a, b) => a.name.localeCompare(b.name))
+
+  // ── Figma capture ────────────────────────────────────────────────────────
+  // Reads /figma-capture.json (written by Claude after "add to figma") and
+  // triggers the Figma capture.js toolbar overlay by setting the window hash.
+  // This keeps the user on their current page — only the hash changes, so
+  // the toolbar appears over whatever route they're viewing.
+  const [figmaLoading, setFigmaLoading] = useState(false)
+
+  async function handleFigmaCapture() {
+    setFigmaLoading(true)
+    try {
+      // cache: 'no-store' ensures we always read the latest captureId, not a
+      // browser-cached version from a previous "add to figma" invocation.
+      const res = await fetch('/figma-capture.json', { cache: 'no-store' })
+      const data: { captureId: string | null } = await res.json()
+      if (!data.captureId) {
+        alert('No Figma capture ready. Tell Claude "add to figma" to generate one, then click this button.')
+        return
+      }
+      // Build the hash params that capture.js listens for. The endpoint URL
+      // must be percent-encoded since it appears as a hash query param value.
+        const endpointUrl = `https://mcp.figma.com/mcp/capture/${data.captureId}/submit`
+
+      // capture.js exposes window.figma once it has loaded. If it's ready, call
+      // captureForDesign() directly — no page reload needed.
+      type FigmaCapture = { captureForDesign: (opts: { captureId: string; endpoint: string }) => void }
+      const figma = (window as Record<string, unknown>).figma as FigmaCapture | undefined
+      console.log('[Figma] window.figma =', figma, '| captureId =', data.captureId)
+
+      if (figma?.captureForDesign) {
+        figma.captureForDesign({ captureId: data.captureId, endpoint: endpointUrl })
+        return
+      }
+
+      // Fallback: capture.js hasn't loaded yet (async) — navigate with hash params
+      // so capture.js initialises fresh on the next page load and shows the toolbar.
+      const endpointEncoded = encodeURIComponent(endpointUrl)
+      const hash = `figmacapture=${data.captureId}&figmaendpoint=${endpointEncoded}&figmadelay=1000`
+      console.log('[Figma] window.figma not ready — navigating to:', window.location.pathname + '#' + hash)
+      window.location.href = window.location.pathname + '#' + hash
+    } catch {
+      alert('Could not load Figma capture config. Make sure the dev server is running.')
+    } finally {
+      setFigmaLoading(false)
+    }
+  }
 
   return (
     <header
@@ -159,6 +205,20 @@ export function TopBar({ onMobileMenuToggle }: { onMobileMenuToggle?: () => void
 
       {/* Right side: action buttons + user/mode picker */}
       <div className="flex items-center gap-1">
+        {/* ── Add to Figma button ─────────────────────────────────────────────
+            Reads /figma-capture.json (written by Claude after "add to figma")
+            and triggers the capture.js overlay on the current page. The user
+            navigates to whatever view they want, then clicks this button.     */}
+        <button
+          onClick={handleFigmaCapture}
+          disabled={figmaLoading}
+          className="hidden sm:flex p-2 text-blue-200 hover:text-white transition-colors disabled:opacity-50"
+          title="Add to Figma — click after telling Claude 'add to figma'"
+          aria-label="Add current view to Figma"
+        >
+          <Camera size={18} />
+        </button>
+
         <button
           className="p-2 text-blue-200 hover:text-white transition-colors"
           title="Notifications"

@@ -43,7 +43,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -62,7 +62,7 @@ import { StatCard } from '@/components/ui/stat-card'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { cn } from '@/lib/utils'
 import { avatarColor } from '@/lib/colors'
-import { roleCategoryOf, ALL_ROLE_CATEGORIES } from '@/lib/roles'
+import { roleCategoryOf, ALL_ROLE_CATEGORIES, MEMBER_DISCIPLINES } from '@/lib/roles'
 import type { Domain, Team, Member, Project } from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -312,6 +312,16 @@ function OrgMemberCard({
                 <><span className="text-slate-300 dark:text-slate-600">→</span>{member.reportsTo}</>
               )}
             </p>
+            {/* Discipline badges — one pill per discipline tag */}
+            {member.discipline && member.discipline.length > 0 && (
+              <div className="flex flex-wrap gap-0.5 mt-0.5">
+                {member.discipline.map(d => (
+                  <span key={d} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -401,16 +411,16 @@ function OrgMemberChip({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       className={cn(
-        'group flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-lg border',
-        'transition-shadow hover:shadow-sm cursor-default',
-        // Contractor gets an amber tint to distinguish from FTE
+        // Minimal pill: just enough height for text + tiny gap signals
+        'group inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded border',
+        'transition-colors cursor-default',
         member.employmentType === 'Contractor'
           ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800'
           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700',
         isOver && 'border-red-300 dark:border-red-700',
       )}
     >
-      {/* Always-visible drag handle — makes DnD affordance obvious in building mode */}
+      {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
@@ -418,56 +428,36 @@ function OrgMemberChip({
         className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none shrink-0"
         tabIndex={-1}
       >
-        <GripVertical size={11} />
+        <GripVertical size={10} />
       </button>
-
-      {/* Avatar — click navigates to member profile */}
-      <div
-        className={cn(
-          'w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0',
-          avatarBg, avatarText,
-        )}
-        onClick={() => navigate(`/members/${member.id}`, { state: { from: '/org' } })}
-        style={{ cursor: 'pointer' }}
-      >
-        {member.avatarInitials.slice(0, 2)}
-      </div>
 
       {/* Name — click navigates to member profile */}
       <span
-        className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors leading-none"
         onClick={() => navigate(`/members/${member.id}`, { state: { from: '/org' } })}
       >
         {member.name}
       </span>
 
-      {/* Contractor badge — small "C" pill, visible without taking much space */}
+      {/* Contractor badge */}
       {member.employmentType === 'Contractor' && (
-        <span className="text-[9px] font-semibold px-1 py-0 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 shrink-0">
+        <span className="text-[8px] font-bold px-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 shrink-0 leading-none py-px">
           C
         </span>
       )}
 
-      {/* Over-capacity dot — red signal without needing a full bar */}
+      {/* Over-capacity dot */}
       {isOver && (
         <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title={`Over capacity: ${alloc}%`} />
       )}
 
-      {/* Edit/delete — hover-only to keep chips compact by default */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0">
-        <button
-          onClick={e => { e.stopPropagation(); onEdit() }}
-          className="p-0.5 rounded text-slate-300 hover:text-slate-600"
-          title="Edit"
-        >
-          <Pencil size={10} />
+      {/* Edit/delete on hover */}
+      <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 shrink-0">
+        <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-0.5 rounded text-slate-300 hover:text-slate-600" title="Edit">
+          <Pencil size={9} />
         </button>
-        <button
-          onClick={e => { e.stopPropagation(); onDelete() }}
-          className="p-0.5 rounded text-slate-300 hover:text-red-500"
-          title="Delete"
-        >
-          <Trash2 size={10} />
+        <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-0.5 rounded text-slate-300 hover:text-red-500" title="Delete">
+          <Trash2 size={9} />
         </button>
       </div>
     </div>
@@ -532,15 +522,25 @@ function OrgTeamSection({
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isTeamDragging ? 0.4 : 1 }}
       className="mb-5"
     >
-      {/* Team header: serves as the member droppable zone + has DnD grip + clickable toggle + action buttons */}
+      {/* Outer bordered container wraps the entire team — header + member area — so
+          the outline visually groups the team as a single unit. The droppable ref
+          goes here so members can be dropped anywhere inside the team card. */}
       <div
         ref={setMemberDropRef}
         className={cn(
-          'flex items-center gap-2 mb-3 group rounded-lg px-2 py-1.5 transition-colors',
-          // Highlight all team headers when any member is being dragged
-          activeDragType === 'member' && 'ring-2 ring-inset ring-blue-200 dark:ring-blue-800',
-          // Stronger highlight when pointer is over this specific team
-          memberIsOver && 'ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30',
+          'rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors',
+          // Highlight the entire team card when a member is being dragged
+          activeDragType === 'member' && 'ring-2 ring-blue-200 dark:ring-blue-800',
+          // Stronger highlight when pointer is directly over this team
+          memberIsOver && 'ring-2 ring-blue-400 bg-blue-50/30 dark:bg-blue-950/20',
+        )}
+      >
+
+      {/* Team header row */}
+      <div
+        className={cn(
+          'flex items-center gap-2 group px-3 py-2 transition-colors',
+          'bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700',
         )}
       >
         {/* Team grip — drag to reorder or move to another domain */}
@@ -583,8 +583,8 @@ function OrgTeamSection({
           )}
         </div>
 
-        {/* Portfolio-style action buttons — appear on hover */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        {/* Portfolio-style action buttons — always visible */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setModal({ type: 'member', mode: 'add', teamId: team.id })}
             className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60"
@@ -606,14 +606,13 @@ function OrgTeamSection({
         </div>
       </div>
 
-      {/* Team body — hidden when collapsed. Renders either compact chips (building
-          mode) or full capacity cards (normal mode), both in a SortableContext for
-          within-team DnD reorder. Cross-team moves go through teamdrop zones. */}
+      {/* Team body — hidden when collapsed. Padding only; the outer border card
+          already provides the visual container around the team. */}
       {!isCollapsed && (
-        <>
+        <div className="p-2 bg-white dark:bg-slate-900/40">
           {buildingMode ? (
-            /* Building mode: compact chips laid out in a wrapping row for easy DnD */
-            <div className="flex flex-wrap gap-1.5">
+            /* Collapsed: ultra-compact chip row — minimal footprint, easy DnD */
+            <div className="flex flex-wrap gap-1">
               <SortableContext items={filteredMembers.map(m => m.id)} strategy={verticalListSortingStrategy}>
                 {filteredMembers.map(m => (
                   <OrgMemberChip
@@ -627,7 +626,7 @@ function OrgTeamSection({
               </SortableContext>
             </div>
           ) : (
-            /* Normal mode: full capacity cards in a responsive grid */
+            /* Expanded: full capacity cards in a responsive grid */
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               <SortableContext items={filteredMembers.map(m => m.id)} strategy={verticalListSortingStrategy}>
                 {filteredMembers.map(m => (
@@ -642,8 +641,10 @@ function OrgTeamSection({
               </SortableContext>
             </div>
           )}
-        </>
+        </div>
       )}
+
+      </div>{/* end outer team card border */}
     </div>
   )
 }
@@ -765,8 +766,8 @@ function OrgDomainSection({
         {/* Rule extends right from the domain name to fill remaining space */}
         <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
 
-        {/* Action buttons — hover to reveal */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        {/* Action buttons — always visible */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setModal({ type: 'team', mode: 'add', domainId: domain.id })}
             className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-violet-50 text-violet-600 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300"
@@ -849,8 +850,9 @@ function DomainForm({
 
   return (
     <form
+      id="org-domain-form"
       onSubmit={e => { e.preventDefault(); onSubmit({ name, description, owner }) }}
-      className="space-y-4 pt-1"
+      className="space-y-4"
     >
       <div className="space-y-1.5">
         <Label htmlFor="d-name" className="text-xs font-medium text-slate-600">Domain Name *</Label>
@@ -877,33 +879,60 @@ function DomainForm({
           <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Owner name" />
         )}
       </div>
-      <DialogFooter className="pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save</Button>
-      </DialogFooter>
     </form>
   )
 }
 
 // ─── Team form ────────────────────────────────────────────────────────────
+// When `initialDomainId` is an empty string, a domain selector is shown so
+// the user can pick which domain the new team belongs to. This happens when
+// the user clicks "New Team" from the global Add button (no pre-selected domain).
+// When adding a team from within a domain card the domainId is pre-set and the
+// selector is hidden.
 
 function TeamForm({
   initial,
+  initialDomainId,
   onSubmit,
   onCancel,
 }: {
   initial?: Partial<Team>
-  onSubmit: (data: Omit<Team, 'id' | 'domainId' | 'memberIds'>) => void
+  /** Pre-selected domain. Pass '' to show a domain picker in the form. */
+  initialDomainId?: string
+  onSubmit: (data: Omit<Team, 'id' | 'memberIds'>) => void
   onCancel: () => void
 }) {
+  const { domains } = usePortfolioStore()
   const [name, setName]               = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
+  // domainId is only editable when creating a new team with no pre-set domain.
+  const [domainId, setDomainId]       = useState(initialDomainId ?? initial?.domainId ?? '')
 
   return (
     <form
-      onSubmit={e => { e.preventDefault(); onSubmit({ name, description, techLead: initial?.techLead ?? '' }) }}
-      className="space-y-4 pt-1"
+      id="org-team-form"
+      onSubmit={e => {
+        e.preventDefault()
+        onSubmit({ name, description, techLead: initial?.techLead ?? '', domainId })
+      }}
+      className="space-y-4"
     >
+      {/* Domain selector — only shown when no domain was pre-selected */}
+      {initialDomainId === '' && (
+        <div className="space-y-1.5">
+          <Label htmlFor="t-domain" className="text-xs font-medium text-slate-600">Domain *</Label>
+          <Select value={domainId} onValueChange={setDomainId} required>
+            <SelectTrigger id="t-domain">
+              <SelectValue placeholder="Select domain…" />
+            </SelectTrigger>
+            <SelectContent>
+              {domains.map(d => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="t-name" className="text-xs font-medium text-slate-600">Team Name *</Label>
         <Input id="t-name" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. POS & Checkout" />
@@ -912,10 +941,10 @@ function TeamForm({
         <Label htmlFor="t-desc" className="text-xs font-medium text-slate-600">Description</Label>
         <Textarea id="t-desc" value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="What does this team own?" />
       </div>
-      <DialogFooter className="pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save</Button>
-      </DialogFooter>
+      {/* Hidden required input: prevents submission when domain picker is shown but no domain chosen */}
+      {initialDomainId === '' && (
+        <input type="text" required value={domainId} onChange={() => {}} className="absolute opacity-0 h-0 w-0 pointer-events-none" aria-hidden />
+      )}
     </form>
   )
 }
@@ -934,6 +963,8 @@ function MemberForm({
   const { teams } = usePortfolioStore()
   const [name, setName]                 = useState(initial?.name ?? '')
   const [role, setRole]                 = useState(initial?.role ?? '')
+  // Multi-select — stored as an array so members can have more than one discipline.
+  const [disciplines, setDisciplines]   = useState<string[]>(initial?.discipline ?? [])
   const [reportsTo, setReportsTo]       = useState(initial?.reportsTo ?? '')
   const [teamIds, setTeamIds]           = useState<string[]>(initial?.teamIds ?? [])
   // Default to FTE — absence of employmentType on existing members is treated as FTE.
@@ -952,13 +983,24 @@ function MemberForm({
     setTeamIds(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
   }
 
+  function toggleDiscipline(d: string) {
+    setDisciplines(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
+  }
+
   return (
     <form
+      id="org-member-form"
       onSubmit={e => {
         e.preventDefault()
-        onSubmit({ name, role, reportsTo: reportsTo.trim() || undefined, teamIds, capacity: initial?.capacity ?? 100, avatarInitials: deriveInitials(name), employmentType })
+        onSubmit({
+          name, role,
+          discipline: disciplines.length > 0 ? disciplines : undefined,
+          reportsTo: reportsTo.trim() || undefined,
+          teamIds, capacity: initial?.capacity ?? 100,
+          avatarInitials: deriveInitials(name), employmentType,
+        })
       }}
-      className="space-y-4 pt-1"
+      className="space-y-4"
     >
       <div className="space-y-1.5">
         <Label htmlFor="m-name" className="text-xs font-medium text-slate-600">Name *</Label>
@@ -967,6 +1009,30 @@ function MemberForm({
       <div className="space-y-1.5">
         <Label htmlFor="m-role" className="text-xs font-medium text-slate-600">Role / Title *</Label>
         <Input id="m-role" value={role} onChange={e => setRole(e.target.value)} required placeholder="e.g. Senior Engineer" />
+      </div>
+      {/* Discipline — multi-select chips; members can hold more than one discipline */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-slate-600">Discipline</Label>
+        <div className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-9 bg-white dark:bg-slate-900 dark:border-slate-600">
+          {MEMBER_DISCIPLINES.map(d => {
+            const selected = disciplines.includes(d)
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDiscipline(d)}
+                className={cn(
+                  'px-2 py-0.5 rounded-full text-xs font-medium border transition-colors',
+                  selected
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-blue-400 hover:text-blue-600',
+                )}
+              >
+                {d}
+              </button>
+            )
+          })}
+        </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="m-reports" className="text-xs font-medium text-slate-600">Reports To</Label>
@@ -1018,10 +1084,8 @@ function MemberForm({
           })}
         </div>
       </div>
-      <DialogFooter className="pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={teamIds.length === 0}>Save</Button>
-      </DialogFooter>
+      {/* Hidden required input: prevents submission when no team is selected */}
+      <input type="text" required value={teamIds.length > 0 ? 'valid' : ''} onChange={() => {}} className="absolute opacity-0 h-0 w-0 pointer-events-none" aria-hidden />
     </form>
   )
 }
@@ -1030,7 +1094,8 @@ function MemberForm({
 // Same format as PortfolioPage: Domain, Team, Name, Role, Reports To, Capacity.
 // Multi-team members produce one row per team for a flat, round-trippable file.
 
-const CSV_HEADERS = ['Domain', 'Team', 'Name', 'Role', 'Reports To', 'Capacity']
+// Discipline column added so the CSV round-trips the new metadata field.
+const CSV_HEADERS = ['Domain', 'Team', 'Name', 'Role', 'Discipline', 'Reports To', 'Capacity']
 
 function escapeCell(v: string | number): string {
   const s = String(v ?? '')
@@ -1055,6 +1120,7 @@ function buildCSV(
           escapeCell(team.name),
           escapeCell(member.name),
           escapeCell(member.role),
+          escapeCell((member.discipline ?? []).join(', ')),
           escapeCell(member.reportsTo ?? ''),
           escapeCell(member.capacity),
         ].join(','))
@@ -1103,6 +1169,9 @@ export function OrgPage() {
   const [modal, setModal]              = useState<ModalState>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [importError, setImportError]  = useState<string | null>(null)
+  // Controls the "Add" dropdown menu open state — closed by a transparent
+  // backdrop div that appears beneath the menu when it's open.
+  const [addDropOpen, setAddDropOpen]  = useState(false)
   const fileInputRef                   = useRef<HTMLInputElement>(null)
 
   // Roster filter state
@@ -1111,6 +1180,8 @@ export function OrgPage() {
   const [allocFilter, setAllocFilter]             = useState<AllocFilter>('all')
   // Role discipline filter — matches the same category buckets as the Planning page
   const [selectedRoleCategories, setSelectedRoleCategories] = useState<string[]>([])
+  // Discipline tag filter — matches any of the selected discipline tags on the member
+  const [selectedDisciplines, setSelectedDisciplines]       = useState<string[]>([])
 
   // Building mode shows compact member chips instead of full cards — easier to
   // see the whole org at once and drag-and-drop people between teams.
@@ -1169,6 +1240,11 @@ export function OrgPage() {
       }
       // Role discipline filter — bucket the raw title and compare to selected categories
       if (selectedRoleCategories.length > 0 && !selectedRoleCategories.includes(roleCategoryOf(m.role))) return false
+      // Discipline tag filter — member must have at least one of the selected disciplines
+      if (selectedDisciplines.length > 0) {
+        const memberDiscs = m.discipline ?? []
+        if (!selectedDisciplines.some(d => memberDiscs.includes(d))) return false
+      }
       return true
     }
 
@@ -1186,7 +1262,7 @@ export function OrgPage() {
           .filter(t => t.members.length > 0),
       }))
       .filter(d => d.teams.length > 0)
-  }, [domains, teams, members, projects, search, selectedDomains, allocFilter, selectedRoleCategories])
+  }, [domains, teams, members, projects, search, selectedDomains, allocFilter, selectedRoleCategories, selectedDisciplines])
 
   // Deduplicate by member id — members in multiple teams would otherwise be
   // counted once per team, producing a totalShowing that exceeds stats.total.
@@ -1198,13 +1274,14 @@ export function OrgPage() {
           seen.add(m.id)
     return seen.size
   }, [filteredData])
-  const hasActiveFilters = search.trim() !== '' || selectedDomains.length > 0 || allocFilter !== 'all' || selectedRoleCategories.length > 0
+  const hasActiveFilters = search.trim() !== '' || selectedDomains.length > 0 || allocFilter !== 'all' || selectedRoleCategories.length > 0 || selectedDisciplines.length > 0
 
   function clearFilters() {
     setSearch('')
     setSelectedDomains([])
     setAllocFilter('all')
     setSelectedRoleCategories([])
+    setSelectedDisciplines([])
   }
 
   // ── Drag start ────────────────────────────────────────────────────────
@@ -1310,10 +1387,11 @@ export function OrgPage() {
     setModal(null)
   }
 
-  function handleTeamSubmit(data: Omit<Team, 'id' | 'domainId' | 'memberIds'>) {
+  function handleTeamSubmit(data: Omit<Team, 'id' | 'memberIds'>) {
     if (!modal) return
     if (modal.mode === 'add') {
-      addTeam({ ...data, domainId: (modal as { domainId: string }).domainId })
+      // `domainId` is now part of the form data (either pre-set or chosen via selector).
+      addTeam({ ...data, domainId: data.domainId })
     } else {
       updateTeam((modal as { team: Team }).team.id, data)
     }
@@ -1379,7 +1457,10 @@ export function OrgPage() {
 
         for (const line of lines.slice(1)) {
           const cols = parseCSVLine(line)
-          const [domainName, teamName, memberName, role, reportsTo, capacityRaw] = cols.map(c => c.trim())
+          // Column order: Domain, Team, Name, Role, Discipline, Reports To, Capacity
+          // Discipline is new — old CSVs without it will have an empty string here,
+          // which is handled gracefully by the || undefined fallback below.
+          const [domainName, teamName, memberName, role, discipline, reportsTo, capacityRaw] = cols.map(c => c.trim())
           if (!domainName || !teamName || !memberName) continue
 
           // Find or create domain by name
@@ -1409,7 +1490,11 @@ export function OrgPage() {
               updateMember(existing.id, { teamIds: [...existing.teamIds, team.id] })
             }
           } else {
-            addMember({ teamIds: [team.id], name: memberName, role: role ?? '', reportsTo: reportsTo || undefined, capacity, avatarInitials: initials })
+            // Parse discipline column — may be comma-separated list of disciplines
+            const parsedDisciplines = discipline
+              ? discipline.split(',').map(d => d.trim()).filter(Boolean)
+              : []
+            addMember({ teamIds: [team.id], name: memberName, role: role ?? '', discipline: parsedDisciplines.length > 0 ? parsedDisciplines : undefined, reportsTo: reportsTo || undefined, capacity, avatarInitials: initials })
           }
         }
       } catch {
@@ -1450,9 +1535,48 @@ export function OrgPage() {
               className="hidden"
               onChange={handleImportCSV}
             />
-            <Button onClick={() => setModal({ type: 'domain', mode: 'add' })}>
-              <Plus size={15} /> Add Domain
-            </Button>
+            {/* ── Add dropdown ─────────────────────────────────────────
+                Single "Add" button with a small menu for Domain / Team / Person.
+                The overlay beneath the menu closes it when clicking outside.
+            */}
+            <div className="relative">
+              <Button onClick={() => setAddDropOpen(o => !o)}>
+                <Plus size={15} /> Add
+              </Button>
+              {addDropOpen && (
+                <>
+                  {/* Invisible backdrop to close on outside click */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setAddDropOpen(false)}
+                  />
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 bg-white shadow-md dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => { setAddDropOpen(false); setModal({ type: 'domain', mode: 'add' }) }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <Building2 size={14} className="text-slate-400" /> New Domain
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddDropOpen(false); setModal({ type: 'team', mode: 'add', domainId: '' }) }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                    >
+                      <Users size={14} className="text-slate-400" /> New Team
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddDropOpen(false); setModal({ type: 'member', mode: 'add', teamId: '' }) }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                    >
+                      <UserCircle size={14} className="text-slate-400" /> New Person
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <Upload size={14} /> Import CSV
             </Button>
@@ -1503,8 +1627,15 @@ export function OrgPage() {
         </div>
 
         {/* ── Filter bar ───────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-72">
+        {/*
+          Layout (left → right):
+            Search | Domain label + dropdown | Role label + dropdown |
+            Discipline label + dropdown | Capacity label + chips |
+            Clear all | → Collapse/Expand
+        */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* Search */}
+          <div className="relative w-full sm:w-64 shrink-0">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <Input
               value={search}
@@ -1522,54 +1653,68 @@ export function OrgPage() {
               </button>
             )}
           </div>
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-1">Filter</span>
-          {([
-            { key: 'all',     label: 'All' },
-            { key: 'at-risk', label: '>80% allocated' },
-            { key: 'over',    label: 'Over capacity' },
-          ] as { key: AllocFilter; label: string }[]).map(({ key, label }) => (
-            <FilterChip
-              key={key}
-              label={label}
-              active={allocFilter === key}
-              onClick={() => setAllocFilter(key)}
+
+          {/* Domain / Role / Discipline — all in one group so spacing matches the capacity chips */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Filter</span>
+            <MultiSelectDropdown
+              label="Domain"
+              options={domains.map(d => ({ id: d.id, label: d.name }))}
+              selected={selectedDomains}
+              onChange={setSelectedDomains}
             />
-          ))}
-          <MultiSelectDropdown
-            label="Domain"
-            options={domains.map(d => ({ id: d.id, label: d.name }))}
-            selected={selectedDomains}
-            onChange={setSelectedDomains}
-          />
-          {/* Role discipline filter — same buckets as the Planning page */}
-          <MultiSelectDropdown
-            label="Role"
-            options={ALL_ROLE_CATEGORIES.map(cat => ({ id: cat, label: cat }))}
-            selected={selectedRoleCategories}
-            onChange={setSelectedRoleCategories}
-          />
+            <MultiSelectDropdown
+              label="Role"
+              options={ALL_ROLE_CATEGORIES.map(cat => ({ id: cat, label: cat }))}
+              selected={selectedRoleCategories}
+              onChange={setSelectedRoleCategories}
+            />
+            <MultiSelectDropdown
+              label="Discipline"
+              options={MEMBER_DISCIPLINES.map(d => ({ id: d, label: d }))}
+              selected={selectedDisciplines}
+              onChange={setSelectedDisciplines}
+            />
+          </div>
+
+          {/* Capacity allocation chips */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Capacity</span>
+            {([
+              { key: 'all',     label: 'All' },
+              { key: 'at-risk', label: '>80% allocated' },
+              { key: 'over',    label: 'Over capacity' },
+            ] as { key: AllocFilter; label: string }[]).map(({ key, label }) => (
+              <FilterChip
+                key={key}
+                label={label}
+                active={allocFilter === key}
+                onClick={() => setAllocFilter(key)}
+              />
+            ))}
+          </div>
+
+          {/* Clear all — only shown when any filter is active */}
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0"
             >
               Clear all
             </button>
           )}
-          {/* Building mode toggle — switches to compact chip view for drag-and-drop org building */}
-          <button
+
+          {/* Collapse/Expand — secondary button style, pushed to the far right */}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setBuildingMode(v => !v)}
-            className={cn(
-              'ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-              buildingMode
-                ? 'bg-violet-600 text-white border-violet-600 hover:bg-violet-700'
-                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-violet-400 hover:text-violet-600',
-            )}
-            title={buildingMode ? 'Exit building mode' : 'Enter building mode — compact view for drag-and-drop'}
+            className="ml-auto shrink-0"
+            title={buildingMode ? 'Expand to full cards' : 'Collapse to compact view for drag-and-drop'}
           >
             <Layers size={12} />
-            {buildingMode ? 'Exit Building Mode' : 'Building Mode'}
-          </button>
+            {buildingMode ? 'Expand' : 'Collapse'}
+          </Button>
         </div>
 
         {/* ── Domain tree ──────────────────────────────────────────────── */}
@@ -1624,9 +1769,16 @@ export function OrgPage() {
       </DragOverlay>
 
       {/* Add / Edit modal */}
+      {/* ── Add / Edit modal ────────────────────────────────────────────────
+          p-0 gap-0 overflow-hidden so we can manage the layout manually:
+          sticky header → flex-1 scrollable body → sticky footer.
+          Each form has an id so the footer's Submit button can target it
+          via the HTML `form` attribute without being nested inside it.
+      */}
       <Dialog open={modal !== null} onOpenChange={open => !open && setModal(null)}>
-        <DialogContent className="sm:max-w-md p-6">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
+          {/* Sticky header */}
+          <DialogHeader className="sticky top-0 z-10 bg-popover border-b px-6 pt-5 pb-4">
             <DialogTitle className="flex items-center gap-2">
               {modal?.type === 'domain' && <Building2  size={16} className="text-violet-500" />}
               {modal?.type === 'team'   && <Users      size={16} className="text-blue-500"   />}
@@ -1635,31 +1787,60 @@ export function OrgPage() {
             </DialogTitle>
           </DialogHeader>
 
-          {modal?.type === 'domain' && (
-            <DomainForm
-              initial={modal.mode === 'edit' ? modal.domain : undefined}
-              onSubmit={handleDomainSubmit}
-              onCancel={() => setModal(null)}
-            />
-          )}
-          {modal?.type === 'team' && (
-            <TeamForm
-              initial={modal.mode === 'edit' ? modal.team : undefined}
-              onSubmit={handleTeamSubmit}
-              onCancel={() => setModal(null)}
-            />
-          )}
-          {modal?.type === 'member' && (
-            <MemberForm
-              initial={
-                modal.mode === 'edit'
-                  ? modal.member
-                  : { teamIds: [(modal as { teamId: string }).teamId] }
+          {/* Scrollable body */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+            {modal?.type === 'domain' && (
+              <DomainForm
+                initial={modal.mode === 'edit' ? modal.domain : undefined}
+                onSubmit={handleDomainSubmit}
+                onCancel={() => setModal(null)}
+              />
+            )}
+            {modal?.type === 'team' && (
+              // Pass the pre-selected domainId when adding from a domain card.
+              // When adding from the global "Add" button, domainId is '' and
+              // the form will show a domain picker.
+              <TeamForm
+                initial={modal.mode === 'edit' ? modal.team : undefined}
+                initialDomainId={modal.mode === 'add' ? modal.domainId : undefined}
+                onSubmit={handleTeamSubmit}
+                onCancel={() => setModal(null)}
+              />
+            )}
+            {modal?.type === 'member' && (
+              // When adding from a team card, pre-select that team. When adding
+              // from the global "Add" button, teamId is '' so MemberForm starts
+              // with no teams selected — the user picks one via the team chips.
+              <MemberForm
+                initial={
+                  modal.mode === 'edit'
+                    ? modal.member
+                    : {
+                        teamIds: (modal as { teamId: string }).teamId
+                          ? [(modal as { teamId: string }).teamId]
+                          : [],
+                      }
+                }
+                onSubmit={handleMemberSubmit}
+                onCancel={() => setModal(null)}
+              />
+            )}
+          </div>
+
+          {/* Sticky footer — targets the active form by id */}
+          <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 px-4 py-4 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>Cancel</Button>
+            <Button
+              type="submit"
+              form={
+                modal?.type === 'domain' ? 'org-domain-form'
+                : modal?.type === 'team' ? 'org-team-form'
+                : 'org-member-form'
               }
-              onSubmit={handleMemberSubmit}
-              onCancel={() => setModal(null)}
-            />
-          )}
+            >
+              Save
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

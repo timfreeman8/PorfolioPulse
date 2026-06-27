@@ -31,6 +31,7 @@ const PlanningPage   = lazy(() => import('@/pages/CapacityPlannerPage').then(m =
 const ProjectsPage      = lazy(() => import('@/pages/ProjectsPage').then(m      => ({ default: m.ProjectsPage      })))
 const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })))
 const EscalationsPage = lazy(() => import('@/pages/EscalationsPage').then(m => ({ default: m.EscalationsPage })))
+const PulsePage       = lazy(() => import('@/pages/PulsePage').then(m       => ({ default: m.PulsePage       })))
 const MemberDetailPage = lazy(() => import('@/pages/MemberDetailPage').then(m => ({ default: m.MemberDetailPage })))
 const SettingsPage   = lazy(() => import('@/pages/SettingsPage').then(m   => ({ default: m.SettingsPage   })))
 const OrgPage        = lazy(() => import('@/pages/OrgPage').then(m        => ({ default: m.OrgPage        })))
@@ -88,6 +89,7 @@ export default function App() {
             {/* /pto merged into Planning — redirect so old bookmarks still work */}
             <Route path="pto"         element={<Navigate to="/planning" replace />} />
             <Route path="escalations" element={<EscalationsPage />} />
+            <Route path="pulse"       element={<PulsePage />} />
             {/* /teams redirects to /roster — old bookmarks and nav links are preserved */}
             <Route path="teams"       element={<Navigate to="/roster" replace />} />
             <Route path="people"      element={<OrgPage />} />

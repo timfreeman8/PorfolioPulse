@@ -38,6 +38,7 @@ export type EffortSize = 'S' | 'M' | 'L' | 'XL'
 
 export type IntakeStatus =
   | 'Pending Review'
+  | 'Under Review'
   | 'Approved'
   | 'Rejected'
   | 'Deferred'
@@ -66,6 +67,12 @@ export interface Member {
   teamIds: string[]
   name: string
   role: string
+  /**
+   * One or more discipline / specialization tags for this member, e.g.
+   * ["Web Developer", "UX Researcher"]. Distinct from `role` (the formal job
+   * title) — used for filtering and at-a-glance categorization.
+   */
+  discipline?: string[]
   /** Manager this member reports to */
   reportsTo?: string
   /** 0–100 percent */
@@ -173,6 +180,29 @@ export interface Initiative {
   status: InitiativeStatus
 }
 
+/**
+ * One entry in the automatic status-change audit trail.
+ * Written by the store whenever a request's status field changes so there is
+ * always a complete, timestamped record of how a request moved through triage.
+ */
+export interface IntakeStatusChange {
+  status: IntakeStatus
+  /** ISO datetime string */
+  changedAt: string
+}
+
+/**
+ * A single note added by a reviewer during the pre-triage discussion period.
+ * Multiple people can comment on the same request before a final decision is made.
+ */
+export interface IntakeComment {
+  id: string
+  authorName: string
+  text: string
+  /** ISO datetime string */
+  createdAt: string
+}
+
 export interface IntakeRequest {
   id: string
   requesterName: string
@@ -197,6 +227,22 @@ export interface IntakeRequest {
   status: IntakeStatus
   /** ISO datetime string */
   submittedAt: string
+  /** Dollar value estimate (thousands) — used for priority scoring */
+  estimatedValue?: number
+  /** Whether the value is revenue-generating or cost-reducing */
+  valueType?: 'Revenue Impact' | 'Cost Savings'
+  /** Linked strategic initiative (set by admin after approval) */
+  initiativeId?: string
+  /** Notes added by the reviewer when approving, rejecting, or deferring */
+  reviewerNotes?: string
+  /** Pre-triage discussion thread — multiple reviewers can add notes before a final decision */
+  comments?: IntakeComment[]
+  /** ID of the Project created when this request was converted to an epic */
+  convertedProjectId?: string
+  /** Automatic audit trail — one entry appended each time status changes */
+  statusHistory?: IntakeStatusChange[]
+  /** Date by which a triage decision should be made (ISO date string) */
+  reviewDeadline?: string
 }
 
 export interface PtoBlock {
@@ -229,6 +275,62 @@ export interface Escalation {
   resolvedNote?: string
 }
 
+// ─── Design Pulse — weekly status ─────────────────────────────────────────
+
+/**
+ * A single priority item in a weekly pulse.
+ * Stores the priority text plus an effort-size tag so the reader can
+ * quickly gauge relative weight of each item.
+ */
+export interface PriorityItem {
+  text: string
+  /** Rough effort/complexity size for this priority. */
+  size: 'S' | 'M' | 'L' | 'XL'
+  /** Optional delivery status for this priority item. */
+  status?: 'Not Started' | 'In Progress' | 'Complete' | 'Blocked'
+}
+
+/** One product area within the quarterly objectives section. */
+export interface ObjectiveArea {
+  /** Name of the product or focus area, e.g. "Digital Shelf Labels". */
+  product: string
+  /** Bullet-point objectives for this area. One string per objective. */
+  objectives: string[]
+  /** Optional side quests / stretch goals under this area. */
+  sideQuests: string[]
+}
+
+/**
+ * A member's weekly "Design Pulse" status entry.
+ * Filled out every Friday for the upcoming week.
+ * Managers see all their direct reports' pulses in one view.
+ */
+export interface WeeklyPulse {
+  id: string
+  memberId: string
+  /** ISO date of the Monday that opens the week, e.g. "2026-06-15". */
+  weekOf: string
+  /** 1 = send me anything, 3 = just right, 5 = extremely busy. */
+  workloadSentiment: 1 | 2 | 3 | 4 | 5
+  /** Ordered list of priority items, each with text and a size tag. */
+  currentPriorities: PriorityItem[]
+  /** Shared context tags for the priorities section, e.g. "DSL", "AI". */
+  priorityTags: string[]
+  /** Upcoming events, OOO, or feature releases — same PriorityItem shape as currentPriorities so each has an effort size. */
+  upcoming: PriorityItem[]
+  /** Skill areas or project types the member wants to develop or work in — stored as PriorityItem so size can be tagged. */
+  developmentFocus: PriorityItem[]
+  /** Quarterly objectives organized by product area. Kept for backward-compat; new entries use flat arrays below. */
+  objectives: ObjectiveArea[]
+  /** Personal development goals — individual growth focus for the week. */
+  personalObjectives?: string[]
+  /** Team-level OKRs or shared commitments for the current period. */
+  teamObjectives?: string[]
+  /** Stretch goals or exploratory side work. */
+  sideQuests?: string[]
+  updatedAt: string
+}
+
 // ─── Root store shape (used by Zustand) ───────────────────────────────────
 
 export interface PortfolioState {
@@ -240,6 +342,7 @@ export interface PortfolioState {
   intakeRequests: IntakeRequest[]
   escalations: Escalation[]
   ptoBlocks: PtoBlock[]
+  weeklyPulses: WeeklyPulse[]
   /** Role-to-annual-cost mappings for portfolio financial analysis. */
   resourceRates: ResourceRate[]
 }

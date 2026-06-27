@@ -100,6 +100,32 @@ export const ALL_ROLE_CATEGORIES = [
   'Product Management', 'Product Design', 'Architecture', 'Other',
 ]
 
+// ── Member discipline list ────────────────────────────────────────────────────
+// Used in the People / Org form and on member cards to categorize what kind of
+// work a member specializes in. Kept separate from `role` (formal title) so
+// managers can bucket people without renaming titles in the HR system.
+
+/** Ordered list of member discipline options shown in the form dropdown. */
+export const MEMBER_DISCIPLINES = [
+  'Web Developer',
+  'Systems Developer',
+  'UX Researcher',
+  'UX Designer',
+  'Data Analyst',
+  'Data Engineer',
+  'Product Manager',
+  'QA Engineer',
+  'DevOps Engineer',
+  'Platform Engineer',
+  'Security Engineer',
+  'Technical Lead',
+  'Engineering Manager',
+  'Program Manager',
+  'Director',
+] as const
+
+export type MemberDiscipline = typeof MEMBER_DISCIPLINES[number]
+
 /** Normalize a part string — splits on commas, maps aliases, rejoins. */
 export function normalizeRoles(part: string | undefined): string | undefined {
   if (!part) return part

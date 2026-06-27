@@ -28,6 +28,7 @@ import type {
   Project,
   PtoBlock,
   Team,
+  WeeklyPulse,
 } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -103,6 +104,11 @@ interface PortfolioActions {
     projectPayload: Omit<Project, 'id' | 'updatedAt'>,
   ) => Project
 
+  // Weekly Pulse
+  addPulse: (payload: Omit<WeeklyPulse, 'id' | 'updatedAt'>) => WeeklyPulse
+  updatePulse: (id: string, patch: Partial<Omit<WeeklyPulse, 'id'>>) => void
+  deletePulse: (id: string) => void
+
   // Resource rates
   /**
    * Upsert an annual rate for a role. Creates the entry if the role is new,
@@ -124,6 +130,7 @@ const EMPTY_STATE: PortfolioState = {
   intakeRequests: [],
   escalations: [],
   ptoBlocks: [],
+  weeklyPulses: [],
   resourceRates: [],
 }
 
@@ -139,6 +146,24 @@ function migrateState(state: PortfolioState): PortfolioState {
     ...state,
     // Backfill resourceRates for stores created before this field existed.
     resourceRates: state.resourceRates ?? [],
+    // Backfill weeklyPulses for stores created before this field existed.
+    // Migrates three historical shapes into the current PriorityItem[] format:
+    //   1. Old PriorityItem  { text, size, label? } — strip label, keep text+size.
+    //   2. Plain string      (intermediate refactor) — wrap with default size 'M'.
+    //   3. Current format    PriorityItem { text, size } — pass through as-is.
+    weeklyPulses: (state.weeklyPulses ?? []).map((p: WeeklyPulse & {
+      currentPriorities: (string | { text: string; size?: string; label?: string })[]
+    }) => ({
+      ...p,
+      priorityTags: p.priorityTags ?? [],
+      currentPriorities: p.currentPriorities.map((item) => {
+        if (typeof item === 'string') return { text: item, size: 'M' as const }
+        const size = (['S', 'M', 'L', 'XL'] as const).includes(item.size as never)
+          ? (item.size as 'S' | 'M' | 'L' | 'XL')
+          : 'M' as const
+        return { text: item.text, size }
+      }),
+    })),
     projects: state.projects.map(p => ({
       ...p,
       // Backfill blockedByIds for records that pre-date this field.
@@ -515,9 +540,23 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
     },
     updateIntakeRequest(id, patch) {
       set(s => {
+        const existing = s.intakeRequests.find(r => r.id === id)
+        if (!existing) return s
+
+        // Auto-append to the status audit trail whenever the status field changes
+        const extraFields: Partial<typeof existing> = {}
+        if (patch.status && patch.status !== existing.status) {
+          extraFields.statusHistory = [
+            ...(existing.statusHistory ?? []),
+            { status: patch.status, changedAt: new Date().toISOString() },
+          ]
+        }
+
         const next = {
           ...s,
-          intakeRequests: s.intakeRequests.map(r => (r.id === id ? { ...r, ...patch } : r)),
+          intakeRequests: s.intakeRequests.map(r =>
+            r.id === id ? { ...r, ...patch, ...extraFields } : r
+          ),
         }
         persist(next)
         return next
@@ -592,8 +631,46 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
     // ── Convert intake → project ───────────────────────────────────────────
     convertIntakeToProject(intakeId, projectPayload) {
       const { addProject, updateIntakeRequest } = get()
-      updateIntakeRequest(intakeId, { status: 'Approved' })
-      return addProject(projectPayload)
+      // Create the project first so we have its generated ID
+      const project = addProject(projectPayload)
+      // Store the project ID back on the intake request so the pipeline can
+      // show an "Epic" badge and link directly to the project page
+      updateIntakeRequest(intakeId, { status: 'Approved', convertedProjectId: project.id })
+      return project
+    },
+
+    // ── Weekly Pulse ───────────────────────────────────────────────────────
+    addPulse(payload) {
+      const pulse: WeeklyPulse = {
+        id: uid(),
+        updatedAt: new Date().toISOString(),
+        ...payload,
+      }
+      set(s => {
+        const next = { ...s, weeklyPulses: [pulse, ...s.weeklyPulses] }
+        persist(next)
+        return next
+      })
+      return pulse
+    },
+    updatePulse(id, patch) {
+      set(s => {
+        const next = {
+          ...s,
+          weeklyPulses: s.weeklyPulses.map(p =>
+            p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
+          ),
+        }
+        persist(next)
+        return next
+      })
+    },
+    deletePulse(id) {
+      set(s => {
+        const next = { ...s, weeklyPulses: s.weeklyPulses.filter(p => p.id !== id) }
+        persist(next)
+        return next
+      })
     },
 
     // ── Resource rates ─────────────────────────────────────────────────────

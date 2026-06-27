@@ -126,6 +126,16 @@ function MemberCard({ member, teamName, onClick }: MemberCardProps) {
             {member.name}
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{member.role}</p>
+          {/* Discipline badges — one pill per tag */}
+          {member.discipline && member.discipline.length > 0 && (
+            <div className="flex flex-wrap gap-0.5 mt-0.5">
+              {member.discipline.map(d => (
+                <span key={d} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                  {d}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

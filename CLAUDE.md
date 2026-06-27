@@ -1,5 +1,33 @@
 # SAT — Store Technology Portfolio Planning & Visibility Tool
 
+## "Add to Figma" Command
+
+When the user says **"add to figma"** (or any variation like "send to figma", "capture to figma"),
+immediately run the Figma screen capture workflow — no clarifying questions needed.
+
+**Setup (already done — do not repeat):**
+- Capture script is already injected in `index.html`
+- Dev server runs at `http://localhost:5174/` (start with `npm run dev` if not running)
+- Target Figma file key: `vErHxQFdUAqejiNpvOli0u`
+
+**Workflow — one call per session, not per page:**
+1. Call `generate_figma_design` MCP tool with `fileKey: "vErHxQFdUAqejiNpvOli0u"` (no captureId) to get a new captureId.
+2. Write the captureId to `public/figma-capture.json`:
+   ```json
+   { "captureId": "<captureId>" }
+   ```
+3. Tell the user: "Navigate to the page you want, then click the **camera icon** in the top bar. The Figma toolbar will appear. Once it's open, you can capture as many pages as you want — the toolbar auto-generates new IDs after each capture."
+4. Stop — do NOT open any URLs or call `open`.
+
+**Notes:**
+- Do NOT auto-capture, poll, or call `open`. The user clicks the in-app camera button.
+- Only call `generate_figma_design` when the user explicitly says "add to figma" (once per session).
+- After the Figma toolbar opens, the user can navigate to any page and re-capture without another Claude call.
+- The camera button is in the TopBar (right side, between the search bar and the bell icon).
+- Do not remove the capture script from `index.html`.
+
+---
+
 ## Project Purpose
 
 A React web application for a Store Technology organization to plan, track, and

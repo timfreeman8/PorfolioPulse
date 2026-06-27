@@ -35,10 +35,12 @@ import type {
   Member,
   PortfolioState,
   Project,
+  PriorityItem,
   ProjectPhaseStep,
   PtoBlock,
   ResourceRate,
   Team,
+  WeeklyPulse,
 } from '@/types'
 
 // ─── Domains ──────────────────────────────────────────────────────────────
@@ -2120,9 +2122,1959 @@ function buildState(): PortfolioState {
     { id: 'pto23', memberId: 'm32',  startDate: '2027-01-02', endDate: '2027-01-02', note: 'New Year bridge day' },
   ]
 
+  // ── Weekly Pulses — design team, week of 2026-06-15 ──────────────────────
+  // Representative entries for Timothy Freeman's direct reports, seeded so the
+  // Pulse page has visible data on first launch without manual entry.
+  const weeklyPulses: WeeklyPulse[] = [
+    {
+      // Taylor Rose — matches the user's Design Pulse example closely
+      id: 'pulse1',
+      memberId: 'm23',
+      weekOf: '2026-06-15',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Remaining AI Driver\'s License Sections',         size: 'L'  },
+        { text: 'Finish Store Interviews (Scan Coordinator)',       size: 'M'  },
+        { text: 'Web Space Planning',                              size: 'S'  },
+        { text: 'Peer-to-Peer APK live in Alpha - Store Testing',  size: 'M'  },
+        { text: 'Finish Design Epics',                             size: 'S'  },
+      ],
+      priorityTags: ['AI', 'DSL'],
+      upcoming: [
+        { text: 'OOO - 6/19–6/26', size: 'L' },
+        { text: 'Research: Improving Target Audience for Notifications', size: 'M' },
+        { text: 'Feature release: Mobile Reporting - Ad Processing', size: 'S' },
+        { text: 'Feature release: Page Flip - display out of stock message on DSL', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Designing w/ AI', size: 'M' },
+        { text: 'IOT & Edge', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Digital Shelf Labels',
+          objectives: [
+            'OBJ: Use Cases + Features/Capabilities that unlock partner and store value',
+            'OBJ: Accelerate end-to-end tag and sign execution by delivering a hackathon prototype',
+            'OBJ: Begin the shift from being reactive to proactive for digital tag support + comms',
+          ],
+          sideQuests: [],
+        },
+        {
+          product: 'Notifications',
+          objectives: ['TBD — can\'t access in Upraise'],
+          sideQuests: [
+            'Research Plan - HMW reduce lost sales due to out-of-stock product?',
+          ],
+        },
+      ],
+      updatedAt: '2026-06-13T16:30:00.000Z',
+    },
+    {
+      // Daniel Henning — busy week
+      id: 'pulse2',
+      memberId: 'm19',
+      weekOf: '2026-06-15',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'IRIS Phase 2 UX handoff to engineering',   size: 'XL' },
+        { text: 'Conduct usability testing sessions (x3)',  size: 'L'  },
+        { text: 'Update design system component library',   size: 'M'  },
+      ],
+      priorityTags: ['IRIS'],
+      upcoming: [
+        { text: 'Usability testing sessions: 6/17, 6/18', size: 'L' },
+        { text: 'Sprint review presentation: 6/19', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+        { text: 'Accessibility', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'IRIS Platform',
+          objectives: [
+            'OBJ: Deliver polished UX specs for Phase 2 re-architecture',
+            'OBJ: Validate information architecture through usability testing',
+          ],
+          sideQuests: ['Explore motion design patterns for transitions'],
+        },
+      ],
+      updatedAt: '2026-06-13T15:00:00.000Z',
+    },
+    {
+      // Sydney Baker-Kuethe — light week
+      id: 'pulse3',
+      memberId: 'm24',
+      weekOf: '2026-06-15',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'HomeBase team hub design review',    size: 'M' },
+        { text: 'Gather feedback from pilot stores',  size: 'L' },
+      ],
+      priorityTags: ['HomeBase'],
+      upcoming: [
+        { text: 'OOO - 6/16 (doctor appointment)', size: 'S' },
+        { text: 'Pilot store feedback synthesis due 6/20', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'HomeBase',
+          objectives: ['OBJ: Complete v1 design validation with 3 pilot stores'],
+          sideQuests: ['Spatial Intelligence research [Help Syd]'],
+        },
+      ],
+      updatedAt: '2026-06-13T14:15:00.000Z',
+    },
+    {
+      // Christopher Rabineau — just right
+      id: 'pulse4',
+      memberId: 'm42',
+      weekOf: '2026-06-15',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'DEX shared component audit',                  size: 'L'  },
+        { text: 'Storybook documentation for 5 core components', size: 'XL' },
+        { text: 'Review contractor design deliverables',        size: 'M'  },
+      ],
+      priorityTags: ['DEX'],
+      upcoming: [
+        { text: 'DEX sync with engineering: 6/17', size: 'M' },
+        { text: 'Component library v2 release: 6/30 target', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Design Engineering', size: 'M' },
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'DEX (Developer + Designer Experience)',
+          objectives: [
+            'OBJ: Establish shared component library used across 3+ teams',
+            'OBJ: Document all components in Storybook with usage guidelines',
+          ],
+          sideQuests: ['HMW better understand what work is active and upcoming'],
+        },
+      ],
+      updatedAt: '2026-06-13T17:00:00.000Z',
+    },
+
+    // ── Week of June 1 — 7 new members ──
+
+    {
+      // Brian Schummer — search + DSL busy sprint
+      id: 'pulse30',
+      memberId: 'm27',
+      weekOf: '2026-06-01',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Search: zero-result page redesign handoff to eng',       size: 'L' },
+        { text: 'Associate performance dashboard — stakeholder review',   size: 'M' },
+        { text: 'DSL admin panel: finalize icon set',                     size: 'S' },
+      ],
+      priorityTags: ['Cookie Monster', 'DSL'],
+      upcoming: [
+        { text: 'Search handoff session: 6/3', size: 'M' },
+        { text: 'DSL admin review: 6/4', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Search',
+          objectives: ['OBJ: Improve search relevance UX to reduce zero-result exits'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T15:30:00.000Z',
+    },
+    {
+      // Azyadeth Francois — light week, onboarding in review
+      id: 'pulse31',
+      memberId: 'm41',
+      weekOf: '2026-06-01',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Onboarding flow: incorporate design critique feedback', size: 'M' },
+        { text: 'Associate performance: competitive analysis',           size: 'L' },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Onboarding prototype demo: 6/4', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Research Methods', size: 'M' },
+        { text: 'Interaction Design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Associate Performance',
+          objectives: ['OBJ: Reduce associate onboarding time through clearer UX'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T13:00:00.000Z',
+    },
+    {
+      // Ronan Rooney — recalls triage in full swing
+      id: 'pulse32',
+      memberId: 'm43',
+      weekOf: '2026-06-01',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Recalls triage redesign: high-fidelity prototype',       size: 'XL' },
+        { text: 'SPA audit tool: final IA walkthrough with stakeholders', size: 'L'  },
+        { text: 'Compliance reporting: handoff notes to engineering',     size: 'M'  },
+      ],
+      priorityTags: ['Compliance', 'Recalls'],
+      upcoming: [
+        { text: 'Recalls prototype review: 6/2', size: 'L' },
+        { text: 'SPA handoff: 6/5', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Compliance / Recalls',
+          objectives: ['OBJ: Reduce time-to-action for recalls exceptions by redesigning triage flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T16:00:00.000Z',
+    },
+    {
+      // Dana Perry — ordering checkout redesign approaching handoff
+      id: 'pulse33',
+      memberId: 'm44',
+      weekOf: '2026-06-01',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Ordering checkout: finalize prototype for usability test', size: 'XL' },
+        { text: 'Code compliance UX: document findings + recommendations', size: 'L'  },
+        { text: 'Order management: stakeholder sign-off prep',             size: 'M'  },
+      ],
+      priorityTags: ['Code Busters'],
+      upcoming: [
+        { text: 'Usability test sessions: 6/3–6/4', size: 'L' },
+        { text: 'Stakeholder sign-off: 6/5', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Code Busters / Ordering',
+          objectives: ['OBJ: Reduce ordering workflow errors by simplifying checkout step 3'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T16:30:00.000Z',
+    },
+    {
+      // Makayla Long — post-v2 share-out, pivoting to shift management
+      id: 'pulse34',
+      memberId: 'm45',
+      weekOf: '2026-06-01',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Production schedule v2: incorporate stakeholder feedback', size: 'L' },
+        { text: 'Shift management UX: discovery kickoff',                   size: 'M' },
+        { text: 'Store manager dashboard: annotation pass',                 size: 'S' },
+      ],
+      priorityTags: ['Freddy Kroger'],
+      upcoming: [
+        { text: 'Shift management discovery share-out: 6/5', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Dashboard design', size: 'M' },
+        { text: 'User Research', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Freddy Kroger',
+          objectives: ['OBJ: Ship production schedule v2 that reduces scheduling errors for store leads'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T14:30:00.000Z',
+    },
+    {
+      // Taral Kulkarni — post-usability-test synthesis
+      id: 'pulse35',
+      memberId: 'm46',
+      weekOf: '2026-06-01',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Cycle-count usability test synthesis + report',    size: 'XL' },
+        { text: 'Inventory accuracy dashboard: iteration 2 comps',  size: 'L'  },
+        { text: 'Exception handling UI: initial wireframes',        size: 'M'  },
+      ],
+      priorityTags: ['Inventorious'],
+      upcoming: [
+        { text: 'Usability findings share-out: 6/4', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Mobile UX', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Inventorious',
+          objectives: ['OBJ: Reduce cycle-count errors through improved step-by-step flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T14:00:00.000Z',
+    },
+    {
+      // Erik Olsen — lighter week, labor forecast prototype in review
+      id: 'pulse36',
+      memberId: 'm47',
+      weekOf: '2026-06-01',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'FAST labor forecast prototype: address review feedback', size: 'L' },
+        { text: 'Production efficiency dashboard: concept refinement',   size: 'M' },
+      ],
+      priorityTags: ['FAST'],
+      upcoming: [
+        { text: 'Labor forecast demo to product: 6/3', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Data visualization', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'FAST',
+          objectives: ['OBJ: Simplify labor forecast input to reduce manager time-on-task by 30%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T13:30:00.000Z',
+    },
+
+    // ── Week of June 8 (prior week) — same reporters, different priorities ──
+
+    {
+      // Taylor Rose — prior week: busier, pre-OOO push
+      id: 'pulse5',
+      memberId: 'm23',
+      weekOf: '2026-06-08',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'AI Driver\'s License — Section 3 wireframes',   size: 'L'  },
+        { text: 'DSL board redesign stakeholder review',         size: 'M'  },
+        { text: 'Store interview scheduling (Scan Coordinator)', size: 'S'  },
+        { text: 'Backlog grooming with PM',                      size: 'S'  },
+      ],
+      priorityTags: ['AI', 'DSL'],
+      upcoming: [
+        { text: 'Stakeholder review: DSL board redesign (6/10)', size: 'M' },
+        { text: 'OOO next week: 6/19–6/26 (heads up)', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Designing w/ AI', size: 'M' },
+        { text: 'IOT & Edge', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Digital Shelf Labels',
+          objectives: [
+            'OBJ: Use Cases + Features/Capabilities that unlock partner and store value',
+            'OBJ: Accelerate end-to-end tag and sign execution by delivering a hackathon prototype',
+          ],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T17:00:00.000Z',
+    },
+    {
+      // Daniel Henning — prior week: moderate workload
+      id: 'pulse6',
+      memberId: 'm19',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'IRIS Phase 2 design review with product',  size: 'L'  },
+        { text: 'Usability test script finalization',       size: 'M'  },
+        { text: 'Update design system tokens (color)',      size: 'S'  },
+      ],
+      priorityTags: ['IRIS'],
+      upcoming: [
+        { text: 'Design review with product: 6/9', size: 'M' },
+        { text: 'Recruit usability test participants by 6/11', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+        { text: 'Accessibility', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'IRIS Platform',
+          objectives: [
+            'OBJ: Deliver polished UX specs for Phase 2 re-architecture',
+            'OBJ: Validate information architecture through usability testing',
+          ],
+          sideQuests: ['Explore motion design patterns for transitions'],
+        },
+      ],
+      updatedAt: '2026-06-06T15:00:00.000Z',
+    },
+    {
+      // Christopher Rabineau — prior week: light week
+      id: 'pulse7',
+      memberId: 'm42',
+      weekOf: '2026-06-08',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Kick off component audit (DEX)',               size: 'M' },
+        { text: 'Review open Figma comments from last sprint',  size: 'S' },
+      ],
+      priorityTags: ['DEX'],
+      upcoming: [
+        { text: 'DEX planning session: 6/10', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Engineering', size: 'M' },
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'DEX (Developer + Designer Experience)',
+          objectives: [
+            'OBJ: Establish shared component library used across 3+ teams',
+          ],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T14:00:00.000Z',
+    },
+
+    // ── Week of May 25 — all 11 members ──
+
+    {
+      // Taylor Rose — pre-sprint wind-down
+      id: 'pulse19',
+      memberId: 'm23',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'AI Driver\'s License — Section 2 polish',    size: 'L' },
+        { text: 'DSL board: initial concept explorations',    size: 'M' },
+        { text: 'Update store interview discussion guide',     size: 'S' },
+      ],
+      priorityTags: ['AI', 'DSL'],
+      upcoming: [
+        { text: 'DSL stakeholder preview: 6/4', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Designing w/ AI', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Digital Shelf Labels',
+          objectives: ['OBJ: Use Cases + Features/Capabilities that unlock partner and store value'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T16:00:00.000Z',
+    },
+    {
+      // Daniel Henning — IRIS Phase 2 ramp-up
+      id: 'pulse20',
+      memberId: 'm19',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'IRIS Phase 2 scope document — draft 1',        size: 'L' },
+        { text: 'Design system: color accessibility audit',     size: 'M' },
+        { text: 'Stakeholder alignment meeting prep',           size: 'S' },
+      ],
+      priorityTags: ['IRIS'],
+      upcoming: [
+        { text: 'IRIS stakeholder alignment: 5/27', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'IRIS Platform',
+          objectives: ['OBJ: Deliver polished UX specs for Phase 2 re-architecture'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T14:30:00.000Z',
+    },
+    {
+      // Sydney Baker-Kuethe — pilot store prep
+      id: 'pulse21',
+      memberId: 'm24',
+      weekOf: '2026-05-25',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'HomeBase pilot store outreach', size: 'M' },
+        { text: 'Update discussion guide for store visits', size: 'S' },
+      ],
+      priorityTags: ['HomeBase'],
+      upcoming: [
+        { text: 'First pilot store visit: 6/8', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'HomeBase',
+          objectives: ['OBJ: Complete v1 design validation with 3 pilot stores'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T13:00:00.000Z',
+    },
+    {
+      // Christopher Rabineau — DEX audit scope setting
+      id: 'pulse22',
+      memberId: 'm42',
+      weekOf: '2026-05-25',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Define DEX component audit scope and criteria',    size: 'M' },
+        { text: 'Set up Storybook scaffolding for core components', size: 'M' },
+      ],
+      priorityTags: ['DEX'],
+      upcoming: [
+        { text: 'DEX kickoff with engineering: 6/3', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Engineering', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'DEX (Developer + Designer Experience)',
+          objectives: ['OBJ: Establish shared component library used across 3+ teams'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T12:00:00.000Z',
+    },
+    {
+      // Brian Schummer — search UX + DSL admin
+      id: 'pulse23',
+      memberId: 'm27',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Search results page UX audit',                    size: 'L' },
+        { text: 'Associate performance dashboard — concept v1',    size: 'M' },
+        { text: 'DSL admin panel: review open design comments',    size: 'S' },
+      ],
+      priorityTags: ['Cookie Monster', 'DSL'],
+      upcoming: [
+        { text: 'Search UX review with engineering: 5/27', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+        { text: 'User Research', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Search',
+          objectives: ['OBJ: Improve search relevance UX to reduce zero-result exits'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T15:00:00.000Z',
+    },
+    {
+      // Azyadeth Francois — onboarding + research (lighter load, newer designer)
+      id: 'pulse24',
+      memberId: 'm41',
+      weekOf: '2026-05-25',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Associate onboarding flow wireframes — iteration 2', size: 'M' },
+        { text: 'Search results research synthesis',                   size: 'L' },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Design critique: onboarding wireframes 5/28', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Research Methods', size: 'M' },
+        { text: 'Interaction Design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Associate Performance',
+          objectives: ['OBJ: Reduce associate onboarding time through clearer UX'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T13:30:00.000Z',
+    },
+    {
+      // Ronan Rooney — SPA audit tool + recalls dashboard
+      id: 'pulse25',
+      memberId: 'm43',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'SPA audit tool redesign — information architecture',    size: 'L' },
+        { text: 'Recalls dashboard: mockups for exception triage view',  size: 'XL' },
+        { text: 'Compliance reporting: filter bar update',               size: 'S' },
+      ],
+      priorityTags: ['Compliance', 'Recalls'],
+      upcoming: [
+        { text: 'Recalls dashboard review: 5/27', size: 'M' },
+        { text: 'SPA audit IA walkthrough with product: 5/29', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Compliance / Recalls',
+          objectives: ['OBJ: Reduce time-to-action for recalls exceptions by redesigning triage flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T14:00:00.000Z',
+    },
+    {
+      // Dana Perry — ordering workflow + code compliance
+      id: 'pulse26',
+      memberId: 'm44',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Ordering workflow redesign — step 3 checkout flow',   size: 'XL' },
+        { text: 'Code compliance UX audit: identify friction points',  size: 'L' },
+        { text: 'Order management onboarding: copyedits',              size: 'S' },
+      ],
+      priorityTags: ['Code Busters'],
+      upcoming: [
+        { text: 'Ordering flow prototype review: 5/27', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Prototyping', size: 'M' },
+        { text: 'Interaction Design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Code Busters / Ordering',
+          objectives: ['OBJ: Reduce ordering workflow errors by simplifying checkout step 3'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T15:30:00.000Z',
+    },
+    {
+      // Makayla Long — production schedule v2 push
+      id: 'pulse27',
+      memberId: 'm45',
+      weekOf: '2026-05-25',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Production schedule interface v2 — high-fidelity comps', size: 'XL' },
+        { text: 'Store manager dashboard: stakeholder feedback integration', size: 'L' },
+        { text: 'Sprint planning + backlog grooming with PM',              size: 'S' },
+      ],
+      priorityTags: ['Freddy Kroger'],
+      upcoming: [
+        { text: 'Production schedule v2 share-out: 5/28', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Dashboard design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Freddy Kroger',
+          objectives: ['OBJ: Ship production schedule v2 that reduces scheduling errors for store leads'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T16:00:00.000Z',
+    },
+    {
+      // Taral Kulkarni — cycle-count UX
+      id: 'pulse28',
+      memberId: 'm46',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Inventorious cycle-count flow redesign — step 2 & 3', size: 'L' },
+        { text: 'Inventory accuracy dashboard: chart spec review',      size: 'M' },
+        { text: 'Usability test planning — participant recruitment',    size: 'S' },
+      ],
+      priorityTags: ['Inventorious'],
+      upcoming: [
+        { text: 'Cycle-count prototype review: 5/26', size: 'M' },
+        { text: 'Usability test sessions: 6/2–6/3', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Mobile UX', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Inventorious',
+          objectives: ['OBJ: Reduce cycle-count errors through improved step-by-step flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T14:00:00.000Z',
+    },
+    {
+      // Erik Olsen — labor forecasting redesign
+      id: 'pulse29',
+      memberId: 'm47',
+      weekOf: '2026-05-25',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'FAST labor forecast input redesign — manager view',    size: 'L' },
+        { text: 'Production efficiency dashboard: concept explorations', size: 'XL' },
+        { text: 'FAST onboarding flow: content audit',                  size: 'S' },
+      ],
+      priorityTags: ['FAST'],
+      upcoming: [
+        { text: 'Labor forecast prototype review: 5/27', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Data visualization', size: 'M' },
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'FAST',
+          objectives: ['OBJ: Simplify labor forecast input to reduce manager time-on-task by 30%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-23T14:30:00.000Z',
+    },
+
+    // ── Week of June 1 — two weeks prior ──
+
+    {
+      // Taylor Rose — steady pre-sprint week
+      id: 'pulse11',
+      memberId: 'm23',
+      weekOf: '2026-06-01',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'AI Driver\'s License — Section 2 layout review',  size: 'L' },
+        { text: 'Schedule store interviews (Scan Coordinator)',     size: 'M' },
+        { text: 'DSL board: initial concept explorations',         size: 'M' },
+        { text: 'Sprint planning with PM',                         size: 'S' },
+      ],
+      priorityTags: ['AI', 'DSL'],
+      upcoming: [
+        { text: 'Sprint planning: 6/2', size: 'S' },
+        { text: 'DSL stakeholder preview: 6/4', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Designing w/ AI', size: 'M' },
+        { text: 'IOT & Edge', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Digital Shelf Labels',
+          objectives: [
+            'OBJ: Use Cases + Features/Capabilities that unlock partner and store value',
+          ],
+          sideQuests: [],
+        },
+        {
+          product: 'Notifications',
+          objectives: ['TBD — can\'t access in Upraise'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T16:00:00.000Z',
+    },
+    {
+      // Daniel Henning — kicking off IRIS Phase 2
+      id: 'pulse12',
+      memberId: 'm19',
+      weekOf: '2026-06-01',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'IRIS Phase 2 kick-off — scope alignment with product', size: 'L' },
+        { text: 'Draft IA proposal for IRIS re-architecture',           size: 'XL' },
+        { text: 'Design system: accessibility audit (color pass)',      size: 'M' },
+      ],
+      priorityTags: ['IRIS'],
+      upcoming: [
+        { text: 'IRIS kick-off meeting: 6/2', size: 'M' },
+        { text: 'Accessibility review with dev: 6/5', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+        { text: 'Accessibility', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'IRIS Platform',
+          objectives: [
+            'OBJ: Deliver polished UX specs for Phase 2 re-architecture',
+          ],
+          sideQuests: ['Explore motion design patterns for transitions'],
+        },
+      ],
+      updatedAt: '2026-05-30T14:30:00.000Z',
+    },
+    {
+      // Sydney Baker-Kuethe — pilot store prep
+      id: 'pulse13',
+      memberId: 'm24',
+      weekOf: '2026-06-01',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'HomeBase pilot store recruitment outreach', size: 'M' },
+        { text: 'Update discussion guide for store visits',  size: 'S' },
+      ],
+      priorityTags: ['HomeBase'],
+      upcoming: [
+        { text: 'First pilot store visit: 6/8', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'HomeBase',
+          objectives: ['OBJ: Complete v1 design validation with 3 pilot stores'],
+          sideQuests: ['Spatial Intelligence research [Help Syd]'],
+        },
+      ],
+      updatedAt: '2026-05-30T13:00:00.000Z',
+    },
+    {
+      // Christopher Rabineau — planning DEX audit
+      id: 'pulse14',
+      memberId: 'm42',
+      weekOf: '2026-06-01',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Define DEX component audit scope and criteria', size: 'M' },
+        { text: 'Set up Storybook scaffolding for core components', size: 'M' },
+      ],
+      priorityTags: ['DEX'],
+      upcoming: [
+        { text: 'DEX kickoff with engineering: 6/3', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Engineering', size: 'M' },
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'DEX (Developer + Designer Experience)',
+          objectives: [
+            'OBJ: Establish shared component library used across 3+ teams',
+          ],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-05-30T12:00:00.000Z',
+    },
+
+    // ── Week of June 8 — Sydney Baker-Kuethe (gap fill) + 7 new members ──
+
+    {
+      // Sydney Baker-Kuethe — first pilot store visit week
+      id: 'pulse37',
+      memberId: 'm24',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'HomeBase pilot store visit #1 — synthesis notes',  size: 'L' },
+        { text: 'HomeBase v1: update prototype based on early findings', size: 'M' },
+      ],
+      priorityTags: ['HomeBase'],
+      upcoming: [
+        { text: 'Pilot store visit #2: 6/12', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'HomeBase',
+          objectives: ['OBJ: Complete v1 design validation with 3 pilot stores'],
+          sideQuests: ['Spatial Intelligence research [Help Syd]'],
+        },
+      ],
+      updatedAt: '2026-06-06T14:00:00.000Z',
+    },
+    {
+      // Brian Schummer — search in eng, pivoting to assoc performance
+      id: 'pulse38',
+      memberId: 'm27',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Associate performance dashboard: iteration 2 comps', size: 'L' },
+        { text: 'Search: support engineering questions on handoff',    size: 'M' },
+        { text: 'Our Service Guarantee: initial discovery kickoff',    size: 'M' },
+      ],
+      priorityTags: ['Cookie Monster', 'DSL'],
+      upcoming: [
+        { text: 'Assoc performance review: 6/10', size: 'M' },
+        { text: 'Our Service Guarantee kick-off: 6/9', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Search',
+          objectives: ['OBJ: Improve search relevance UX to reduce zero-result exits'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T15:00:00.000Z',
+    },
+    {
+      // Azyadeth Francois — onboarding prototype in testing
+      id: 'pulse39',
+      memberId: 'm41',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Associate onboarding: usability test synthesis',       size: 'L' },
+        { text: 'Search results: A/B test variant mockups',             size: 'M' },
+        { text: 'Team design critique: prep 3 frames for review',      size: 'S' },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Onboarding share-out: 6/11', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Research Methods', size: 'M' },
+        { text: 'Interaction Design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Associate Performance',
+          objectives: ['OBJ: Reduce associate onboarding time through clearer UX'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T13:30:00.000Z',
+    },
+    {
+      // Ronan Rooney — recalls prototype in usability test, SPA in engineering
+      id: 'pulse40',
+      memberId: 'm43',
+      weekOf: '2026-06-08',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Recalls triage: run 4 usability test sessions',        size: 'XL' },
+        { text: 'SPA audit tool: answer engineering handoff questions', size: 'L'  },
+        { text: 'Compliance reporting: dark mode pass',                 size: 'S'  },
+      ],
+      priorityTags: ['Compliance', 'Recalls'],
+      upcoming: [
+        { text: 'Recalls usability sessions: 6/9, 6/10, 6/11, 6/12', size: 'XL' },
+      ],
+      developmentFocus: [
+        { text: 'Complex workflow design', size: 'M' },
+        { text: 'Accessibility', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Compliance / Recalls',
+          objectives: ['OBJ: Reduce time-to-action for recalls exceptions by redesigning triage flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T16:00:00.000Z',
+    },
+    {
+      // Dana Perry — post-usability synthesis, ordering handoff
+      id: 'pulse41',
+      memberId: 'm44',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Ordering checkout: usability test synthesis + report', size: 'XL' },
+        { text: 'Code Busters: design handoff documentation',           size: 'L'  },
+        { text: 'Order management: quick-win UX fixes from audit',      size: 'M'  },
+      ],
+      priorityTags: ['Code Busters'],
+      upcoming: [
+        { text: 'Usability findings share-out: 6/11', size: 'M' },
+        { text: 'Engineering handoff: 6/12', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Prototyping', size: 'M' },
+        { text: 'Interaction Design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Code Busters / Ordering',
+          objectives: ['OBJ: Reduce ordering workflow errors by simplifying checkout step 3'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T15:30:00.000Z',
+    },
+    {
+      // Makayla Long — extremely busy: production v2 + shift management + sprint
+      id: 'pulse42',
+      memberId: 'm45',
+      weekOf: '2026-06-08',
+      workloadSentiment: 5,
+      currentPriorities: [
+        { text: 'Production schedule v2: final iteration for release',    size: 'XL' },
+        { text: 'Shift management UX: three concept directions',          size: 'XL' },
+        { text: 'Store manager dashboard: responsive breakpoints',        size: 'L'  },
+        { text: 'Sprint review prep',                                     size: 'S'  },
+      ],
+      priorityTags: ['Freddy Kroger'],
+      upcoming: [
+        { text: 'Production schedule v2 release: 6/15 target', size: 'XL' },
+        { text: 'Sprint review: 6/12', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Dashboard design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Freddy Kroger',
+          objectives: ['OBJ: Ship production schedule v2 that reduces scheduling errors for store leads'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T17:00:00.000Z',
+    },
+    {
+      // Taral Kulkarni — incorporating findings, exception handling
+      id: 'pulse43',
+      memberId: 'm46',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Cycle-count: redesign step 2 & 3 based on usability findings', size: 'L' },
+        { text: 'Exception handling UI: three wireframe directions',             size: 'XL' },
+        { text: 'Inventory accuracy: chart annotations for stakeholder review',  size: 'S'  },
+      ],
+      priorityTags: ['Inventorious'],
+      upcoming: [
+        { text: 'Exception handling review: 6/10', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Mobile UX', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Inventorious',
+          objectives: ['OBJ: Reduce cycle-count errors through improved step-by-step flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T14:30:00.000Z',
+    },
+    {
+      // Erik Olsen — labor forecast ready for demo, efficiency dashboard ramp
+      id: 'pulse44',
+      memberId: 'm47',
+      weekOf: '2026-06-08',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'FAST labor forecast: final prototype for PM demo',          size: 'L' },
+        { text: 'Production efficiency dashboard: concept direction agreed', size: 'XL' },
+        { text: 'FAST onboarding: copyedit pass complete, annotate frames',  size: 'M'  },
+      ],
+      priorityTags: ['FAST'],
+      upcoming: [
+        { text: 'Labor forecast PM demo: 6/9', size: 'M' },
+        { text: 'Efficiency dashboard kickoff: 6/11', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Data visualization', size: 'M' },
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'FAST',
+          objectives: ['OBJ: Simplify labor forecast input to reduce manager time-on-task by 30%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-06T14:00:00.000Z',
+    },
+
+    // ── Week of June 15 — 7 new members ──
+
+    {
+      // Brian Schummer — service guarantee discovery, assoc performance mid-sprint
+      id: 'pulse45',
+      memberId: 'm27',
+      weekOf: '2026-06-15',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Our Service Guarantee: concept explorations (3 directions)', size: 'L' },
+        { text: 'Associate performance dashboard: interaction spec',           size: 'XL' },
+        { text: 'DSL admin panel: final QA pass',                             size: 'S'  },
+      ],
+      priorityTags: ['Cookie Monster', 'DSL'],
+      upcoming: [
+        { text: 'Service Guarantee concept review: 6/17', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Search',
+          objectives: ['OBJ: Improve search relevance UX to reduce zero-result exits'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T15:00:00.000Z',
+    },
+    {
+      // Azyadeth Francois — search variant A/B and onboarding iteration
+      id: 'pulse46',
+      memberId: 'm41',
+      weekOf: '2026-06-15',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Search results: A/B variant — refine based on PM feedback', size: 'L' },
+        { text: 'Associate onboarding: v3 handoff prep',                     size: 'M' },
+        { text: 'Competitive analysis: associate performance tools',         size: 'M' },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Search A/B review: 6/18', size: 'M' },
+        { text: 'Onboarding v3 handoff: 6/19', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Interaction Design', size: 'M' },
+        { text: 'Research Methods', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Associate Performance',
+          objectives: ['OBJ: Reduce associate onboarding time through clearer UX'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T14:00:00.000Z',
+    },
+    {
+      // Ronan Rooney — recalls synthesis, SPA in QA
+      id: 'pulse47',
+      memberId: 'm43',
+      weekOf: '2026-06-15',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Recalls usability synthesis: findings report draft',   size: 'XL' },
+        { text: 'SPA audit: support QA with design clarifications',     size: 'M'  },
+        { text: 'Compliance reporting: final accessibility review',     size: 'L'  },
+      ],
+      priorityTags: ['Compliance', 'Recalls'],
+      upcoming: [
+        { text: 'Recalls findings share-out: 6/17', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Complex workflow design', size: 'M' },
+        { text: 'Accessibility', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Compliance / Recalls',
+          objectives: ['OBJ: Reduce time-to-action for recalls exceptions by redesigning triage flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T15:30:00.000Z',
+    },
+    {
+      // Dana Perry — post-handoff, scoping next project
+      id: 'pulse48',
+      memberId: 'm44',
+      weekOf: '2026-06-15',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Code Busters: support engineering questions from handoff', size: 'M' },
+        { text: 'Next project scoping: vendor ordering portal discovery',   size: 'L' },
+      ],
+      priorityTags: ['Code Busters'],
+      upcoming: [
+        { text: 'Vendor ordering portal kick-off: 6/18', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Prototyping', size: 'M' },
+        { text: 'Interaction Design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Code Busters / Ordering',
+          objectives: ['OBJ: Reduce ordering workflow errors by simplifying checkout step 3'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T13:00:00.000Z',
+    },
+    {
+      // Makayla Long — post-v2 release, catching breath
+      id: 'pulse49',
+      memberId: 'm45',
+      weekOf: '2026-06-15',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Production schedule v2: release support + bug triage',  size: 'M' },
+        { text: 'Shift management: converge on one concept direction',    size: 'XL' },
+        { text: 'Store manager dashboard: post-release polish tweaks',   size: 'S'  },
+      ],
+      priorityTags: ['Freddy Kroger'],
+      upcoming: [
+        { text: 'Shift management concept alignment: 6/16', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Dashboard design', size: 'M' },
+        { text: 'User Research', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Freddy Kroger',
+          objectives: ['OBJ: Ship production schedule v2 that reduces scheduling errors for store leads'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T14:30:00.000Z',
+    },
+    {
+      // Taral Kulkarni — exception handling high-fi, cycle-count in eng
+      id: 'pulse50',
+      memberId: 'm46',
+      weekOf: '2026-06-15',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Exception handling UI: high-fidelity prototype',       size: 'XL' },
+        { text: 'Cycle-count v2: unblock engineering questions',        size: 'L'  },
+        { text: 'Inventory accuracy dashboard: KPI card spec',          size: 'M'  },
+      ],
+      priorityTags: ['Inventorious'],
+      upcoming: [
+        { text: 'Exception handling prototype review: 6/17', size: 'L' },
+        { text: 'Inventorious sprint review: 6/19', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Mobile UX', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Inventorious',
+          objectives: ['OBJ: Reduce cycle-count errors through improved step-by-step flow'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T16:00:00.000Z',
+    },
+    {
+      // Erik Olsen — efficiency dashboard moving fast, labor forecast in eng
+      id: 'pulse51',
+      memberId: 'm47',
+      weekOf: '2026-06-15',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Production efficiency dashboard: high-fidelity comps', size: 'XL' },
+        { text: 'Labor forecast: address 8 open engineering questions',  size: 'L'  },
+        { text: 'FAST onboarding: coordinate content review with PMs',  size: 'M'  },
+      ],
+      priorityTags: ['FAST'],
+      upcoming: [
+        { text: 'Efficiency dashboard mid-sprint review: 6/17', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Data visualization', size: 'M' },
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'FAST',
+          objectives: ['OBJ: Simplify labor forecast input to reduce manager time-on-task by 30%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-13T15:00:00.000Z',
+    },
+
+    // ── Week of June 22 — Christopher Rabineau (gap fill) + 7 new members ──
+
+    {
+      // Christopher Rabineau — Storybook docs mid-sprint, v2 release imminent
+      id: 'pulse52',
+      memberId: 'm42',
+      weekOf: '2026-06-22',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Storybook: document 8 remaining core components',      size: 'XL' },
+        { text: 'Component library v2: pre-release regression review',  size: 'L'  },
+        { text: 'DEX: support 2 teams migrating to shared components',  size: 'M'  },
+      ],
+      priorityTags: ['DEX'],
+      upcoming: [
+        { text: 'Component library v2 release: 6/30', size: 'XL' },
+        { text: 'Migration support sessions: 6/23, 6/24', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Engineering', size: 'M' },
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'DEX (Developer + Designer Experience)',
+          objectives: [
+            'OBJ: Establish shared component library used across 3+ teams',
+            'OBJ: Document all components in Storybook with usage guidelines',
+          ],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T17:00:00.000Z',
+    },
+    {
+      // Brian Schummer — service guarantee in testing, assoc perf shipped
+      id: 'pulse53',
+      memberId: 'm27',
+      weekOf: '2026-06-22',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Our Service Guarantee: usability test sessions (x3)',    size: 'XL' },
+        { text: 'Associate performance dashboard: handoff to engineering', size: 'L'  },
+        { text: 'Cookie Monster: Q3 roadmap design input',                size: 'M'  },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Service Guarantee usability: 6/23, 6/24, 6/25', size: 'XL' },
+        { text: 'Q3 roadmap session: 6/26', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Search',
+          objectives: ['OBJ: Validate Our Service Guarantee redesign with store associates'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T15:00:00.000Z',
+    },
+    {
+      // Azyadeth Francois — steady week, building confidence post-handoff
+      id: 'pulse54',
+      memberId: 'm41',
+      weekOf: '2026-06-22',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Associate performance: v2 discovery research plan',    size: 'L' },
+        { text: 'Search A/B: coordinate with analytics on metrics',     size: 'M' },
+        { text: 'Design portfolio update',                              size: 'S' },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Performance v2 discovery kickoff: 6/25', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Research Methods', size: 'M' },
+        { text: 'Data-driven design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Associate Performance',
+          objectives: ['OBJ: Reduce associate onboarding time through clearer UX'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T14:00:00.000Z',
+    },
+    {
+      // Ronan Rooney — recalls approved for build, new project scoping
+      id: 'pulse55',
+      memberId: 'm43',
+      weekOf: '2026-06-22',
+      workloadSentiment: 2,
+      currentPriorities: [
+        { text: 'Recalls: support engineering kickoff, answer design Qs', size: 'M' },
+        { text: 'Regulatory audit workflow: scoping + discovery',         size: 'L' },
+      ],
+      priorityTags: ['Compliance'],
+      upcoming: [
+        { text: 'Regulatory audit kickoff: 6/24', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Compliance',
+          objectives: ['OBJ: Improve regulatory audit workflow to reduce manual steps by 40%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T13:30:00.000Z',
+    },
+    {
+      // Dana Perry — vendor ordering portal discovery in full swing
+      id: 'pulse56',
+      memberId: 'm44',
+      weekOf: '2026-06-22',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Vendor ordering portal: stakeholder interviews (x4)',      size: 'XL' },
+        { text: 'Ordering portal: journey map from interview synthesis',    size: 'L'  },
+        { text: 'Code Busters: quick-win UX polish shipped — retro notes', size: 'S'  },
+      ],
+      priorityTags: ['Code Busters'],
+      upcoming: [
+        { text: 'Stakeholder interviews: 6/23–6/25', size: 'XL' },
+        { text: 'Journey map share-out: 6/26', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Service design', size: 'M' },
+        { text: 'User Research', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Code Busters / Vendor Ordering',
+          objectives: ['OBJ: Understand vendor pain points to inform portal redesign'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T16:30:00.000Z',
+    },
+    {
+      // Makayla Long — shift management concept locked, moving to high-fi
+      id: 'pulse57',
+      memberId: 'm45',
+      weekOf: '2026-06-22',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Shift management: high-fidelity comps — day view',   size: 'XL' },
+        { text: 'Shift management: high-fidelity comps — week view',  size: 'XL' },
+        { text: 'Production schedule v2: release retrospective',      size: 'S'  },
+      ],
+      priorityTags: ['Freddy Kroger'],
+      upcoming: [
+        { text: 'Shift management mid-sprint review: 6/24', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Dashboard design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Freddy Kroger',
+          objectives: ['OBJ: Deliver shift management v1 design for Q3 engineering kickoff'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T14:30:00.000Z',
+    },
+    {
+      // Taral Kulkarni — exception handling in eng, accuracy dashboard shipped
+      id: 'pulse58',
+      memberId: 'm46',
+      weekOf: '2026-06-22',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Exception handling: answer engineering build questions', size: 'L' },
+        { text: 'Inventory accuracy dashboard: post-launch monitoring',  size: 'M' },
+        { text: 'Inventorious Q3 planning: design input on 3 epics',    size: 'L' },
+      ],
+      priorityTags: ['Inventorious'],
+      upcoming: [
+        { text: 'Q3 planning session: 6/25', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Mobile UX', size: 'M' },
+        { text: 'Data visualization', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Inventorious',
+          objectives: ['OBJ: Ship exception handling UI to reduce inventory variance resolution time'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T15:00:00.000Z',
+    },
+    {
+      // Erik Olsen — efficiency dashboard approaching handoff
+      id: 'pulse59',
+      memberId: 'm47',
+      weekOf: '2026-06-22',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Efficiency dashboard: finalize all chart states + empty states', size: 'XL' },
+        { text: 'Labor forecast: post-launch metrics review with PM',             size: 'M'  },
+        { text: 'FAST: Q3 feature roadmap — design POV doc',                     size: 'L'  },
+      ],
+      priorityTags: ['FAST'],
+      upcoming: [
+        { text: 'Efficiency dashboard handoff: 6/26', size: 'L' },
+        { text: 'Q3 roadmap review: 6/25', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Data visualization', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'FAST',
+          objectives: ['OBJ: Simplify labor forecast input to reduce manager time-on-task by 30%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T16:00:00.000Z',
+    },
+
+    // ── Week of June 29 — 7 new members ──
+
+    {
+      // Brian Schummer — service guarantee findings, Q3 planning
+      id: 'pulse60',
+      memberId: 'm27',
+      weekOf: '2026-06-29',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Our Service Guarantee: usability findings report + recommendations', size: 'XL' },
+        { text: 'Q3 Cookie Monster roadmap: design scope for 3 epics',               size: 'L'  },
+        { text: 'Associate performance dashboard: post-launch QA support',            size: 'M'  },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Service Guarantee findings share-out: 7/1', size: 'L' },
+        { text: 'Q3 roadmap sign-off: 7/2', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Strategic design', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster',
+          objectives: ['OBJ: Validate Our Service Guarantee redesign with store associates'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T15:00:00.000Z',
+    },
+    {
+      // Azyadeth Francois — performance v2 discovery ongoing
+      id: 'pulse61',
+      memberId: 'm41',
+      weekOf: '2026-06-29',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Associate performance v2: 3 discovery interviews',   size: 'L' },
+        { text: 'Search A/B: review analytics results with product',  size: 'M' },
+        { text: 'Contribute 1 section to team Q3 design brief',       size: 'M' },
+      ],
+      priorityTags: ['Cookie Monster'],
+      upcoming: [
+        { text: 'Discovery interviews: 6/29, 6/30, 7/1', size: 'L' },
+        { text: 'Q3 design brief review: 7/3', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Research Methods', size: 'M' },
+        { text: 'Data-driven design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Cookie Monster / Associate Performance',
+          objectives: ['OBJ: Synthesize v2 discovery to inform Q3 roadmap'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T13:30:00.000Z',
+    },
+    {
+      // Ronan Rooney — regulatory audit ramping, recalls in build
+      id: 'pulse62',
+      memberId: 'm43',
+      weekOf: '2026-06-29',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Regulatory audit workflow: wireframes for steps 1–4',   size: 'XL' },
+        { text: 'Recalls triage: answer daily engineering build Qs',     size: 'L'  },
+        { text: 'Compliance reporting: post-launch feature requests log', size: 'S'  },
+      ],
+      priorityTags: ['Compliance'],
+      upcoming: [
+        { text: 'Regulatory audit wireframe review: 7/1', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Compliance',
+          objectives: ['OBJ: Improve regulatory audit workflow to reduce manual steps by 40%'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T16:00:00.000Z',
+    },
+    {
+      // Dana Perry — journey map to concepts
+      id: 'pulse63',
+      memberId: 'm44',
+      weekOf: '2026-06-29',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Vendor ordering portal: 3 concept directions from journey map', size: 'XL' },
+        { text: 'Ordering portal: affinity mapping from stakeholder interviews',  size: 'L'  },
+        { text: 'Code Busters: Q3 epic prioritization — design POV input',       size: 'M'  },
+      ],
+      priorityTags: ['Code Busters'],
+      upcoming: [
+        { text: 'Concept direction review: 7/2', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Service design', size: 'M' },
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Code Busters / Vendor Ordering',
+          objectives: ['OBJ: Understand vendor pain points to inform portal redesign'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T14:00:00.000Z',
+    },
+    {
+      // Makayla Long — shift management prototype complete, usability next
+      id: 'pulse64',
+      memberId: 'm45',
+      weekOf: '2026-06-29',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Shift management: prototype complete — prep usability test', size: 'XL' },
+        { text: 'Shift management: recruit participants for testing',         size: 'M'  },
+        { text: 'Store manager dashboard: v1.1 hotfix designs',              size: 'L'  },
+      ],
+      priorityTags: ['Freddy Kroger'],
+      upcoming: [
+        { text: 'Usability test sessions: 7/6–7/8', size: 'XL' },
+        { text: 'Dashboard v1.1 release: 7/1', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Dashboard design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Freddy Kroger',
+          objectives: ['OBJ: Deliver shift management v1 design for Q3 engineering kickoff'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T16:30:00.000Z',
+    },
+    {
+      // Taral Kulkarni — Q3 planning + exception handling support
+      id: 'pulse65',
+      memberId: 'm46',
+      weekOf: '2026-06-29',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Inventorious Q3 epics: write design briefs for top 2', size: 'L' },
+        { text: 'Exception handling: final QA review and sign-off',      size: 'M' },
+        { text: 'Cycle-count v2: post-launch metrics check with PM',    size: 'S' },
+      ],
+      priorityTags: ['Inventorious'],
+      upcoming: [
+        { text: 'Q3 design brief share-out: 7/2', size: 'M' },
+        { text: 'Exception handling release: 7/3', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Mobile UX', size: 'M' },
+        { text: 'Strategic design', size: 'S' },
+      ],
+      objectives: [
+        {
+          product: 'Inventorious',
+          objectives: ['OBJ: Ship exception handling UI to reduce inventory variance resolution time'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T13:00:00.000Z',
+    },
+    {
+      // Erik Olsen — efficiency dashboard in eng, next project scoping
+      id: 'pulse66',
+      memberId: 'm47',
+      weekOf: '2026-06-29',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Efficiency dashboard: daily engineering support during build', size: 'L' },
+        { text: 'FAST scheduling UX: discovery kickoff — interview guide',     size: 'L' },
+        { text: 'FAST Q3 design brief: finalize and share with leadership',    size: 'M' },
+      ],
+      priorityTags: ['FAST'],
+      upcoming: [
+        { text: 'Scheduling UX discovery: 6/30 kickoff', size: 'M' },
+        { text: 'Efficiency dashboard QA: 7/1', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Data visualization', size: 'M' },
+        { text: 'Complex workflow design', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'FAST',
+          objectives: ['OBJ: Simplify labor forecast input to reduce manager time-on-task by 30%'],
+          sideQuests: ['Scheduling UX discovery — set up Q3 initiative'],
+        },
+      ],
+      updatedAt: '2026-06-27T14:30:00.000Z',
+    },
+
+    // ── Week of June 22 (next week) — forward-looking entries ──
+
+    {
+      // Taylor Rose — post-OOO return week
+      id: 'pulse8',
+      memberId: 'm23',
+      weekOf: '2026-06-22',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Catch up on notifications research (post-OOO)', size: 'M'  },
+        { text: 'AI Driver\'s License — sections 4 & 5',         size: 'XL' },
+        { text: 'Hackathon prototype prep',                      size: 'L'  },
+      ],
+      priorityTags: ['AI', 'DSL'],
+      upcoming: [
+        { text: 'Return from OOO 6/26', size: 'S' },
+        { text: 'Hackathon kick-off: 6/29', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Designing w/ AI', size: 'M' },
+        { text: 'IOT & Edge', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Digital Shelf Labels',
+          objectives: [
+            'OBJ: Deliver hackathon prototype for end-to-end execution',
+            'OBJ: Begin shift from reactive to proactive DSL support',
+          ],
+          sideQuests: [],
+        },
+        {
+          product: 'Notifications',
+          objectives: ['TBD — can\'t access in Upraise'],
+          sideQuests: ['Research Plan - HMW reduce lost sales due to out-of-stock?'],
+        },
+      ],
+      updatedAt: '2026-06-20T16:30:00.000Z',
+    },
+    {
+      // Daniel Henning — extremely busy: post-usability crunch
+      id: 'pulse9',
+      memberId: 'm19',
+      weekOf: '2026-06-22',
+      workloadSentiment: 5,
+      currentPriorities: [
+        { text: 'Synthesize usability test findings (report due 6/25)', size: 'XL' },
+        { text: 'IRIS Phase 2 handoff documentation',                   size: 'L'  },
+        { text: 'Unblock engineering on 3 open design questions',       size: 'M'  },
+        { text: 'Design system: merge PR for color token updates',      size: 'S'  },
+      ],
+      priorityTags: ['IRIS'],
+      upcoming: [
+        { text: 'Usability findings presentation: 6/24', size: 'L' },
+        { text: 'Engineering handoff: 6/25', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+        { text: 'Accessibility', size: 'M' },
+      ],
+      objectives: [],
+      updatedAt: '2026-06-20T15:00:00.000Z',
+    },
+    {
+      // Sydney Baker-Kuethe — return to steady pace
+      id: 'pulse10',
+      memberId: 'm24',
+      weekOf: '2026-06-22',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'HomeBase: synthesize pilot store feedback',   size: 'L'  },
+        { text: 'V2 concept explorations based on findings',   size: 'XL' },
+        { text: 'Update HomeBase journey map',                 size: 'M'  },
+      ],
+      priorityTags: ['HomeBase'],
+      upcoming: [
+        { text: 'Pilot feedback synthesis share-out: 6/24', size: 'M' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'HomeBase',
+          objectives: ['OBJ: Deliver v2 concept direction based on pilot learnings'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-20T14:00:00.000Z',
+    },
+
+    // ── Week of June 29 — upcoming sprint week ──
+
+    {
+      // Taylor Rose — post-hackathon follow-through
+      id: 'pulse15',
+      memberId: 'm23',
+      weekOf: '2026-06-29',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Hackathon prototype: document outcomes and next steps', size: 'L'  },
+        { text: 'AI Driver\'s License — Sections 6 & 7',                size: 'XL' },
+        { text: 'Notifications research synthesis',                      size: 'M'  },
+        { text: 'DSL: reactive-to-proactive comms strategy draft',       size: 'M'  },
+      ],
+      priorityTags: ['AI', 'DSL'],
+      upcoming: [
+        { text: 'Hackathon readout: 7/1', size: 'M' },
+        { text: 'Q3 planning preview: 7/2', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'Designing w/ AI', size: 'M' },
+        { text: 'IOT & Edge', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'Digital Shelf Labels',
+          objectives: [
+            'OBJ: Deliver hackathon prototype for end-to-end execution',
+            'OBJ: Begin shift from reactive to proactive DSL support',
+          ],
+          sideQuests: [],
+        },
+        {
+          product: 'Notifications',
+          objectives: ['TBD — can\'t access in Upraise'],
+          sideQuests: ['Research Plan - HMW reduce lost sales due to out-of-stock?'],
+        },
+      ],
+      updatedAt: '2026-06-27T16:30:00.000Z',
+    },
+    {
+      // Daniel Henning — post-handoff, winding down intensity
+      id: 'pulse16',
+      memberId: 'm19',
+      weekOf: '2026-06-29',
+      workloadSentiment: 3,
+      currentPriorities: [
+        { text: 'Address engineering questions from IRIS handoff', size: 'M'  },
+        { text: 'Design system: update motion token spec',          size: 'L'  },
+        { text: 'Review QA feedback on IRIS Phase 2 builds',        size: 'M'  },
+      ],
+      priorityTags: ['IRIS'],
+      upcoming: [
+        { text: 'QA review session: 7/1', size: 'M' },
+        { text: 'Design system v2.1 branch merge: 7/3 target', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Design Systems', size: 'M' },
+        { text: 'Accessibility', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'IRIS Platform',
+          objectives: [
+            'OBJ: Validate information architecture through usability testing',
+          ],
+          sideQuests: ['Explore motion design patterns for transitions'],
+        },
+      ],
+      updatedAt: '2026-06-27T14:00:00.000Z',
+    },
+    {
+      // Sydney Baker-Kuethe — v2 concept deep dive
+      id: 'pulse17',
+      memberId: 'm24',
+      weekOf: '2026-06-29',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'HomeBase v2 concept explorations — 3 directions', size: 'XL' },
+        { text: 'Stakeholder review prep for v2 share-out',         size: 'L'  },
+        { text: 'Update HomeBase journey map with pilot insights',   size: 'M'  },
+      ],
+      priorityTags: ['HomeBase'],
+      upcoming: [
+        { text: 'V2 share-out with leadership: 7/2', size: 'L' },
+      ],
+      developmentFocus: [
+        { text: 'User Research', size: 'M' },
+        { text: 'Prototyping', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'HomeBase',
+          objectives: ['OBJ: Deliver v2 concept direction based on pilot learnings'],
+          sideQuests: [],
+        },
+      ],
+      updatedAt: '2026-06-27T13:30:00.000Z',
+    },
+    {
+      // Christopher Rabineau — Storybook documentation sprint
+      id: 'pulse18',
+      memberId: 'm42',
+      weekOf: '2026-06-29',
+      workloadSentiment: 4,
+      currentPriorities: [
+        { text: 'Storybook: finish docs for 5 remaining core components', size: 'XL' },
+        { text: 'DEX component library v2 pre-release review',            size: 'L'  },
+        { text: 'Contractor deliverable review: final batch',             size: 'M'  },
+      ],
+      priorityTags: ['DEX'],
+      upcoming: [
+        { text: 'Component library v2 release: 6/30', size: 'L' },
+        { text: 'DEX post-release retro: 7/2', size: 'S' },
+      ],
+      developmentFocus: [
+        { text: 'Design Engineering', size: 'M' },
+        { text: 'Design Systems', size: 'M' },
+      ],
+      objectives: [
+        {
+          product: 'DEX (Developer + Designer Experience)',
+          objectives: [
+            'OBJ: Establish shared component library used across 3+ teams',
+            'OBJ: Document all components in Storybook with usage guidelines',
+          ],
+          sideQuests: ['HMW better understand what work is active and upcoming'],
+        },
+      ],
+      updatedAt: '2026-06-27T12:00:00.000Z',
+    },
+  ]
+
   return {
     domains, teams, members, projects: projectsWithBlockedBy,
     initiatives, intakeRequests, escalations: [], ptoBlocks,
+    weeklyPulses,
     resourceRates,
   }
 }
@@ -2156,6 +4108,16 @@ export function buildSeedState(): PortfolioState {
 export function buildSampleProjectState() {
   const { projects, initiatives, intakeRequests } = buildSeedState()
   return { projects, initiatives, intakeRequests }
+}
+
+/**
+ * Return only the pulse layer from the seed data.
+ * Used by Settings → "Load Pulse Seed Data" to overlay realistic weekly pulse
+ * entries onto the live store without touching any other data.
+ * Covers 5 weeks: Jun 1, Jun 8, Jun 15, Jun 22, Jun 29 2026.
+ */
+export function buildPulseSeedData() {
+  return buildSeedState().weeklyPulses
 }
 
 export function seedIfEmpty(hydrate: (state: PortfolioState) => void): void {

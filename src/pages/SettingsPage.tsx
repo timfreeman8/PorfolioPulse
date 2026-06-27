@@ -32,7 +32,7 @@ import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
   ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
-  FlaskConical, Save, History, Bot, CalendarOff, CalendarX,
+  FlaskConical, Save, History, Bot, CalendarOff, CalendarX, Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -63,7 +63,7 @@ import {
   detectCsvEntityType,
   type CsvEntityType,
 } from '@/lib/csv'
-import { buildSeedState, buildSampleProjectState } from '@/lib/seedData'
+import { buildSeedState, buildSampleProjectState, buildPulseSeedData } from '@/lib/seedData'
 import { clearState } from '@/lib/persistence'
 import { ANTHROPIC_KEY_STORAGE } from '@/lib/chat'
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
@@ -1226,6 +1226,66 @@ export function SettingsPage() {
             >
               <PackageOpen size={13} />
               Clear Epic Data
+            </Button>
+          </div>
+
+          {/* Load pulse seed data — replace weekly pulses with multi-week sample entries */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Activity size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Load Pulse Seed Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Replaces all pulse entries with sample data spanning 5 weeks (Jun 1–29). Existing pulse entries will be overwritten.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => danger(
+                'Load Pulse Seed Data',
+                'This will replace all existing pulse entries with sample data for 5 weeks (Jun 1–29 2026). Your roster, projects, and other data will not be affected.',
+                'Load Seed Data',
+                () => {
+                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                  s.hydrate({ ...usePortfolioStore.getState(), weeklyPulses: buildPulseSeedData() })
+                },
+              )}
+            >
+              <Activity size={13} />
+              Load Pulse Seed Data
+            </Button>
+          </div>
+
+          {/* Clear pulse data — wipe all weekly pulse entries, roster and epics stay */}
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Activity size={15} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Clear All Pulse Data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Permanently deletes all weekly pulse entries. Your roster, epics, and other data are not affected.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
+              onClick={() => danger(
+                'Clear All Pulse Data',
+                'This permanently deletes every Design Pulse entry across all weeks. Your roster and epics will not be affected.',
+                'Clear All Pulses',
+                () => {
+                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
+                  s.hydrate({ ...usePortfolioStore.getState(), weeklyPulses: [] })
+                },
+              )}
+            >
+              <Activity size={13} />
+              Clear All Pulses
             </Button>
           </div>
 

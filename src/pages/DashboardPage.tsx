@@ -39,20 +39,7 @@ import {
 import type { ProjectPhase, ProjectStatus } from '@/types'
 import { cn } from '@/lib/utils'
 import { getCurrentQBounds } from '@/lib/fiscal'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Human-readable relative time ("Today", "3d ago", etc.) */
-function relTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const days = Math.floor(diff / 86_400_000)
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  if (days < 7)   return `${days}d ago`
-  const weeks = Math.floor(days / 7)
-  if (weeks < 8)  return `${weeks}w ago`
-  return `${Math.floor(days / 30)}mo ago`
-}
+import { relativeDate } from '@/lib/dates'
 
 // ─── NavCard ──────────────────────────────────────────────────────────────
 // Clickable summary card that represents an entire section of the app.
@@ -547,7 +534,7 @@ function RecentActivity() {
                   </div>
                 </div>
                 {/* Time */}
-                <span className="text-[11px] text-slate-400 shrink-0 pt-0.5">{relTime(p.updatedAt)}</span>
+                <span className="text-[11px] text-slate-400 shrink-0 pt-0.5">{relativeDate(p.updatedAt)}</span>
               </div>
             )
           })}
@@ -560,14 +547,15 @@ function RecentActivity() {
 // ─── Dashboard page ───────────────────────────────────────────────────────
 
 export function DashboardPage() {
-  const { domains, teams, members, projects, initiatives, intakeRequests } =
+  const { domains, teams, members, projects, initiatives, intakeRequests, escalations } =
     usePortfolioStore()
 
   const { qLabel } = useMemo(() => getCurrentQBounds(), [])
 
   // Summary numbers for nav cards
-  const activeProjects  = projects.filter(p => p.status === 'In Progress').length
-  const pendingRequests = intakeRequests.filter(r => r.status === 'Pending Review').length
+  const activeProjects    = projects.filter(p => p.status === 'In Progress').length
+  const pendingRequests   = intakeRequests.filter(r => r.status === 'Pending Review').length
+  const openEscalations   = escalations.filter(e => e.status === 'Open').length
 
   return (
     <div className="px-4 pt-6 pb-8 md:px-8 md:pt-8 space-y-6 overflow-y-auto h-full">
@@ -582,7 +570,7 @@ export function DashboardPage() {
       {/* ── Nav cards — one per major page section ─────────────────────
           Each card is a Link — clicking takes you directly to that page.
           Numbers give the key signal at a glance.                       */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <NavCard
           label="Portfolio"
           value={domains.length}
@@ -608,10 +596,10 @@ export function DashboardPage() {
           accent="bg-blue-500"
         />
         <NavCard
-          label="Roster"
+          label="People"
           value={members.length}
           sublabel={`${teams.length} teams`}
-          to="/roster"
+          to="/people"
           icon={BookUser}
           accent="bg-sky-500"
         />
@@ -630,6 +618,14 @@ export function DashboardPage() {
           to="/pipeline"
           icon={ClipboardList}
           accent={pendingRequests > 0 ? 'bg-amber-500' : 'bg-slate-400'}
+        />
+        <NavCard
+          label="Escalations"
+          value={openEscalations}
+          sublabel="open blockers"
+          to="/escalations"
+          icon={ShieldAlert}
+          accent={openEscalations > 0 ? 'bg-red-500' : 'bg-slate-400'}
         />
       </div>
 
