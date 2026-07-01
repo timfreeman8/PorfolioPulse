@@ -16,6 +16,7 @@
  */
 import { create } from 'zustand'
 import { loadState, saveState, scheduleSave } from '@/lib/persistence'
+import { sendTeamsAlert } from '@/lib/notifications'
 import { normalizeRoles } from '@/lib/roles'
 import { legacyToPhases } from '@/lib/projectBuilder'
 import type {
@@ -472,6 +473,54 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
           members,
         }
         persist(next)
+
+        // ── Teams webhook: fire on status → Blocked ───────────────────────
+        // Runs after the state update so the notification never blocks the write.
+        // sendTeamsAlert is a no-op when no webhook URL is configured.
+        if (patch.status === 'Blocked' && existing.status !== 'Blocked') {
+          const assigneeNames = existing.assignments
+            .map(a => s.members.find(m => m.id === a.memberId)?.name)
+            .filter(Boolean)
+            .join(', ')
+          sendTeamsAlert(
+            '🚨 Project Blocked',
+            `**${updated.name}** is now Blocked.` +
+            (assigneeNames ? ` Assigned to: ${assigneeNames}.` : ''),
+          )
+        }
+
+        // ── Teams webhook: fire when assignments push a member over capacity ──
+        // Computes the total allocation for each affected member across ALL their
+        // current projects (sum of assignment.allocation). Fires once per member
+        // that crosses the capacity ceiling.
+        if (patch.assignments) {
+          const affectedMemberIds = new Set([
+            ...existing.assignments.map(a => a.memberId),
+            ...updated.assignments.map(a => a.memberId),
+          ])
+          affectedMemberIds.forEach(mid => {
+            const member = next.members.find(m => m.id === mid)
+            if (!member) return
+            // Total allocation across all of this member's active projects.
+            const totalAlloc = next.projects
+              .flatMap(p => p.assignments)
+              .filter(a => a.memberId === mid)
+              .reduce((sum, a) => sum + (a.allocation ?? 0), 0)
+            // Only fire if they were NOT already over before this update.
+            const prevTotal = s.projects
+              .flatMap(p => p.assignments)
+              .filter(a => a.memberId === mid)
+              .reduce((sum, a) => sum + (a.allocation ?? 0), 0)
+            if (totalAlloc > member.capacity && prevTotal <= member.capacity) {
+              sendTeamsAlert(
+                '⚠️ Member Over Capacity',
+                `**${member.name}** is now at ${totalAlloc}% allocation ` +
+                `(capacity ceiling: ${member.capacity}%).`,
+              )
+            }
+          })
+        }
+
         return next
       })
     },

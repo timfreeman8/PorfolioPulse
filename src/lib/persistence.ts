@@ -165,3 +165,22 @@ export function saveState(state: PortfolioState): void {
 export function clearState(): void {
   localStorage.removeItem(STORAGE_KEY)
 }
+
+/**
+ * Return the approximate size of the persisted state in bytes.
+ *
+ * localStorage stores strings as UTF-16 (2 bytes per character), so the byte
+ * count is `string.length * 2`. Used by Settings → Export to show a storage
+ * usage indicator so users know when to export a backup.
+ *
+ * Returns 0 when nothing is stored yet or when localStorage is unavailable.
+ */
+export function getStorageSizeBytes(): number {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    // UTF-16: each JS string character = 2 bytes.
+    return raw ? raw.length * 2 : 0
+  } catch {
+    return 0
+  }
+}

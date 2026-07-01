@@ -1902,6 +1902,13 @@ export function PlanningPage() {
 
   return (
     <div className="flex flex-col h-full px-8 pt-8 pb-4 w-full gap-3">
+      {/* Mobile-only banner — Gantt chart requires horizontal scroll and precise
+          bar positioning that works best on a larger screen. Hidden on sm+ breakpoints. */}
+      <div className="sm:hidden flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 shrink-0">
+        <AlertTriangle size={13} className="shrink-0" />
+        <span>The Planning Gantt chart is best viewed on a desktop or tablet in landscape mode.</span>
+      </div>
+
       {/* Page header */}
       <div className="flex items-center justify-between shrink-0">
         <div>

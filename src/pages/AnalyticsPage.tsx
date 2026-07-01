@@ -28,7 +28,7 @@ import {
 } from 'recharts'
 import {
   BarChart3, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp,
-  Search, X, CheckCircle2, Clock, AlertCircle, Layers2,
+  Search, X, CheckCircle2, Clock, AlertCircle, Layers2, SlidersHorizontal,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ColorBadge } from '@/components/ui/color-badge'
@@ -681,6 +681,13 @@ export function AnalyticsPage() {
     [filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities].some(a => a.length > 0)
     || filterDateFrom || filterDateTo || search
 
+  // Mobile: collapse the dropdown filter row behind a toggle button.
+  // On sm+ screens the filter row is always visible.
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  // Count active filters (excluding search) so the mobile toggle badge shows how many are active.
+  const activeFilterCount = [filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities]
+    .filter(a => a.length > 0).length + (filterDateFrom || filterDateTo ? 1 : 0)
+
   // ── Financial tab — sort state ────────────────────────────────────────────
   const [finSortKey, setFinSortKey] = useState<FinSortKey>('estimatedValue')
   const [finSortDir, setFinSortDir] = useState<FinSortDir>('desc')
@@ -882,99 +889,126 @@ export function AnalyticsPage() {
         />
       </div>
 
-      {/* ── Inline filter bar — search + MultiSelectDropdowns matching OrgPage ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Search with icon + clear */}
-        <div className="relative shrink-0 w-full sm:w-64">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <Input
-            placeholder="Search projects…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8 pr-8 h-9 text-sm dark:bg-slate-800 dark:border-slate-600"
+      {/* ── Filter bar — search always visible; dropdowns collapse on mobile ── */}
+      <div className="space-y-2">
+        {/* Row 1: search (always visible) + mobile "Filters" toggle */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:flex-none sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Input
+              placeholder="Search projects…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 pr-8 h-9 text-sm dark:bg-slate-800 dark:border-slate-600"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                aria-label="Clear search"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile-only toggle — hidden on sm+ where dropdowns are always shown */}
+          <button
+            onClick={() => setFiltersOpen(o => !o)}
+            className={cn(
+              'sm:hidden flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-medium border transition-colors shrink-0',
+              (filtersOpen || activeFilterCount > 0)
+                ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300'
+                : 'bg-white border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-400',
+            )}
+          >
+            <SlidersHorizontal size={13} />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Row 2: dropdown filters — always visible on sm+, collapsible on mobile */}
+        <div className={cn(
+          'flex flex-wrap items-center gap-2',
+          // On mobile, show only when filtersOpen or when a filter is active (so user can see what's set)
+          filtersOpen || activeFilterCount > 0 ? 'flex' : 'hidden sm:flex',
+        )}>
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">Filter</span>
+
+          {/* Domain — clearing domain also clears teams (dependent filter) */}
+          <MultiSelectDropdown
+            label="Domain"
+            options={domains.map(d => ({ id: d.id, label: d.name }))}
+            selected={filterDomains}
+            onChange={v => { setFilterDomains(v); setFilterTeams([]) }}
           />
-          {search && (
+
+          {/* Team — restricted to selected domains when any are active */}
+          <MultiSelectDropdown
+            label="Team"
+            options={filteredTeams.map(t => ({ id: t.id, label: t.name }))}
+            selected={filterTeams}
+            onChange={setFilterTeams}
+          />
+
+          <MultiSelectDropdown
+            label="Initiative"
+            options={initiatives.map(i => ({ id: i.id, label: i.name }))}
+            selected={filterInits}
+            onChange={setFilterInits}
+          />
+
+          <MultiSelectDropdown
+            label="Phase"
+            options={phases.map(p => ({ id: p, label: p }))}
+            selected={filterPhases}
+            onChange={setFilterPhases}
+          />
+
+          <MultiSelectDropdown
+            label="Status"
+            options={statuses.map(s => ({ id: s, label: s }))}
+            selected={filterStatuses}
+            onChange={setFilterStatuses}
+          />
+
+          <MultiSelectDropdown
+            label="Priority"
+            options={(['Low','Medium','High','Critical'] as Priority[]).map(p => ({ id: p, label: p }))}
+            selected={filterPriorities}
+            onChange={setFilterPriorities}
+          />
+
+          {/* Date range */}
+          <Input
+            type="date"
+            value={filterDateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="h-9 w-36 text-sm dark:bg-slate-800 dark:border-slate-600"
+            title="Target date from"
+          />
+          <Input
+            type="date"
+            value={filterDateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="h-9 w-36 text-sm dark:bg-slate-800 dark:border-slate-600"
+            title="Target date to"
+          />
+
+          {hasFilters && (
             <button
-              onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-              aria-label="Clear search"
+              onClick={resetFilters}
+              className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-1"
             >
-              <X size={13} />
+              Reset all
             </button>
           )}
         </div>
-
-        {/* "Filter" section label — matches Planning page style */}
-        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 ml-3">Filter</span>
-
-        {/* Domain — clearing domain also clears teams (dependent filter) */}
-        <MultiSelectDropdown
-          label="Domain"
-          options={domains.map(d => ({ id: d.id, label: d.name }))}
-          selected={filterDomains}
-          onChange={v => { setFilterDomains(v); setFilterTeams([]) }}
-        />
-
-        {/* Team — restricted to selected domains when any are active */}
-        <MultiSelectDropdown
-          label="Team"
-          options={filteredTeams.map(t => ({ id: t.id, label: t.name }))}
-          selected={filterTeams}
-          onChange={setFilterTeams}
-        />
-
-        <MultiSelectDropdown
-          label="Initiative"
-          options={initiatives.map(i => ({ id: i.id, label: i.name }))}
-          selected={filterInits}
-          onChange={setFilterInits}
-        />
-
-        <MultiSelectDropdown
-          label="Phase"
-          options={phases.map(p => ({ id: p, label: p }))}
-          selected={filterPhases}
-          onChange={setFilterPhases}
-        />
-
-        <MultiSelectDropdown
-          label="Status"
-          options={statuses.map(s => ({ id: s, label: s }))}
-          selected={filterStatuses}
-          onChange={setFilterStatuses}
-        />
-
-        <MultiSelectDropdown
-          label="Priority"
-          options={(['Low','Medium','High','Critical'] as Priority[]).map(p => ({ id: p, label: p }))}
-          selected={filterPriorities}
-          onChange={setFilterPriorities}
-        />
-
-        {/* Date range */}
-        <Input
-          type="date"
-          value={filterDateFrom}
-          onChange={e => setDateFrom(e.target.value)}
-          className="h-9 w-36 text-sm dark:bg-slate-800 dark:border-slate-600"
-          title="Target date from"
-        />
-        <Input
-          type="date"
-          value={filterDateTo}
-          onChange={e => setDateTo(e.target.value)}
-          className="h-9 w-36 text-sm dark:bg-slate-800 dark:border-slate-600"
-          title="Target date to"
-        />
-
-        {hasFilters && (
-          <button
-            onClick={resetFilters}
-            className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-1"
-          >
-            Reset all
-          </button>
-        )}
       </div>
 
       {/* ── Charts tab ─────────────────────────────────────────────────── */}

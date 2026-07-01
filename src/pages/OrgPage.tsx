@@ -27,7 +27,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Building2, Users, UserCircle, GripVertical,
   Plus, Pencil, Trash2, ChevronRight,
-  Download, Upload, Search, SearchX,
+  Download, Upload, Search, SearchX, SlidersHorizontal,
   TrendingUp, AlertTriangle, Zap, UserCheck, X, Layers,
 } from 'lucide-react'
 import { memberQuarterAllocation, getCurrentQBounds } from '@/lib/fiscal'
@@ -1341,6 +1341,11 @@ export function OrgPage() {
   }, [filteredData])
   const hasActiveFilters = search.trim() !== '' || selectedDomains.length > 0 || allocFilter !== 'all' || selectedRoleCategories.length > 0 || selectedDisciplines.length > 0
 
+  // Mobile: collapse the dropdown filter row behind a toggle button.
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const activeFilterCount = (selectedDomains.length > 0 ? 1 : 0) + (allocFilter !== 'all' ? 1 : 0) +
+    (selectedRoleCategories.length > 0 ? 1 : 0) + (selectedDisciplines.length > 0 ? 1 : 0)
+
   function clearFilters() {
     setSearch('')
     setSelectedDomains([])
@@ -1699,93 +1704,117 @@ export function OrgPage() {
 
         {/* ── Filter bar ───────────────────────────────────────────────── */}
         {/*
-          Layout (left → right):
-            Search | Domain label + dropdown | Role label + dropdown |
-            Discipline label + dropdown | Capacity label + chips |
-            Clear all | → Collapse/Expand
+          Layout: search always visible; filter dropdowns collapse on mobile.
+          On sm+ all controls are in a single flex-wrap row as before.
         */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {/* Search */}
-          <div className="relative w-full sm:w-64 shrink-0">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search name, role, or team…"
-              className="pl-8 pr-8 h-9 text-sm dark:bg-slate-800 dark:border-slate-600"
-            />
-            {search && (
+        <div className="space-y-2">
+          {/* Row 1: search + mobile Filters toggle + Collapse/Expand */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:flex-none sm:w-64 shrink-0">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search name, role, or team…"
+                className="pl-8 pr-8 h-9 text-sm dark:bg-slate-800 dark:border-slate-600"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Mobile-only Filters toggle */}
+            <button
+              onClick={() => setFiltersOpen(o => !o)}
+              className={cn(
+                'sm:hidden flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-medium border transition-colors shrink-0',
+                (filtersOpen || activeFilterCount > 0)
+                  ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300'
+                  : 'bg-white border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-400',
+              )}
+            >
+              <SlidersHorizontal size={13} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            {/* Collapse/Expand — always visible, pushed right */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBuildingMode(v => !v)}
+              className="ml-auto shrink-0"
+              title={buildingMode ? 'Expand to full cards' : 'Collapse to compact view for drag-and-drop'}
+            >
+              <Layers size={12} />
+              <span className="hidden sm:inline">{buildingMode ? 'Expand' : 'Collapse'}</span>
+            </Button>
+          </div>
+
+          {/* Row 2: dropdown filters — always visible on sm+, collapsible on mobile */}
+          <div className={cn(
+            'flex flex-wrap items-center gap-x-4 gap-y-2',
+            filtersOpen || activeFilterCount > 0 ? 'flex' : 'hidden sm:flex',
+          )}>
+            {/* Domain / Role / Discipline */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Filter</span>
+              <MultiSelectDropdown
+                label="Domain"
+                options={domains.map(d => ({ id: d.id, label: d.name }))}
+                selected={selectedDomains}
+                onChange={setSelectedDomains}
+              />
+              <MultiSelectDropdown
+                label="Role"
+                options={ALL_ROLE_CATEGORIES.map(cat => ({ id: cat, label: cat }))}
+                selected={selectedRoleCategories}
+                onChange={setSelectedRoleCategories}
+              />
+              <MultiSelectDropdown
+                label="Discipline"
+                options={MEMBER_DISCIPLINES.map(d => ({ id: d, label: d }))}
+                selected={selectedDisciplines}
+                onChange={setSelectedDisciplines}
+              />
+            </div>
+
+            {/* Capacity allocation chips */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Capacity</span>
+              {([
+                { key: 'all',     label: 'All' },
+                { key: 'at-risk', label: '>80%' },
+                { key: 'over',    label: 'Over cap' },
+              ] as { key: AllocFilter; label: string }[]).map(({ key, label }) => (
+                <FilterChip
+                  key={key}
+                  label={label}
+                  active={allocFilter === key}
+                  onClick={() => setAllocFilter(key)}
+                />
+              ))}
+            </div>
+
+            {hasActiveFilters && (
               <button
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                aria-label="Clear search"
+                onClick={clearFilters}
+                className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0"
               >
-                <X size={13} />
+                Clear all
               </button>
             )}
           </div>
-
-          {/* Domain / Role / Discipline — all in one group so spacing matches the capacity chips */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Filter</span>
-            <MultiSelectDropdown
-              label="Domain"
-              options={domains.map(d => ({ id: d.id, label: d.name }))}
-              selected={selectedDomains}
-              onChange={setSelectedDomains}
-            />
-            <MultiSelectDropdown
-              label="Role"
-              options={ALL_ROLE_CATEGORIES.map(cat => ({ id: cat, label: cat }))}
-              selected={selectedRoleCategories}
-              onChange={setSelectedRoleCategories}
-            />
-            <MultiSelectDropdown
-              label="Discipline"
-              options={MEMBER_DISCIPLINES.map(d => ({ id: d, label: d }))}
-              selected={selectedDisciplines}
-              onChange={setSelectedDisciplines}
-            />
-          </div>
-
-          {/* Capacity allocation chips */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Capacity</span>
-            {([
-              { key: 'all',     label: 'All' },
-              { key: 'at-risk', label: '>80% allocated' },
-              { key: 'over',    label: 'Over capacity' },
-            ] as { key: AllocFilter; label: string }[]).map(({ key, label }) => (
-              <FilterChip
-                key={key}
-                label={label}
-                active={allocFilter === key}
-                onClick={() => setAllocFilter(key)}
-              />
-            ))}
-          </div>
-
-          {/* Clear all — only shown when any filter is active */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0"
-            >
-              Clear all
-            </button>
-          )}
-
-          {/* Collapse/Expand — secondary button style, pushed to the far right */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setBuildingMode(v => !v)}
-            className="ml-auto shrink-0"
-            title={buildingMode ? 'Expand to full cards' : 'Collapse to compact view for drag-and-drop'}
-          >
-            <Layers size={12} />
-            {buildingMode ? 'Expand' : 'Collapse'}
-          </Button>
         </div>
 
         {/* ── Domain tree ──────────────────────────────────────────────── */}

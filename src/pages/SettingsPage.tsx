@@ -33,7 +33,7 @@ import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
   ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
   FlaskConical, Save, History, CalendarOff, CalendarX, Activity,
-  Shield, UserX, UserCheck,
+  Shield, UserX, UserCheck, Bell, HardDrive,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,7 +66,8 @@ import {
   type CsvEntityType,
 } from '@/lib/csv'
 import { buildSeedState, buildSampleProjectState, buildPulseSeedData } from '@/lib/seedData'
-import { clearState } from '@/lib/persistence'
+import { clearState, getStorageSizeBytes } from '@/lib/persistence'
+import { getTeamsWebhookUrl, setTeamsWebhookUrl } from '@/lib/notifications'
 
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
 
@@ -772,7 +773,27 @@ export function SettingsPage() {
   const store = usePortfolioStore()
 
   // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'export' | 'import' | 'danger'>('rates')
+  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'notifications' | 'export' | 'import' | 'danger'>('rates')
+
+  // Teams webhook URL — read from localStorage on mount; saved on blur.
+  const [webhookUrl, setWebhookUrl] = useState(() => getTeamsWebhookUrl())
+  const [webhookSaved, setWebhookSaved] = useState(false)
+
+  /** Persist the webhook URL and briefly show a save confirmation. */
+  function handleWebhookSave() {
+    setTeamsWebhookUrl(webhookUrl)
+    setWebhookSaved(true)
+    setTimeout(() => setWebhookSaved(false), 2000)
+  }
+
+  // localStorage usage — computed once on render (fast string length check).
+  const storageSizeBytes   = getStorageSizeBytes()
+  const storageSizeKB      = (storageSizeBytes / 1024).toFixed(0)
+  const storageSizeMB      = (storageSizeBytes / 1_000_000).toFixed(2)
+  // 5MB practical limit = 5,000,000 bytes (UTF-16 string length × 2)
+  const storagePercent     = Math.min((storageSizeBytes / 5_000_000) * 100, 100)
+  const storageIsWarning   = storagePercent >= 60  // amber at 60%
+  const storageIsCritical  = storagePercent >= 85  // red at 85%
 
   // Auth — Access Control tab is only shown to admins.
   const { role: authRole } = useAuthStore()
@@ -850,11 +871,12 @@ export function SettingsPage() {
         {/* Tab switcher — Access Control is only shown to admins */}
         <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
           {([
-            { id: 'rates',     label: 'Resource Rates',   Icon: DollarSign,  adminOnly: false },
-            { id: 'access',    label: 'Access Control',   Icon: Shield,      adminOnly: true  },
-            { id: 'export',    label: 'Export',            Icon: Download,    adminOnly: false },
-            { id: 'import',    label: 'Import',            Icon: Upload,      adminOnly: false },
-            { id: 'danger',    label: 'Danger Zone',       Icon: AlertCircle, adminOnly: false },
+            { id: 'rates',         label: 'Resource Rates',   Icon: DollarSign,  adminOnly: false },
+            { id: 'access',        label: 'Access Control',   Icon: Shield,      adminOnly: true  },
+            { id: 'notifications', label: 'Notifications',    Icon: Bell,        adminOnly: false },
+            { id: 'export',        label: 'Export',           Icon: Download,    adminOnly: false },
+            { id: 'import',        label: 'Import',           Icon: Upload,      adminOnly: false },
+            { id: 'danger',        label: 'Danger Zone',      Icon: AlertCircle, adminOnly: false },
           ] as const).filter(t => !t.adminOnly || authRole === 'admin').map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -890,9 +912,128 @@ export function SettingsPage() {
         <AccessControlSection />
       )}
 
+      {/* Notifications tab — Teams webhook configuration */}
+      {activeTab === 'notifications' && (
+        <section className="space-y-5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Connect Portfolio Pulse to a Microsoft Teams channel via an incoming webhook.
+            The app will post a message when a project is marked <strong>Blocked</strong> or
+            when a member's total assignment allocation exceeds their capacity ceiling.
+          </p>
+
+          {/* Webhook URL input */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Bell size={15} className="text-slate-400 shrink-0" />
+              <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                Microsoft Teams Incoming Webhook
+              </h3>
+            </div>
+
+            {/* How to get a webhook URL */}
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              In Teams, go to a channel → <strong>⋯ → Connectors → Incoming Webhook → Configure</strong>.
+              Copy the webhook URL and paste it below.
+            </p>
+
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://outlook.office.com/webhook/..."
+                value={webhookUrl}
+                onChange={e => { setWebhookUrl(e.target.value); setWebhookSaved(false) }}
+                className="flex-1 text-sm dark:bg-slate-700 dark:border-slate-600"
+              />
+              <Button
+                size="sm"
+                onClick={handleWebhookSave}
+                className="shrink-0 gap-1.5"
+              >
+                {webhookSaved ? <CheckCircle2 size={13} /> : <Save size={13} />}
+                {webhookSaved ? 'Saved' : 'Save'}
+              </Button>
+            </div>
+
+            {/* Current status */}
+            {webhookUrl.trim() ? (
+              <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle2 size={11} />
+                Webhook configured — notifications will fire automatically.
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400">
+                No webhook configured — notifications are disabled.
+              </p>
+            )}
+          </div>
+
+          {/* What triggers a notification */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+            <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-3">
+              Triggers
+            </h3>
+            <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+              <li className="flex items-start gap-2">
+                <span className="text-red-500 mt-0.5">🚨</span>
+                <span><strong>Project Blocked</strong> — fires when any project's status changes to Blocked.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-amber-500 mt-0.5">⚠️</span>
+                <span><strong>Member Over Capacity</strong> — fires when an assignment pushes a member's total allocation above their capacity ceiling.</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+      )}
+
       {/* Export tab */}
       {activeTab === 'export' && (
         <section>
+          {/* Storage usage indicator — helps users know when to export a backup */}
+          <div className={cn(
+            'mb-4 flex items-center gap-4 rounded-xl px-5 py-4 border',
+            storageIsCritical
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : storageIsWarning
+              ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+              : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+          )}>
+            <HardDrive size={16} className={cn(
+              'shrink-0',
+              storageIsCritical ? 'text-red-500' : storageIsWarning ? 'text-amber-500' : 'text-slate-400',
+            )} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  localStorage usage
+                </span>
+                <span className={cn(
+                  'text-xs font-bold tabular-nums',
+                  storageIsCritical ? 'text-red-600 dark:text-red-400' : storageIsWarning ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400',
+                )}>
+                  {storageSizeKB} KB / ~5 MB
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all',
+                    storageIsCritical ? 'bg-red-500' : storageIsWarning ? 'bg-amber-400' : 'bg-green-500',
+                  )}
+                  style={{ width: `${storagePercent}%` }}
+                />
+              </div>
+              {(storageIsWarning || storageIsCritical) && (
+                <p className="text-[11px] mt-1 text-amber-700 dark:text-amber-400">
+                  {storageIsCritical
+                    ? `${storageSizeMB} MB — export a JSON snapshot now before you hit the 5 MB limit.`
+                    : `${storageSizeMB} MB — consider exporting a backup soon.`}
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* Export All shortcut — downloads all CSVs in one click */}
           <div className="mb-4 flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/25 border border-blue-200 dark:border-blue-800 rounded-xl px-5 py-4">
             <div className="flex items-start gap-3">

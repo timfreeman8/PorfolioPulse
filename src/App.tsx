@@ -14,6 +14,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuthStore } from '@/store/useAuthStore'
 
 // ---------------------------------------------------------------------------
@@ -73,6 +74,7 @@ function PageLoadingFallback() {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       {/* Single Suspense boundary covers the entire route tree.
           Any lazy chunk — whether inside AppLayout or on the print route —
@@ -122,5 +124,6 @@ export default function App() {
         </Routes>
       </Suspense>
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }
