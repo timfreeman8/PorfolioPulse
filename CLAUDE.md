@@ -6,17 +6,6 @@
 - **Build:** Clean — `npm run build` passes with zero TypeScript errors
 - **Dev server:** `http://localhost:5174/` (`npm run dev -- --port 5174`)
 - **Deployment target:** Internal Azure (service TBD — Azure Static Web Apps preferred for SPA routing)
-- **Figma capture:** Removed — capture script and camera button have been stripped from the app
-
-## AI Chat Feature
-
-A floating AI assistant button is pinned to the bottom-right of every page (`src/components/chat/FloatingChat.tsx`).
-
-- **Icon:** `MessageSquare` with a small yellow `Sparkles` badge in the top-right corner; switches to `X` when open
-- **Model:** Claude via `@anthropic-ai/sdk` — user must supply an Anthropic API key in Settings
-- **Context:** The assistant receives a structured snapshot of the current portfolio state as context
-- **Key files:** `src/components/chat/FloatingChat.tsx`, `src/lib/chat.ts`
-- Keep the `@anthropic-ai/sdk` dependency — the chat feature is intentionally retained
 
 ---
 
@@ -24,9 +13,7 @@ A floating AI assistant button is pinned to the bottom-right of every page (`src
 
 A React web application for a Store Technology organization to plan, track, and
 visualize their technology portfolio. Provides visibility into domains, teams,
-member capacity, projects, strategic initiatives, and intake requests — all
-persisted locally via localStorage with no backend required.
-
+member capacity, projects, strategic initiatives, and intake requests.
 ---
 
 ## Code Style & Commenting Rules
