@@ -20,7 +20,7 @@
  * `sat-analytics-filters` on every change and re-hydrated on mount. This keeps
  * the user's filter selection when navigating away and back.
  */
-import { memo, useRef, useState, useMemo, useEffect } from 'react'
+import { memo, useDeferredValue, useRef, useState, useMemo, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -526,6 +526,8 @@ export function AnalyticsPage() {
   const [filterDateFrom,   setDateFrom]        = useState(() => (loadFilters() ?? DEFAULT_FILTERS).dateFrom)
   const [filterDateTo,     setDateTo]          = useState(() => (loadFilters() ?? DEFAULT_FILTERS).dateTo)
   const [search,           setSearch]          = useState(() => (loadFilters() ?? DEFAULT_FILTERS).search)
+  // Defer search so the input stays responsive while the filter memo catches up.
+  const deferredSearch = useDeferredValue(search)
 
   // ── Persist filters to localStorage on every change ──────────────────────
   useEffect(() => {
@@ -585,10 +587,10 @@ export function AnalyticsPage() {
       if (filterPriorities.length > 0 && !filterPriorities.includes(p.priority))        return false
       if (filterDateFrom && p.targetEndDate && p.targetEndDate < filterDateFrom)         return false
       if (filterDateTo   && p.targetEndDate && p.targetEndDate > filterDateTo)           return false
-      if (search && !p.name.toLowerCase().includes(search.toLowerCase()))                return false
+      if (deferredSearch && !p.name.toLowerCase().includes(deferredSearch.toLowerCase()))  return false
       return true
     })
-  }, [projects, filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities, filterDateFrom, filterDateTo, search, projectDomainId, projectTeamId])
+  }, [projects, filterDomains, filterTeams, filterInits, filterPhases, filterStatuses, filterPriorities, filterDateFrom, filterDateTo, deferredSearch, projectDomainId, projectTeamId])
 
   // ── Sorted ────────────────────────────────────────────────────────────────
   const sorted = useMemo(() => {

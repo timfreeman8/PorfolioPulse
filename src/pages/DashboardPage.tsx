@@ -122,14 +122,14 @@ function SectionHeader({
 
 function PhaseDonut({ data }: { data: { name: string; value: number }[] }) {
   return (
-    <ResponsiveContainer width="100%" height={180}>
+    <ResponsiveContainer width="100%" height={280}>
       <PieChart>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
-          innerRadius={48}
-          outerRadius={76}
+          innerRadius={72}
+          outerRadius={112}
           paddingAngle={2}
           dataKey="value"
         >
@@ -141,7 +141,8 @@ function PhaseDonut({ data }: { data: { name: string; value: number }[] }) {
           ))}
         </Pie>
         <Tooltip formatter={(v) => [`${v} projects`, '']} />
-        <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11 }} />
+        {/* Extra top padding so the legend sits below the chart with breathing room. */}
+        <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, paddingTop: 20 }} />
       </PieChart>
     </ResponsiveContainer>
   )

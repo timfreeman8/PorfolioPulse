@@ -8,16 +8,26 @@ Built for engineering managers and team leads who need real-time visibility into
 
 ## Features
 
-- **Roster** — Domain → Team → Member hierarchy with capacity bars and over-capacity highlighting
-- **Capacity Planner** — Gantt-style timeline view of all projects across the current fiscal year
-- **Projects** — Full project tracking with status, phase, priority, assignments, and initiative links
+### Core Pages
+- **Dashboard** — Summary stats, blocked project alerts, phase donut chart, capacity heat map, initiative progress, and recent activity feed
+- **Epics** — Full project tracking with status, phase, priority, assignments, and initiative links; grid and list views; Jira CSV import
 - **Initiatives** — Strategic themes that projects roll up to, with aggregate progress bars
 - **Intake** — Submit, review, approve, and convert incoming requests into projects
-- **Analytics** — Charts and filterable table across the full portfolio (filters persist between sessions)
+- **Analytics** — Two-tab view: Charts (recharts dashboards + sortable project table) and Financial (cost, ROI, value by initiative); all filters persist between sessions
+
+### People & Org
+- **Org** — Combined org chart and roster: Domain → Team → Member hierarchy with drag-and-drop reorder, CSV import/export, full CRUD, capacity bars, search, and filters
+- **Capacity Planner** — Gantt-style timeline of all members and projects across FY2026; drag-to-move/resize bars, PTO blocks, zoom by Year / Quarter / Period
+
+### Ops & Monitoring
 - **Escalations** — Track active blockers that need leadership attention
+- **Pulse** — Real-time portfolio health snapshot for leadership review
 - **Print Report** — Print-optimized quarter capacity report at `/print`
-- **Data Management** — Export/import via CSV (roster, projects, assignments, initiatives, intake) or full JSON snapshot
+
+### Platform
+- **AI Chat** — Floating AI assistant (bottom-right) powered by the Claude API; supply an Anthropic key in Settings to enable
 - **Dark mode** — Full dark mode toggle in the sidebar
+- **Data Management** — Export/import via CSV (roster, projects, assignments, initiatives, intake) or full JSON snapshot
 - **No backend required** — All data persisted in localStorage
 
 ---
@@ -34,6 +44,7 @@ Built for engineering managers and team leads who need real-time visibility into
 | State | Zustand |
 | Routing | React Router v6 |
 | Charts | Recharts |
+| Drag & Drop | dnd-kit |
 | Persistence | localStorage |
 
 ---
@@ -42,15 +53,27 @@ Built for engineering managers and team leads who need real-time visibility into
 
 ```bash
 npm install
-npm run dev
+npm run dev -- --port 5174
 ```
 
-The app loads with seed data on first launch (3 domains, ~8 teams, ~30 members, projects, initiatives, and intake requests).
+Open `http://localhost:5174/` — the app loads with seed data on first launch (9 domains, 35 teams, 136+ members, 30 projects, initiatives, and intake requests).
 
 To start fresh, open the browser console and run:
 ```js
 localStorage.clear(); location.reload()
 ```
+
+---
+
+## Storybook
+
+Component stories for every shared UI component (shadcn primitives + custom components):
+
+```bash
+npm run storybook
+```
+
+Open `http://localhost:6006/`. Toggle dark mode from the Storybook toolbar to preview both themes.
 
 ---
 
@@ -84,3 +107,36 @@ Or use **Export Full Snapshot → JSON** for a lossless backup that restores eve
 ```bash
 npm run build
 ```
+
+---
+
+## Deployment (Azure Static Web Apps)
+
+This is a single-page app (Vite + React Router). Azure Static Web Apps handles SPA routing automatically via its built-in fallback config.
+
+1. **Create an Azure Static Web App** in the Azure Portal (or via CLI):
+   ```bash
+   az staticwebapp create --name PortfolioPulse --resource-group <rg> --source . --branch main --app-location "/" --output-location "dist"
+   ```
+
+2. **GitHub Actions CI** is scaffolded automatically — every push to `main` builds and deploys.
+
+3. **SPA routing fallback** — create `public/staticwebapp.config.json` if not present:
+   ```json
+   {
+     "navigationFallback": {
+       "rewrite": "/index.html",
+       "exclude": ["/assets/*"]
+     }
+   }
+   ```
+
+4. **Environment variables** — the Claude API key is entered by users at runtime via the Settings page and stored in their browser's localStorage. No server-side secrets are needed for the current feature set.
+
+---
+
+## Architecture Notes
+
+localStorage holds all data today (~200–400 KB with seed data). The persistence layer is isolated in `src/lib/persistence.ts` — swapping to an Azure Cosmos DB / Azure Functions backend only requires changing that one file; the Zustand store shape is stable.
+
+**Performance**: long lists are virtualized with `@tanstack/react-virtual`. Store mutations are debounced (500 ms) before hitting localStorage. O(1) lookup Maps replace O(n) `.find()` per render.

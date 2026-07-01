@@ -22,7 +22,7 @@
  * Route: /org
  */
 
-import { memo, useMemo, useRef, useState } from 'react'
+import { memo, useDeferredValue, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, Users, UserCircle, GripVertical,
@@ -1223,6 +1223,9 @@ export function OrgPage() {
 
   // Roster filter state
   const [search, setSearch]                       = useState('')
+  // useDeferredValue keeps the text input immediately responsive — the expensive
+  // filteredData memo only re-runs when React has idle capacity, not on every keystroke.
+  const deferredSearch = useDeferredValue(search)
   const [selectedDomains, setSelectedDomains]     = useState<string[]>([])
   const [allocFilter, setAllocFilter]             = useState<AllocFilter>('all')
   // Role discipline filter — matches the same category buckets as the Planning page
@@ -1282,7 +1285,7 @@ export function OrgPage() {
   //   allMembers — all team members (for TeamPanel, unaffected by filter)
   //   members    — members passing the active search + allocation filter
   const filteredData = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q = deferredSearch.trim().toLowerCase()
 
     const matchesMember = (m: Member): boolean => {
       if (q) {
@@ -1324,7 +1327,7 @@ export function OrgPage() {
           .filter(t => t.members.length > 0),
       }))
       .filter(d => d.teams.length > 0)
-  }, [domains, teams, members, projects, search, selectedDomains, allocFilter, selectedRoleCategories, selectedDisciplines])
+  }, [domains, teams, members, projects, deferredSearch, selectedDomains, allocFilter, selectedRoleCategories, selectedDisciplines])
 
   // Deduplicate by member id — members in multiple teams would otherwise be
   // counted once per team, producing a totalShowing that exceeds stats.total.

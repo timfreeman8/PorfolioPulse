@@ -13,7 +13,7 @@
  *   - Delete with confirmation
  *   - Unassigned projects are flagged so they stand out
  */
-import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { memo, useDeferredValue, useState, useMemo, useRef, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useNavigate } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
@@ -346,6 +346,8 @@ export function ProjectsPage() {
   const initiativeMap = useMemo(() => new Map(initiatives.map(i => [i.id, i])), [initiatives])
 
   const [search, setSearch]           = useState('')
+  // Defer search to keep the input responsive — filtering runs when React is idle.
+  const deferredSearch = useDeferredValue(search)
   const [sortKey, setSortKey]         = useState<SortKey>('startDate')
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false)
   // [] = no filter; non-empty = show only projects that match any selected group
@@ -361,8 +363,8 @@ export function ProjectsPage() {
       list = list.filter(p => p.assignments.some(a => a.memberId === activeMemberId))
     }
 
-    if (search.trim()) {
-      const q = search.toLowerCase()
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.toLowerCase()
       list = list.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
     }
     // Unassigned filter only makes sense in Admin mode (user always has assignments).
@@ -381,7 +383,7 @@ export function ProjectsPage() {
     })
 
     return list
-  }, [projects, search, showUnassignedOnly, stakeholderFilter, sortKey, activeMemberId, isAdmin])
+  }, [projects, deferredSearch, showUnassignedOnly, stakeholderFilter, sortKey, activeMemberId, isAdmin])
 
   // All unique stakeholder groups derived from the full (unfiltered) project list.
   // Computed outside the filtered memo so chips always show all options.
