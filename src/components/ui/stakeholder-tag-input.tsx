@@ -11,7 +11,8 @@
  * Project.stakeholders field in the data model.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useClickOutside } from '@/lib/useClickOutside'
 import { Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
@@ -44,15 +45,7 @@ export function StakeholderTagInput({ value, onChange }: StakeholderTagInputProp
   const inputRef            = useRef<HTMLInputElement>(null)
 
   // Close dropdown on outside click (mousedown so it fires before blur).
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(containerRef, () => setOpen(false), open)
 
   // Suggestions: existing names that match the current input and aren't already added.
   const suggestions = allKnown.filter(

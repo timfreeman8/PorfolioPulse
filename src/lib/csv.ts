@@ -782,5 +782,7 @@ export function importFullSnapshot(json: string): PortfolioState {
     escalations:    parsed.escalations    ?? [],
     ptoBlocks:      parsed.ptoBlocks      ?? [],
     resourceRates:  parsed.resourceRates  ?? [],
+    weeklyPulses:   parsed.weeklyPulses   ?? [],
+    adminMemberIds: parsed.adminMemberIds ?? [],
   }
 }

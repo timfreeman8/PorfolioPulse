@@ -13,6 +13,7 @@
  * them co-located with the form that uses them.
  */
 import { useState, useRef, useEffect } from 'react'
+import { useClickOutside } from '@/lib/useClickOutside'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -29,6 +30,7 @@ import { StakeholderTagInput } from '@/components/ui/stakeholder-tag-input'
 import { DatePicker } from '@/components/ui/date-picker'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useShallow } from 'zustand/react/shallow'
 import { STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS } from '@/lib/colors'
 import { SDLC_ROLES, ROLE_COLORS } from '@/lib/roles'
 import { cn } from '@/lib/utils'
@@ -70,13 +72,7 @@ function MemberMultiSelect({ members, assignments, onToggle }: {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(ref, () => setOpen(false), open)
 
   const selectedIds = assignments.map(a => a.memberId)
   const selectedMembers = members.filter(m => selectedIds.includes(m.id))
@@ -184,13 +180,7 @@ function InitiativeCombobox({ initiatives, value, onChange }: {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(ref, () => setOpen(false), open)
 
   const selected = initiatives.find(i => i.id === value)
   const filtered = initiatives.filter(i =>
@@ -274,13 +264,7 @@ function BlockedByMultiSelect({ allProjects, selectedIds, onToggle }: {
   const [open, setOpen]     = useState(false)
   const ref                 = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(ref, () => setOpen(false), open)
 
   const selectedProjects = allProjects.filter(p => selectedIds.includes(p.id))
   const filtered = allProjects.filter(p =>
@@ -365,7 +349,10 @@ interface Props {
 }
 
 export function ProjectFormDialog({ open, onOpenChange, initial, defaultMemberId, onSave }: Props) {
-  const { initiatives, members, projects } = usePortfolioStore()
+  // useShallow prevents re-renders when unrelated slices change.
+  const { initiatives, members, projects } = usePortfolioStore(
+    useShallow(s => ({ initiatives: s.initiatives, members: s.members, projects: s.projects }))
+  )
   const isEdit = !!initial
 
   const [name, setName]                 = useState(initial?.name ?? '')

@@ -26,7 +26,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ClipboardList, Plus, ChevronDown, CheckCircle, XCircle,
-  Clock, FolderKanban, Pencil, Trash2,
+  FolderKanban, Pencil, Trash2,
   ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, MessageSquare,
   Download, Search, AlertTriangle, History, Kanban,
 } from 'lucide-react'
@@ -52,9 +52,10 @@ import {
 } from '@/components/ui/select'
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useViewStore } from '@/store/useViewStore'
 import { INTAKE_STATUS_COLORS, PRIORITY_COLORS, avatarColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { relativeDate } from '@/lib/dates'
+import { relativeDate, formatLocalDate } from '@/lib/dates'
 import type { IntakeRequest, IntakeStatus, Priority, EffortSize, IntakeComment, IntakeStatusChange } from '@/types'
 
 // ─── Staleness ─────────────────────────────────────────────────────────────
@@ -107,13 +108,6 @@ function exportCSV(requests: IntakeRequest[]) {
 
 // ─── Status config ─────────────────────────────────────────────────────────
 
-const STATUS_ICON: Record<IntakeStatus, React.ElementType> = {
-  'Pending Review': Clock,
-  'Under Review':   ClipboardList,
-  'Approved':       CheckCircle,
-  'Rejected':       XCircle,
-  'Deferred':       ChevronDown,
-}
 
 // ─── Priority score ─────────────────────────────────────────────────────────
 // Score = Priority rank × Effort inverse rank. Higher score = do first.
@@ -527,7 +521,7 @@ function IntakeForm({
           {/* Initiative tagging — links the approved request to a strategic initiative */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-slate-600">Link to Initiative</Label>
-            <Select value={initiativeId || 'none'} onValueChange={v => setInitiativeId(v === 'none' ? '' : v)}>
+            <Select value={initiativeId || 'none'} onValueChange={v => setInitiativeId(v == null || v === 'none' ? '' : v)}>
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
@@ -608,13 +602,6 @@ function IntakeForm({
 function IntakeView({ request: r }: { request: IntakeRequest }) {
   const { initiatives } = usePortfolioStore()
 
-  function fmtDate(iso: string) {
-    if (!iso) return '—'
-    return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
-    })
-  }
-
   const initiativeName = r.initiativeId
     ? initiatives.find(i => i.id === r.initiativeId)?.name
     : undefined
@@ -678,7 +665,7 @@ function IntakeView({ request: r }: { request: IntakeRequest }) {
       <QA number={6} label="Has this request been prioritized?" answer={r.priority} />
       <QA number={7} label="Who is the business owner that set the priority?" answer={r.businessOwner} />
       <QA number={8} label="Does this feature have an impact on a store's network bandwidth?" answer={r.networkImpact} />
-      <QA number={9} label="Is there a target date for completion?" answer={r.requestedByDate ? fmtDate(r.requestedByDate) : undefined} />
+      <QA number={9} label="Is there a target date for completion?" answer={r.requestedByDate ? formatLocalDate(r.requestedByDate) : undefined} />
       <QA number={10} label="Estimated effort?" answer={r.estimatedEffort} />
 
       {/* Review deadline — shown with overdue warning when past due */}
@@ -931,8 +918,8 @@ function KanbanView({
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5">
                         <ScoreBadge score={score} />
-                        {stale && <AlertTriangle size={11} className="text-amber-500" title="Stale — no activity in 14+ days" />}
-                        {overdue && <AlertTriangle size={11} className="text-red-500" title="Review deadline passed" />}
+                        {stale && <span title="Stale — no activity in 14+ days"><AlertTriangle size={11} className="text-amber-500" /></span>}
+                        {overdue && <span title="Review deadline passed"><AlertTriangle size={11} className="text-red-500" /></span>}
                       </div>
                       <ColorBadge className={PRIORITY_COLORS[req.priority]}>{req.priority}</ColorBadge>
                     </div>
@@ -992,21 +979,43 @@ export function PipelinePage() {
   const { intakeRequests, addIntakeRequest, updateIntakeRequest, deleteIntakeRequest } =
     usePortfolioStore()
 
+  // Role gating: Admin (null) can triage/approve/edit; any selected member is read-only.
+  const { activeMemberId } = useViewStore()
+  const isAdmin = activeMemberId === null
+
   const navigate = useNavigate()
 
   const [modal, setModal]               = useState<ModalState>(null)
   const [deleting, setDeleting]         = useState<IntakeRequest | null>(null)
   const [filterStatus, setFilter]       = useState<IntakeStatus | 'All'>('All')
   const [search, setSearch]             = useState('')
-  const [sortCol, setSortCol]           = useState<SortCol>('score')
-  const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('desc')
-  const [viewMode, setViewMode]         = useState<ViewMode>('table')
+
+  // Sort and view mode persist across navigation so the user's last preference is
+  // restored when they return to this page. search and filterStatus are intentionally
+  // ephemeral — resetting them avoids confusion about why items are hidden.
+  const [sortCol, setSortCol]   = useState<SortCol>(() => {
+    try { return (JSON.parse(localStorage.getItem('sat-pipeline-prefs') ?? '{}').sortCol as SortCol) || 'score' }
+    catch { return 'score' }
+  })
+  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>(() => {
+    try { return (JSON.parse(localStorage.getItem('sat-pipeline-prefs') ?? '{}').sortDir as 'asc' | 'desc') || 'desc' }
+    catch { return 'desc' }
+  })
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try { return (JSON.parse(localStorage.getItem('sat-pipeline-prefs') ?? '{}').viewMode as ViewMode) || 'table' }
+    catch { return 'table' }
+  })
   const [triageState, setTriageState]   = useState<TriageState>(null)
   const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set())
   const [bulkStatus, setBulkStatus]     = useState<IntakeStatus | ''>('')
   // Controls the inline status dropdown in the view modal header
   const [editingStatus, setEditingStatus] = useState(false)
   const { convertingIntake, startConvert, cancelConvert, confirmConvert } = useConvertToProject()
+
+  // Persist sort and view mode whenever they change.
+  useEffect(() => {
+    localStorage.setItem('sat-pipeline-prefs', JSON.stringify({ sortCol, sortDir, viewMode }))
+  }, [sortCol, sortDir, viewMode])
 
   // If the dashboard links here with ?view=<id>, auto-open the view modal.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1129,26 +1138,28 @@ export function PipelinePage() {
           <Button variant="outline" size="sm" onClick={() => exportCSV(visible)} title="Export visible rows to CSV">
             <Download size={13} className="mr-1.5" /> Export
           </Button>
-          <Button onClick={() => setModal({ mode: 'add' })}>
-            <Plus size={15} className="mr-1.5" /> Submit Request
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setModal({ mode: 'add' })}>
+              <Plus size={15} className="mr-1.5" /> Submit Request
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search description, requester, team, or justification…"
-          className="pl-8 text-sm"
-        />
-      </div>
-
-      {/* Filter chips + view toggle on the same row */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Search + filter chips + view toggle all on one row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Search — fixed width so it doesn't crowd the chips */}
+          <div className="relative shrink-0 w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search…"
+              className="pl-8 text-sm h-9"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
           {STATUS_FILTERS.map(s => (
             <FilterChip
               key={s}
@@ -1158,6 +1169,7 @@ export function PipelinePage() {
               count={s === 'All' ? intakeRequests.length : (statusCounts[s] ?? 0)}
             />
           ))}
+          </div>
         </div>
         {/* View mode toggle — one button per mode, shared className logic */}
         <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-md p-0.5 shrink-0">
@@ -1180,8 +1192,8 @@ export function PipelinePage() {
         </div>
       </div>
 
-      {/* Bulk action toolbar — appears when rows are selected in table view */}
-      {selectedIds.size > 0 && viewMode === 'table' && (
+      {/* Bulk action toolbar — admin only; appears when rows are selected in table view */}
+      {isAdmin && selectedIds.size > 0 && viewMode === 'table' && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
           <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
             {selectedIds.size} selected
@@ -1242,8 +1254,8 @@ export function PipelinePage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         <ScoreBadge score={score} />
-                        {stale  && <AlertTriangle size={12} className="text-amber-400" title="Stale — 14+ days without activity" />}
-                        {overdue && <AlertTriangle size={12} className="text-red-500" title="Review deadline overdue" />}
+                        {stale  && <span title="Stale — 14+ days without activity"><AlertTriangle size={12} className="text-amber-400" /></span>}
+                        {overdue && <span title="Review deadline overdue"><AlertTriangle size={12} className="text-red-500" /></span>}
                       </div>
                       <ColorBadge className={INTAKE_STATUS_COLORS[req.status]}>{req.status}</ColorBadge>
                     </div>
@@ -1328,11 +1340,12 @@ export function PipelinePage() {
                         <div className="flex items-start gap-1.5">
                           {/* Staleness / overdue warning flags */}
                           {(stale || overdue) && (
-                            <AlertTriangle
-                              size={13}
-                              className={cn('mt-0.5 shrink-0', overdue ? 'text-red-500' : 'text-amber-400')}
-                              title={overdue ? 'Review deadline overdue' : 'Stale — no activity in 14+ days'}
-                            />
+                            <span title={overdue ? 'Review deadline overdue' : 'Stale — no activity in 14+ days'}>
+                              <AlertTriangle
+                                size={13}
+                                className={cn('mt-0.5 shrink-0', overdue ? 'text-red-500' : 'text-amber-400')}
+                              />
+                            </span>
                           )}
                           <div className="min-w-0">
                             <p className="font-medium text-slate-800 dark:text-slate-200 text-sm truncate" title={req.description}>{req.description}</p>
@@ -1387,11 +1400,13 @@ export function PipelinePage() {
                               <span className="text-[10px] font-medium tabular-nums">{req.comments!.length}</span>
                             </button>
                           )}
-                          <button
-                            onClick={() => setDeleting(req)}
-                            className="p-1 rounded text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
-                            title="Delete"
-                          ><Trash2 size={13} /></button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setDeleting(req)}
+                              className="p-1 rounded text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                              title="Delete"
+                            ><Trash2 size={13} /></button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1435,21 +1450,23 @@ export function PipelinePage() {
                         <FolderKanban size={11} /> Epic ↗
                       </button>
                     ) : (
-                      /* Normal status badge + inline edit pencil */
+                      /* Normal status badge + inline edit pencil (admin only) */
                       <div className="relative flex items-center gap-1">
                         <ColorBadge className={INTAKE_STATUS_COLORS[currentRequest.status]}>
                           {currentRequest.status}
                         </ColorBadge>
-                        <button
-                          onClick={() => setEditingStatus(v => !v)}
-                          className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                          title="Change status"
-                        >
-                          <Pencil size={11} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setEditingStatus(v => !v)}
+                            className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                            title="Change status"
+                          >
+                            <Pencil size={11} />
+                          </button>
+                        )}
 
-                        {/* Inline status dropdown — backdrop closes it on outside click */}
-                        {editingStatus && (
+                        {/* Inline status dropdown — admin only */}
+                        {isAdmin && editingStatus && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setEditingStatus(false)} />
                             <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 py-1 min-w-[160px]">
@@ -1486,52 +1503,56 @@ export function PipelinePage() {
               <Discussion request={currentRequest} />
             </div>
 
-            {/* Sticky footer — staged triage workflow:
+            {/* Sticky footer — staged triage workflow (admin only).
                 Pending Review → Mark Under Review → Approve / Reject / Defer
                 Under Review   → Approve / Reject / Defer
                 Approved       → Convert to Epic
             */}
             <div className="shrink-0 flex flex-wrap items-center gap-2 px-8 py-4 border-t bg-muted/50">
-              <div className="flex items-center gap-2 flex-1 flex-wrap">
-                {/* "Mark Under Review" — moves from initial submission into active evaluation */}
-                {currentRequest.status === 'Pending Review' && (
-                  <button
-                    onClick={() => { updateIntakeRequest(currentRequest.id, { status: 'Under Review' }); setModal(null) }}
-                    className="px-3 py-1.5 rounded text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium border border-blue-200"
-                  >
-                    Mark Under Review
-                  </button>
-                )}
-                {/* Final triage decisions — available from both Pending Review and Under Review */}
-                {(currentRequest.status === 'Pending Review' || currentRequest.status === 'Under Review') && (
-                  <>
+              {isAdmin && (
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
+                  {/* "Mark Under Review" — moves from initial submission into active evaluation */}
+                  {currentRequest.status === 'Pending Review' && (
                     <button
-                      onClick={() => setTriageState({ request: currentRequest, action: 'Approved' })}
-                      className="px-3 py-1.5 rounded text-sm bg-green-50 text-green-700 hover:bg-green-100 font-medium"
-                    >Approve</button>
+                      onClick={() => { updateIntakeRequest(currentRequest.id, { status: 'Under Review' }); setModal(null) }}
+                      className="px-3 py-1.5 rounded text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium border border-blue-200"
+                    >
+                      Mark Under Review
+                    </button>
+                  )}
+                  {/* Final triage decisions — available from both Pending Review and Under Review */}
+                  {(currentRequest.status === 'Pending Review' || currentRequest.status === 'Under Review') && (
+                    <>
+                      <button
+                        onClick={() => setTriageState({ request: currentRequest, action: 'Approved' })}
+                        className="px-3 py-1.5 rounded text-sm bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                      >Approve</button>
+                      <button
+                        onClick={() => setTriageState({ request: currentRequest, action: 'Rejected' })}
+                        className="px-3 py-1.5 rounded text-sm bg-red-50 text-red-700 hover:bg-red-100 font-medium"
+                      >Reject</button>
+                      <button
+                        onClick={() => setTriageState({ request: currentRequest, action: 'Deferred' })}
+                        className="px-3 py-1.5 rounded text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
+                      >Defer</button>
+                    </>
+                  )}
+                  {currentRequest.status === 'Approved' && (
                     <button
-                      onClick={() => setTriageState({ request: currentRequest, action: 'Rejected' })}
-                      className="px-3 py-1.5 rounded text-sm bg-red-50 text-red-700 hover:bg-red-100 font-medium"
-                    >Reject</button>
-                    <button
-                      onClick={() => setTriageState({ request: currentRequest, action: 'Deferred' })}
-                      className="px-3 py-1.5 rounded text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
-                    >Defer</button>
-                  </>
+                      onClick={() => { startConvert(currentRequest); setModal(null) }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium"
+                    >
+                      <FolderKanban size={13} /> Convert to Epic
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                {isAdmin && (
+                  <Button variant="outline" onClick={() => setModal({ mode: 'edit', request: currentRequest })}>
+                    <Pencil size={13} className="mr-1.5" /> Edit
+                  </Button>
                 )}
-                {currentRequest.status === 'Approved' && (
-                  <button
-                    onClick={() => { startConvert(currentRequest); setModal(null) }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium"
-                  >
-                    <FolderKanban size={13} /> Convert to Epic
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setModal({ mode: 'edit', request: currentRequest })}>
-                  <Pencil size={13} className="mr-1.5" /> Edit
-                </Button>
                 <Button variant="outline" onClick={() => setModal(null)}>Close</Button>
               </div>
             </div>

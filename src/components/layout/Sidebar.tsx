@@ -64,7 +64,8 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   // Desktop-only collapsed state; mobile sidebar is always expanded.
   const [collapsed, setCollapsed] = useState(false)
-  const { escalations } = usePortfolioStore()
+  // Single-key selector — Sidebar only needs escalations for the open-count badge.
+  const escalations = usePortfolioStore(s => s.escalations)
   const openCount = escalations.filter(e => e.status === 'Open').length
   const { isDark, toggle: toggleTheme } = useTheme()
 

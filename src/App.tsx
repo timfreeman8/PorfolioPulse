@@ -12,8 +12,9 @@
  */
 
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { useAuthStore } from '@/store/useAuthStore'
 
 // ---------------------------------------------------------------------------
 // Lazy page imports — each becomes a separate Vite chunk.
@@ -22,8 +23,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 // ---------------------------------------------------------------------------
 
 const DashboardPage  = lazy(() => import('@/pages/DashboardPage').then(m  => ({ default: m.DashboardPage  })))
-const PortfolioPage  = lazy(() => import('@/pages/PortfolioPage').then(m  => ({ default: m.PortfolioPage  })))
-const RosterPage     = lazy(() => import('@/pages/RosterPage').then(m     => ({ default: m.RosterPage     })))
+
 const InitiativesPage = lazy(() => import('@/pages/InitiativesPage').then(m => ({ default: m.InitiativesPage })))
 const PipelinePage   = lazy(() => import('@/pages/IntakePage').then(m     => ({ default: m.PipelinePage   })))
 const AnalyticsPage  = lazy(() => import('@/pages/AnalyticsPage').then(m  => ({ default: m.AnalyticsPage  })))
@@ -38,6 +38,7 @@ const OrgPage        = lazy(() => import('@/pages/OrgPage').then(m        => ({ 
 // PrintPage renders outside AppLayout and is also lazy-loaded so it doesn't
 // bloat the initial bundle even though it lives on a separate route.
 const PrintPage      = lazy(() => import('@/pages/PrintPage').then(m      => ({ default: m.PrintPage      })))
+const LoginPage      = lazy(() => import('@/pages/LoginPage').then(m      => ({ default: m.LoginPage      })))
 
 // ---------------------------------------------------------------------------
 // Fallback UI shown while a lazy chunk is loading.
@@ -48,6 +49,18 @@ const PrintPage      = lazy(() => import('@/pages/PrintPage').then(m      => ({ 
 function RedirectToEpic() {
   const { projectId } = useParams()
   return <Navigate to={`/epics/${projectId}`} replace />
+}
+
+/**
+ * AuthGuard — protects all app routes from unauthenticated access.
+ * If the user has no role (not logged in), redirects them to /login.
+ * The `replace` prevents the login page from showing up in history so
+ * the back button doesn't loop users back to login after signing in.
+ */
+function AuthGuard() {
+  const { role } = useAuthStore()
+  if (role === null) return <Navigate to="/login" replace />
+  return <Outlet />
 }
 
 function PageLoadingFallback() {
@@ -66,12 +79,17 @@ export default function App() {
           will show PageLoadingFallback while it loads. */}
       <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
+          {/* Login — public, no auth required */}
+          <Route path="login" element={<LoginPage />} />
+
+          {/* All other routes require authentication */}
+          <Route element={<AuthGuard />}>
           {/* Print report — standalone full-page view, no sidebar/layout wrapper */}
           <Route path="print" element={<PrintPage />} />
 
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
-            <Route path="portfolio"   element={<PortfolioPage />} />
+            <Route path="portfolio"   element={<Navigate to="/people" replace />} />
             <Route path="epics"                element={<ProjectsPage />} />
             {/* /epics/new must come before :projectId so "new" isn't treated as an ID */}
             <Route path="epics/new"            element={<ProjectDetailPage />} />
@@ -80,7 +98,7 @@ export default function App() {
             <Route path="projects"             element={<Navigate to="/epics" replace />} />
             <Route path="projects/new"         element={<Navigate to="/epics/new" replace />} />
             <Route path="projects/:projectId"  element={<RedirectToEpic />} />
-            <Route path="roster"      element={<RosterPage />} />
+            <Route path="roster"      element={<Navigate to="/people" replace />} />
             <Route path="members/:id" element={<MemberDetailPage />} />
             <Route path="initiatives" element={<InitiativesPage />} />
             <Route path="pipeline"    element={<PipelinePage />} />
@@ -90,8 +108,7 @@ export default function App() {
             <Route path="pto"         element={<Navigate to="/planning" replace />} />
             <Route path="escalations" element={<EscalationsPage />} />
             <Route path="pulse"       element={<PulsePage />} />
-            {/* /teams redirects to /roster — old bookmarks and nav links are preserved */}
-            <Route path="teams"       element={<Navigate to="/roster" replace />} />
+            <Route path="teams"       element={<Navigate to="/people" replace />} />
             <Route path="people"      element={<OrgPage />} />
             {/* Redirect old /org links so bookmarks still work */}
             <Route path="org"         element={<Navigate to="/people" replace />} />
@@ -101,6 +118,7 @@ export default function App() {
             <Route path="intake"      element={<Navigate to="/pipeline" replace />} />
             <Route path="*"           element={<Navigate to="/" replace />} />
           </Route>
+          </Route>{/* end AuthGuard */}
         </Routes>
       </Suspense>
     </BrowserRouter>

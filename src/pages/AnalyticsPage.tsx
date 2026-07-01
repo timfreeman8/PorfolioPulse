@@ -20,7 +20,8 @@
  * `sat-analytics-filters` on every change and re-hydrated on mount. This keeps
  * the user's filter selection when navigating away and back.
  */
-import { useState, useMemo, useEffect } from 'react'
+import { memo, useRef, useState, useMemo, useEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -40,12 +41,91 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useShallow } from 'zustand/react/shallow'
 import {
   CHART_COLORS, STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS,
 } from '@/lib/colors'
 import { useTheme } from '@/lib/useTheme'
 import { cn } from '@/lib/utils'
-import type { Project, ProjectPhase, ProjectStatus, Priority } from '@/types'
+import { fmtDateShort } from '@/lib/format'
+import type { Project, ProjectPhase, ProjectStatus, Priority, Member, Team, Domain, Initiative } from '@/types'
+
+// ─── Analytics project table row ──────────────────────────────────────────────
+/**
+ * AnalyticsProjectRow — a single row in the project table on the Charts tab.
+ *
+ * Wrapped with React.memo so that sorting or filtering other projects (which
+ * causes the parent to re-render) does not re-render rows whose project data
+ * hasn't changed.
+ *
+ * All Maps are stable `useMemo` references passed from the parent, so prop
+ * comparison is O(1) (reference equality). The row only re-renders when its
+ * `project` object reference changes (i.e. the project was actually edited).
+ */
+const AnalyticsProjectRow = memo(function AnalyticsProjectRow({
+  project,
+  memberMap,
+  teamMap,
+  domainMap,
+  initiativeMap,
+  memberTeamMap,
+  teamDomainMap,
+}: {
+  project: Project
+  memberMap:      Map<string, Member>
+  teamMap:        Map<string, Team>
+  domainMap:      Map<string, Domain>
+  initiativeMap:  Map<string, Initiative>
+  /** memberId → teamIds[] — used to resolve a project's primary team. */
+  memberTeamMap:  Map<string, string[]>
+  /** teamId → domainId — used to resolve a project's domain. */
+  teamDomainMap:  Map<string, string>
+}) {
+  // Resolve a project's primary team by walking assignments → memberTeamMap.
+  const primaryTeamId = project.assignments
+    .flatMap(a => memberTeamMap.get(a.memberId) ?? [])
+    .find(Boolean) ?? ''
+  const primaryDomainId = primaryTeamId ? (teamDomainMap.get(primaryTeamId) ?? '') : ''
+
+  const domain   = primaryDomainId ? (domainMap.get(primaryDomainId)?.name  ?? '—') : '—'
+  const team     = primaryTeamId   ? (teamMap.get(primaryTeamId)?.name      ?? '—') : '—'
+  const assignees = [...new Set(project.assignments.map(a => a.memberId))]
+    .map(id => memberMap.get(id)?.name ?? '?')
+    .join(', ')
+  const initiative = project.initiativeId ? (initiativeMap.get(project.initiativeId)?.name ?? '—') : '—'
+  const endDate    = fmtDateShort(project.targetEndDate)
+
+  return (
+    <TableRow key={project.id}>
+      <TableCell className="font-medium text-slate-800 max-w-[160px]">
+        <span className="truncate block" title={project.name}>{project.name}</span>
+      </TableCell>
+      <TableCell className="text-xs text-slate-500 whitespace-nowrap">{domain}</TableCell>
+      <TableCell className="text-xs text-slate-500 whitespace-nowrap">{team}</TableCell>
+      <TableCell className="text-xs text-slate-500 max-w-[130px]">
+        <span className="truncate block">{assignees}</span>
+      </TableCell>
+      <TableCell><ColorBadge className={PHASE_COLORS[project.phase]}>{project.phase}</ColorBadge></TableCell>
+      <TableCell><ColorBadge className={STATUS_COLORS[project.status]}>{project.status}</ColorBadge></TableCell>
+      <TableCell><ColorBadge className={PRIORITY_COLORS[project.priority]}>{project.priority}</ColorBadge></TableCell>
+      <TableCell className="text-xs text-slate-500 max-w-[140px]">
+        <span className="truncate block">{initiative}</span>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1.5 min-w-[60px]">
+          <div className="w-10 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 dark:bg-blue-400 rounded-full"
+              style={{ width: `${project.percentComplete}%` }}
+            />
+          </div>
+          <span className="text-xs text-slate-500">{project.percentComplete}%</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-xs text-slate-500 whitespace-nowrap">{endDate}</TableCell>
+    </TableRow>
+  )
+})
 
 // ─── Currency helpers ─────────────────────────────────────────────────────────
 
@@ -415,7 +495,18 @@ function ValueByInitiativeBar({
 // ─── Analytics page ───────────────────────────────────────────────────────────
 
 export function AnalyticsPage() {
-  const { domains, teams, members, projects, initiatives, resourceRates } = usePortfolioStore()
+  // useShallow prevents re-renders caused by mutations to unrelated slices of
+  // the store (e.g. adding a PTO block shouldn't re-render the analytics page).
+  const { domains, teams, members, projects, initiatives, resourceRates } = usePortfolioStore(
+    useShallow(s => ({
+      domains:       s.domains,
+      teams:         s.teams,
+      members:       s.members,
+      projects:      s.projects,
+      initiatives:   s.initiatives,
+      resourceRates: s.resourceRates,
+    }))
+  )
 
   // Track dark mode so we can pass `isDark` into chart sub-components.
   const { isDark } = useTheme()
@@ -461,9 +552,14 @@ export function AnalyticsPage() {
   }
 
   // ── Derived: member→team→domain lookup ───────────────────────────────────
-  // Pre-built Maps avoid O(n²) lookups inside filter loops.
-  const memberTeamMap = useMemo(() => new Map(members.map(m => [m.id, m.teamIds])), [members])
-  const teamDomainMap = useMemo(() => new Map(teams.map(t => [t.id, t.domainId])), [teams])
+  // Pre-built Maps for O(1) entity lookups — avoids O(n²) .find() calls in
+  // filter loops and per-row render functions (memberNames, teamName, domainName).
+  const memberTeamMap  = useMemo(() => new Map(members.map(m => [m.id, m.teamIds])), [members])
+  const memberMap      = useMemo(() => new Map(members.map(m => [m.id, m])), [members])
+  const teamDomainMap  = useMemo(() => new Map(teams.map(t => [t.id, t.domainId])), [teams])
+  const teamMap        = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const domainMap      = useMemo(() => new Map(domains.map(d => [d.id, d])), [domains])
+  const initiativeMap  = useMemo(() => new Map(initiatives.map(i => [i.id, i])), [initiatives])
 
   // Resolve domain/team for a project by walking its assignments through the
   // member→team→domain maps. Takes the first team found (projects are typically
@@ -504,6 +600,32 @@ export function AnalyticsPage() {
     })
   }, [filtered, sortKey, sortDir])
 
+  // ── Project table virtualizer ─────────────────────────────────────────────
+  // Scroll container ref for the project table — gives the virtualizer a DOM
+  // element whose clientHeight/scrollTop it can read.
+  const tableScrollRef = useRef<HTMLDivElement>(null)
+
+  // `useVirtualizer` only mounts rows visible within the scroll container.
+  // At 30 rows this is invisible; at 5,000+ rows it keeps the DOM small and
+  // the browser compositing fast. estimateSize should approximate the real
+  // rendered row height — 48px matches the TableRow padding.
+  const rowVirtualizer = useVirtualizer({
+    count: sorted.length,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => 48,
+    overscan: 5, // render 5 extra rows above/below viewport for smooth scroll
+  })
+
+  const virtualRows   = rowVirtualizer.getVirtualItems()
+  const totalHeight   = rowVirtualizer.getTotalSize()
+  // Spacer heights: amount of space before the first visible row and after
+  // the last visible row. The spacer <tr>s below preserve scroll height
+  // without rendering off-screen DOM nodes.
+  const paddingTop    = virtualRows.length > 0 ? virtualRows[0].start : 0
+  const paddingBottom = virtualRows.length > 0
+    ? totalHeight - virtualRows[virtualRows.length - 1].end
+    : 0
+
   // ── Teams available for filter ────────────────────────────────────────────
   // When domain filters are active, only show teams within those domains.
   const filteredTeams = filterDomains.length === 0
@@ -543,22 +665,9 @@ export function AnalyticsPage() {
     }
   })
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function memberNames(memberIds: string[]) {
-    return memberIds.map(id => members.find(m => m.id === id)?.name ?? '?').join(', ')
-  }
-  function initiativeName(id: string) {
-    return initiatives.find(i => i.id === id)?.name ?? '—'
-  }
-  function teamName(p: Project) {
-    const tid = projectTeamId(p)
-    return teams.find(t => t.id === tid)?.name ?? '—'
-  }
-  function domainName(p: Project) {
-    const did = projectDomainId(p)
-    return domains.find(d => d.id === did)?.name ?? '—'
-  }
+  // Helpers previously computed member/team/domain/initiative names inline —
+  // these are now handled inside AnalyticsProjectRow (which receives the Maps
+  // directly so it can do the lookups itself without closure captures).
 
   function resetFilters() {
     setFilterDomains([]); setFilterTeams([]); setFilterInits([])
@@ -915,7 +1024,15 @@ export function AnalyticsPage() {
               <p className="font-medium">No projects match these filters</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            /* Fixed-height scroll container — the virtualizer measures scroll position
+               here. maxHeight caps the table at 60vh so the rest of the page remains
+               accessible without virtualizing the whole page. overflow-x-auto keeps
+               the horizontal scrollbar for narrow viewports. */
+            <div
+              ref={tableScrollRef}
+              className="overflow-x-auto overflow-y-auto"
+              style={{ maxHeight: '60vh' }}
+            >
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -932,43 +1049,32 @@ export function AnalyticsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sorted.map(p => {
-                    const endDate = p.targetEndDate
-                      ? new Date(p.targetEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-                      : '—'
+                  {/* Spacer row above virtual items — creates scroll space for
+                      off-screen rows above the viewport without mounting them. */}
+                  {paddingTop > 0 && (
+                    <tr><td style={{ height: paddingTop }} /></tr>
+                  )}
+                  {/* Only the rows visible (+ overscan) in the scroll window are mounted. */}
+                  {virtualRows.map(vRow => {
+                    const p = sorted[vRow.index]
                     return (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium text-slate-800 max-w-[160px]">
-                          <span className="truncate block" title={p.name}>{p.name}</span>
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">{domainName(p)}</TableCell>
-                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">{teamName(p)}</TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[130px]">
-                          <span className="truncate block">{memberNames(p.assignments.map(a => a.memberId))}</span>
-                        </TableCell>
-                        <TableCell><ColorBadge className={PHASE_COLORS[p.phase]}>{p.phase}</ColorBadge></TableCell>
-                        <TableCell><ColorBadge className={STATUS_COLORS[p.status]}>{p.status}</ColorBadge></TableCell>
-                        <TableCell><ColorBadge className={PRIORITY_COLORS[p.priority]}>{p.priority}</ColorBadge></TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[140px]">
-                          <span className="truncate block">{initiativeName(p.initiativeId)}</span>
-                        </TableCell>
-                        <TableCell>
-                          {/* Progress mini-bar — bg-slate-100 flips via global .dark override;
-                              bg-blue-500 is hardcoded so we add an explicit dark: variant. */}
-                          <div className="flex items-center gap-1.5 min-w-[60px]">
-                            <div className="w-10 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-blue-500 dark:bg-blue-400 rounded-full"
-                                style={{ width: `${p.percentComplete}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-slate-500">{p.percentComplete}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">{endDate}</TableCell>
-                      </TableRow>
+                      <AnalyticsProjectRow
+                        key={p.id}
+                        project={p}
+                        memberMap={memberMap}
+                        teamMap={teamMap}
+                        domainMap={domainMap}
+                        initiativeMap={initiativeMap}
+                        memberTeamMap={memberTeamMap}
+                        teamDomainMap={teamDomainMap}
+                      />
                     )
                   })}
+                  {/* Spacer row below virtual items — creates scroll space for
+                      off-screen rows below the viewport. */}
+                  {paddingBottom > 0 && (
+                    <tr><td style={{ height: paddingBottom }} /></tr>
+                  )}
                 </TableBody>
               </Table>
             </div>

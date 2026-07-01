@@ -32,7 +32,8 @@ import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
   ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
-  FlaskConical, Save, History, Bot, CalendarOff, CalendarX, Activity,
+  FlaskConical, Save, History, CalendarOff, CalendarX, Activity,
+  Shield, UserX, UserCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +42,7 @@ import {
   DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useAuthStore } from '@/store/useAuthStore'
 import { cn } from '@/lib/utils'
 import {
   downloadCsv,
@@ -65,7 +67,7 @@ import {
 } from '@/lib/csv'
 import { buildSeedState, buildSampleProjectState, buildPulseSeedData } from '@/lib/seedData'
 import { clearState } from '@/lib/persistence'
-import { ANTHROPIC_KEY_STORAGE } from '@/lib/chat'
+
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
 
 // ─── Ordering helpers ──────────────────────────────────────────────────────
@@ -418,6 +420,8 @@ function ImportSection() {
       escalations:    store.escalations,
       ptoBlocks:      store.ptoBlocks,
       resourceRates:  store.resourceRates,
+      weeklyPulses:   store.weeklyPulses,
+      adminMemberIds: store.adminMemberIds,
     }
 
     switch (entityType) {
@@ -628,118 +632,137 @@ function ImportSection() {
   )
 }
 
-// ─── AI Assistant section ──────────────────────────────────────────────────
+
+// ─── Access control section ────────────────────────────────────────────────
 
 /**
- * AiAssistantSection — API key configuration for the floating chat assistant.
+ * AccessControlSection — manage which members have administrator access.
  *
- * The key is stored in localStorage under `ANTHROPIC_KEY_STORAGE` (separate
- * from the portfolio store). It is read at call-time by FloatingChat so a
- * newly saved key takes effect without reloading the page.
+ * Admins see all data and can create/edit/delete anything.
+ * Everyone else is a "viewer": read-only, filtered to their own projects.
  *
- * The input is type="password" so the key isn't visible in screenshots /
- * shoulder-surfing, but the user can show it by toggling the field type.
+ * When Azure AD authentication is added, this list will be replaced by AAD
+ * group membership (e.g., "SAT-Admins" group → admin role). At that point,
+ * this section can be removed or converted to a read-only display of who is
+ * in the AAD admin group.
+ *
+ * Bootstrap note: if the admin list is empty, everyone gets admin access on
+ * sign-in. Add at least one admin here to activate role enforcement.
  */
-function AiAssistantSection() {
-  // Read the current stored key on mount.
-  const [keyValue, setKeyValue] = useState<string>(
-    () => localStorage.getItem(ANTHROPIC_KEY_STORAGE) ?? '',
-  )
-  // Show a green checkmark for 2 seconds after saving.
-  const [saved, setSaved] = useState(false)
-  // Whether to reveal the key in plaintext.
-  const [visible, setVisible] = useState(false)
+function AccessControlSection() {
+  const { members, adminMemberIds, setAdminMemberIds } = usePortfolioStore()
+  const [addingId, setAddingId] = useState('')
 
-  function handleSave() {
-    const trimmed = keyValue.trim()
-    if (trimmed) {
-      localStorage.setItem(ANTHROPIC_KEY_STORAGE, trimmed)
-    } else {
-      localStorage.removeItem(ANTHROPIC_KEY_STORAGE)
-    }
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  // Members currently marked as admins, sorted by name.
+  const adminMembers = members
+    .filter(m => adminMemberIds.includes(m.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Members NOT yet admins — available to add.
+  const nonAdminMembers = members
+    .filter(m => !adminMemberIds.includes(m.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  function addAdmin() {
+    if (!addingId || adminMemberIds.includes(addingId)) return
+    setAdminMemberIds([...adminMemberIds, addingId])
+    setAddingId('')
   }
 
-  const hasKey = keyValue.trim().length > 0
+  function removeAdmin(id: string) {
+    setAdminMemberIds(adminMemberIds.filter(x => x !== id))
+  }
 
   return (
     <section className="space-y-4">
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        The Portfolio Assistant uses the Claude API to answer questions about your
-        data. Enter your Anthropic API key below — it is stored in your browser
-        only and sent exclusively to{' '}
-        <span className="font-mono">api.anthropic.com</span>.
+        Members in the Admin list have full create/edit/delete access. Everyone
+        else signs in as a Viewer (read-only, filtered to their own projects).
+        <br />
+        <span className="text-amber-600 dark:text-amber-400 font-medium">
+          Empty list = bootstrap mode: every sign-in gets admin access until at
+          least one admin is added here.
+        </span>
       </p>
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-4">
-        {/* Key input row */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-            Anthropic API Key
-          </label>
-          <div className="flex gap-2">
-            <Input
-              type={visible ? 'text' : 'password'}
-              value={keyValue}
-              onChange={e => setKeyValue(e.target.value)}
-              placeholder="sk-ant-…"
-              className="flex-1 font-mono text-sm"
-              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-            />
-            {/* Show/hide toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onClick={() => setVisible(v => !v)}
-              className="shrink-0 text-xs px-3"
-            >
-              {visible ? 'Hide' : 'Show'}
-            </Button>
-          </div>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">
-            Get your key at{' '}
-            <span className="font-mono">console.anthropic.com</span>.
-            The assistant uses <span className="font-mono">claude-opus-4-6</span>.
-          </p>
-        </div>
-
-        {/* Save button + status */}
-        <div className="flex items-center gap-3">
-          <Button
-            size="sm"
-            onClick={handleSave}
-            className="gap-1.5 text-xs"
-          >
-            {saved ? <CheckCircle2 size={13} /> : <Save size={13} />}
-            {saved ? 'Saved' : 'Save Key'}
-          </Button>
-          {!hasKey && (
-            <span className="text-xs text-amber-600 dark:text-amber-400">
-              No key configured — the assistant is disabled.
+      {/* Current admins */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
+          <Shield size={14} className="text-blue-500" />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Administrators ({adminMembers.length})
+          </span>
+          {adminMemberIds.length === 0 && (
+            <span className="ml-auto text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+              Bootstrap mode active
             </span>
           )}
-          {hasKey && !saved && (
-            <span className="text-xs text-slate-400">Key configured.</span>
-          )}
         </div>
 
-        {/* Clear key */}
-        {hasKey && (
-          <button
-            type="button"
-            onClick={() => { setKeyValue(''); localStorage.removeItem(ANTHROPIC_KEY_STORAGE) }}
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
-          >
-            <X size={11} />
-            Remove key
-          </button>
+        {adminMembers.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-slate-400 dark:text-slate-500 text-center italic">
+            No admins configured — all users sign in with admin access.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            {adminMembers.map(m => (
+              <li key={m.id} className="flex items-center gap-3 px-4 py-2.5">
+                <UserCheck size={14} className="text-blue-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{m.name}</p>
+                  <p className="text-xs text-slate-400 truncate">{m.role}</p>
+                </div>
+                <button
+                  onClick={() => removeAdmin(m.id)}
+                  className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  title="Remove admin access"
+                >
+                  <UserX size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
+      </div>
+
+      {/* Add admin */}
+      {nonAdminMembers.length > 0 && (
+        <div className="flex gap-2">
+          <select
+            value={addingId}
+            onChange={e => setAddingId(e.target.value)}
+            className="flex-1 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Add a member as admin…</option>
+            {nonAdminMembers.map(m => (
+              <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
+            ))}
+          </select>
+          <Button onClick={addAdmin} disabled={!addingId} variant="outline">
+            <Shield size={14} className="mr-1.5" /> Add Admin
+          </Button>
+        </div>
+      )}
+
+      {members.length === 0 && (
+        <p className="text-sm text-slate-400 text-center py-2">
+          No members in the roster yet. Add people via the People page first.
+        </p>
+      )}
+
+      {/* Azure AD migration note */}
+      <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+        <p className="font-medium text-slate-600 dark:text-slate-300">Azure AD migration path</p>
+        <p>
+          When Azure AD authentication is added, roles will be assigned via AAD
+          group membership (e.g., members of the "SAT-Admins" group get admin
+          access). This admin list will no longer be needed.
+        </p>
       </div>
     </section>
   )
 }
+
 
 // ─── Settings page ─────────────────────────────────────────────────────────
 
@@ -749,7 +772,10 @@ export function SettingsPage() {
   const store = usePortfolioStore()
 
   // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'rates' | 'export' | 'import' | 'assistant' | 'danger'>('rates')
+  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'export' | 'import' | 'danger'>('rates')
+
+  // Auth — Access Control tab is only shown to admins.
+  const { role: authRole } = useAuthStore()
 
   // Danger Zone confirmation modal. Set pendingAction to open it; the modal
   // calls onConfirm() when the user clicks the destructive button.
@@ -803,6 +829,8 @@ export function SettingsPage() {
       escalations:   store.escalations,
       ptoBlocks:     store.ptoBlocks,
       resourceRates: store.resourceRates,
+      weeklyPulses:  store.weeklyPulses,
+      adminMemberIds: store.adminMemberIds,
     }
     const ts = new Date().toISOString().slice(0, 10)
     downloadJson(`sat-snapshot-${ts}.json`, exportFullSnapshot(state))
@@ -819,15 +847,15 @@ export function SettingsPage() {
           Manage resource rates, import/export data, and reset the portfolio.
         </p>
 
-        {/* Tab switcher */}
+        {/* Tab switcher — Access Control is only shown to admins */}
         <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
           {([
-            { id: 'rates',     label: 'Resource Rates', Icon: DollarSign },
-            { id: 'export',    label: 'Export',          Icon: Download },
-            { id: 'import',    label: 'Import',          Icon: Upload },
-            { id: 'assistant', label: 'AI Assistant',    Icon: Bot },
-            { id: 'danger',    label: 'Danger Zone',     Icon: AlertCircle },
-          ] as const).map(({ id, label, Icon }) => (
+            { id: 'rates',     label: 'Resource Rates',   Icon: DollarSign,  adminOnly: false },
+            { id: 'access',    label: 'Access Control',   Icon: Shield,      adminOnly: true  },
+            { id: 'export',    label: 'Export',            Icon: Download,    adminOnly: false },
+            { id: 'import',    label: 'Import',            Icon: Upload,      adminOnly: false },
+            { id: 'danger',    label: 'Danger Zone',       Icon: AlertCircle, adminOnly: false },
+          ] as const).filter(t => !t.adminOnly || authRole === 'admin').map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -855,6 +883,11 @@ export function SettingsPage() {
           </p>
           <ResourceRatesSection />
         </section>
+      )}
+
+      {/* Access Control tab — admin only */}
+      {activeTab === 'access' && authRole === 'admin' && (
+        <AccessControlSection />
       )}
 
       {/* Export tab */}
@@ -951,8 +984,6 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* AI Assistant tab */}
-      {activeTab === 'assistant' && <AiAssistantSection />}
 
       {/* Danger Zone tab */}
       {activeTab === 'danger' && (

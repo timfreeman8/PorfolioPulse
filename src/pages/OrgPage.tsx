@@ -22,7 +22,7 @@
  * Route: /org
  */
 
-import { useMemo, useRef, useState } from 'react'
+import { memo, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, Users, UserCircle, GripVertical,
@@ -60,6 +60,8 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown'
 import { FilterChip } from '@/components/ui/filter-chip'
 import { StatCard } from '@/components/ui/stat-card'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useShallow } from 'zustand/react/shallow'
+import { useViewStore } from '@/store/useViewStore'
 import { cn } from '@/lib/utils'
 import { avatarColor } from '@/lib/colors'
 import { roleCategoryOf, ALL_ROLE_CATEGORIES, MEMBER_DISCIPLINES } from '@/lib/roles'
@@ -202,20 +204,29 @@ function DomainDragPreview({ domain }: { domain: Domain }) {
  * A drag handle appears on hover in the top-right for DnD reorder/move (Portfolio).
  * Edit/delete buttons appear on hover in the bottom-right (Portfolio).
  * Left-border accent and card tint signal over-capacity or at-risk state (Roster).
+ *
+ * Wrapped with React.memo — only re-renders when `member`, `teamId`, or `isAdmin`
+ * change. `setModal`/`setDeleteTarget` are React state setters (stable references),
+ * so passing them as props does not defeat the memo.
  */
-function OrgMemberCard({
+const OrgMemberCard = memo(function OrgMemberCard({
   member,
   teamId,
-  onEdit,
-  onDelete,
+  setModal,
+  setDeleteTarget,
+  isAdmin,
 }: {
   member: Member
   teamId: string
-  onEdit: () => void
-  onDelete: () => void
+  setModal: (m: ModalState) => void
+  setDeleteTarget: (t: DeleteTarget) => void
+  /** When false, edit/delete overlay is hidden so non-admin users can't mutate the org. */
+  isAdmin?: boolean
 }) {
   const navigate = useNavigate()
-  const { projects } = usePortfolioStore()
+  // Single-key selector — this component only needs projects, so it won't re-render
+  // when domains/teams/members or other slices change.
+  const projects = usePortfolioStore(s => s.projects)
 
   const alloc    = memberQuarterAllocation(member.id, projects)
   const cap      = member.capacity
@@ -232,18 +243,7 @@ function OrgMemberCard({
     ? 'text-amber-600 dark:text-amber-400'
     : 'text-green-600 dark:text-green-400'
 
-  // Left-border accent — always visible; red/amber for capacity warnings,
-  // slate for normal members so every card has a consistent left stroke.
-  const borderAccent = isOver
-    ? 'border-l-red-400'
-    : isAtRisk
-    ? 'border-l-amber-400'
-    : 'border-l-slate-300 dark:border-l-slate-600'
-  const cardTint = isOver
-    ? 'bg-red-50 dark:bg-red-950/20'
-    : isAtRisk
-    ? 'bg-amber-50 dark:bg-amber-950/20'
-    : 'bg-white dark:bg-slate-800'
+  const cardTint = 'bg-white dark:bg-slate-800'
 
   const { bg: avatarBg, text: avatarText } = avatarColor(member.name)
 
@@ -260,8 +260,7 @@ function OrgMemberCard({
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       className={cn(
         'relative rounded-lg border border-slate-200 dark:border-slate-700',
-        'border-l-4 px-3 py-2.5 group transition-shadow hover:shadow-sm',
-        borderAccent,
+        'px-3 py-2.5 group transition-shadow hover:shadow-sm',
         cardTint,
       )}
     >
@@ -355,26 +354,28 @@ function OrgMemberCard({
       </div>
 
       {/* Edit / Delete overlay — bottom-right, hover-visible.
-          stopPropagation prevents the card-body navigate from also firing. */}
-      <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={e => { e.stopPropagation(); onEdit() }}
-          className="p-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shadow-sm"
-          title="Edit member"
-        >
-          <Pencil size={11} />
-        </button>
-        <button
-          onClick={e => { e.stopPropagation(); onDelete() }}
-          className="p-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-red-500 shadow-sm"
-          title="Delete member"
-        >
-          <Trash2 size={11} />
-        </button>
-      </div>
+          Hidden entirely for non-admin users — read-only view. */}
+      {isAdmin && (
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={e => { e.stopPropagation(); setModal({ type: 'member', mode: 'edit', member }) }}
+            className="p-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shadow-sm"
+            title="Edit member"
+          >
+            <Pencil size={11} />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setDeleteTarget({ type: 'member', id: member.id, name: member.name }) }}
+            className="p-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-red-500 shadow-sm"
+            title="Delete member"
+          >
+            <Trash2 size={11} />
+          </button>
+        </div>
+      )}
     </div>
   )
-}
+})
 
 
 // ─── Compact member chip (building mode) ─────────────────────────────────
@@ -383,21 +384,27 @@ function OrgMemberCard({
  * Shows just the avatar initials + name so many members fit in a row.
  * Drag handle is always visible (not hover-only) to make DnD obvious.
  * Amber tint distinguishes contractors from Kroger FTEs at a glance.
+ *
+ * Wrapped with React.memo — re-renders only when `member`, `teamId`, or `isAdmin`
+ * change. `setModal`/`setDeleteTarget` are stable React state setters.
  */
-function OrgMemberChip({
+const OrgMemberChip = memo(function OrgMemberChip({
   member,
   teamId,
-  onEdit,
-  onDelete,
+  setModal,
+  setDeleteTarget,
+  isAdmin,
 }: {
   member: Member
   teamId: string
-  onEdit: () => void
-  onDelete: () => void
+  setModal: (m: ModalState) => void
+  setDeleteTarget: (t: DeleteTarget) => void
+  /** When false, edit/delete buttons are hidden so non-admin users can't mutate the org. */
+  isAdmin?: boolean
 }) {
   const navigate = useNavigate()
-  const { bg: avatarBg, text: avatarText } = avatarColor(member.name)
-  const { projects } = usePortfolioStore()
+  // Single-key selector — only projects needed here.
+  const projects = usePortfolioStore(s => s.projects)
   const alloc  = memberQuarterAllocation(member.id, projects)
   const cap    = member.capacity
   const isOver = alloc > cap
@@ -451,18 +458,20 @@ function OrgMemberChip({
         <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title={`Over capacity: ${alloc}%`} />
       )}
 
-      {/* Edit/delete on hover */}
-      <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 shrink-0">
-        <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-0.5 rounded text-slate-300 hover:text-slate-600" title="Edit">
-          <Pencil size={9} />
-        </button>
-        <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-0.5 rounded text-slate-300 hover:text-red-500" title="Delete">
-          <Trash2 size={9} />
-        </button>
-      </div>
+      {/* Edit/delete on hover — hidden for non-admin users */}
+      {isAdmin && (
+        <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 shrink-0">
+          <button onClick={e => { e.stopPropagation(); setModal({ type: 'member', mode: 'edit', member }) }} className="p-0.5 rounded text-slate-300 hover:text-slate-600" title="Edit">
+            <Pencil size={9} />
+          </button>
+          <button onClick={e => { e.stopPropagation(); setDeleteTarget({ type: 'member', id: member.id, name: member.name }) }} className="p-0.5 rounded text-slate-300 hover:text-red-500" title="Delete">
+            <Trash2 size={9} />
+          </button>
+        </div>
+      )}
     </div>
   )
-}
+})
 
 // ─── Combined team section ────────────────────────────────────────────────
 /**
@@ -482,6 +491,7 @@ function OrgTeamSection({
   buildingMode,
   setModal,
   setDeleteTarget,
+  isAdmin,
 }: {
   team: Team
   filteredMembers: Member[]
@@ -490,6 +500,8 @@ function OrgTeamSection({
   buildingMode: boolean
   setModal: (m: ModalState) => void
   setDeleteTarget: (t: DeleteTarget) => void
+  /** When false, all add/edit/delete controls are hidden (user/read-only mode). */
+  isAdmin?: boolean
 }) {
   // Whether the member grid is visible. Starts expanded.
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -540,7 +552,7 @@ function OrgTeamSection({
       <div
         className={cn(
           'flex items-center gap-2 group px-3 py-2 transition-colors',
-          'bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700',
+          'bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700',
         )}
       >
         {/* Team grip — drag to reorder or move to another domain */}
@@ -583,7 +595,8 @@ function OrgTeamSection({
           )}
         </div>
 
-        {/* Portfolio-style action buttons — always visible */}
+        {/* Action buttons — only shown to admin users */}
+        {isAdmin && (
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setModal({ type: 'member', mode: 'add', teamId: team.id })}
@@ -604,6 +617,7 @@ function OrgTeamSection({
             <Trash2 size={12} />
           </button>
         </div>
+        )}
       </div>
 
       {/* Team body — hidden when collapsed. Padding only; the outer border card
@@ -619,8 +633,9 @@ function OrgTeamSection({
                     key={m.id}
                     member={m}
                     teamId={team.id}
-                    onEdit={() => setModal({ type: 'member', mode: 'edit', member: m })}
-                    onDelete={() => setDeleteTarget({ type: 'member', id: m.id, name: m.name })}
+                    setModal={setModal}
+                    setDeleteTarget={setDeleteTarget}
+                    isAdmin={isAdmin}
                   />
                 ))}
               </SortableContext>
@@ -634,8 +649,9 @@ function OrgTeamSection({
                     key={m.id}
                     member={m}
                     teamId={team.id}
-                    onEdit={() => setModal({ type: 'member', mode: 'edit', member: m })}
-                    onDelete={() => setDeleteTarget({ type: 'member', id: m.id, name: m.name })}
+                    setModal={setModal}
+                    setDeleteTarget={setDeleteTarget}
+                    isAdmin={isAdmin}
                   />
                 ))}
               </SortableContext>
@@ -667,6 +683,7 @@ function OrgDomainSection({
   buildingMode,
   setModal,
   setDeleteTarget,
+  isAdmin,
 }: {
   domain: Domain
   filteredTeams: FilteredTeamEntry[]
@@ -675,12 +692,15 @@ function OrgDomainSection({
   buildingMode: boolean
   setModal: (m: ModalState) => void
   setDeleteTarget: (t: DeleteTarget) => void
+  /** When false, all add/edit/delete controls are hidden (user/read-only mode). */
+  isAdmin?: boolean
 }) {
   // Whether the team list is visible. Starts expanded.
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   // All teams in this domain — needed for SortableContext even when some are filtered.
-  const { teams } = usePortfolioStore()
+  // Single-key selector so this component doesn't re-render on member/project changes.
+  const teams = usePortfolioStore(s => s.teams)
   const allDomainTeams = teams.filter(t => t.domainId === domain.id)
 
   const filteredMemberCount = filteredTeams.reduce((s, t) => s + t.members.length, 0)
@@ -766,27 +786,29 @@ function OrgDomainSection({
         {/* Rule extends right from the domain name to fill remaining space */}
         <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
 
-        {/* Action buttons — always visible */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={() => setModal({ type: 'team', mode: 'add', domainId: domain.id })}
-            className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-violet-50 text-violet-600 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300"
-          >
-            <Plus size={11} /> Team
-          </button>
-          <button
-            onClick={() => setModal({ type: 'domain', mode: 'edit', domain })}
-            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700"
-          >
-            <Pencil size={12} />
-          </button>
-          <button
-            onClick={() => setDeleteTarget({ type: 'domain', id: domain.id, name: domain.name })}
-            className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
+        {/* Action buttons — only shown to admin users */}
+        {isAdmin && (
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setModal({ type: 'team', mode: 'add', domainId: domain.id })}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-violet-50 text-violet-600 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300"
+            >
+              <Plus size={11} /> Team
+            </button>
+            <button
+              onClick={() => setModal({ type: 'domain', mode: 'edit', domain })}
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700"
+            >
+              <Pencil size={12} />
+            </button>
+            <button
+              onClick={() => setDeleteTarget({ type: 'domain', id: domain.id, name: domain.name })}
+              className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Team list — only shown when domain is expanded.
@@ -805,6 +827,7 @@ function OrgDomainSection({
                 buildingMode={buildingMode}
                 setModal={setModal}
                 setDeleteTarget={setDeleteTarget}
+                isAdmin={isAdmin}
               />
             ))}
           </SortableContext>
@@ -819,7 +842,7 @@ function OrgDomainSection({
 function DomainForm({
   initial,
   onSubmit,
-  onCancel,
+  onCancel: _onCancel,
 }: {
   initial?: Partial<Domain>
   onSubmit: (data: Omit<Domain, 'id'>) => void
@@ -894,7 +917,7 @@ function TeamForm({
   initial,
   initialDomainId,
   onSubmit,
-  onCancel,
+  onCancel: _onCancel,
 }: {
   initial?: Partial<Team>
   /** Pre-selected domain. Pass '' to show a domain picker in the form. */
@@ -902,7 +925,8 @@ function TeamForm({
   onSubmit: (data: Omit<Team, 'id' | 'memberIds'>) => void
   onCancel: () => void
 }) {
-  const { domains } = usePortfolioStore()
+  // Single-key selector — TeamForm only needs domain list for the domain picker.
+  const domains = usePortfolioStore(s => s.domains)
   const [name, setName]               = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   // domainId is only editable when creating a new team with no pre-set domain.
@@ -921,7 +945,7 @@ function TeamForm({
       {initialDomainId === '' && (
         <div className="space-y-1.5">
           <Label htmlFor="t-domain" className="text-xs font-medium text-slate-600">Domain *</Label>
-          <Select value={domainId} onValueChange={setDomainId} required>
+          <Select value={domainId} onValueChange={v => setDomainId(v ?? '')} required>
             <SelectTrigger id="t-domain">
               <SelectValue placeholder="Select domain…" />
             </SelectTrigger>
@@ -954,13 +978,14 @@ function TeamForm({
 function MemberForm({
   initial,
   onSubmit,
-  onCancel,
+  onCancel: _onCancel,
 }: {
   initial?: Partial<Member>
   onSubmit: (data: Omit<Member, 'id' | 'projectIds'>) => void
   onCancel: () => void
 }) {
-  const { teams } = usePortfolioStore()
+  // Single-key selector — MemberForm only needs teams for the team picker.
+  const teams = usePortfolioStore(s => s.teams)
   const [name, setName]                 = useState(initial?.name ?? '')
   const [role, setRole]                 = useState(initial?.role ?? '')
   // Multi-select — stored as an array so members can have more than one discipline.
@@ -1158,13 +1183,35 @@ function parseCSVLine(line: string): string[] {
 // ─── Org page ─────────────────────────────────────────────────────────────
 
 export function OrgPage() {
-  const {
-    domains, teams, members, projects,
-    addDomain, updateDomain, deleteDomain, reorderDomains,
-    addTeam, updateTeam, deleteTeam, reorderDomainTeams,
-    addMember, updateMember, deleteMember,
-    reorderTeamMembers,
-  } = usePortfolioStore()
+  // Split data and action subscriptions so mutations to unrelated slices
+  // (e.g. adding a PTO block) don't re-render the full OrgPage tree.
+  // useShallow compares each selected key by reference — re-renders only when
+  // domains/teams/members/projects actually change.
+  const { domains, teams, members, projects } = usePortfolioStore(
+    useShallow(s => ({
+      domains:  s.domains,
+      teams:    s.teams,
+      members:  s.members,
+      projects: s.projects,
+    }))
+  )
+  // Action selectors are stable function references — no re-render risk.
+  const addDomain        = usePortfolioStore(s => s.addDomain)
+  const updateDomain     = usePortfolioStore(s => s.updateDomain)
+  const deleteDomain     = usePortfolioStore(s => s.deleteDomain)
+  const reorderDomains   = usePortfolioStore(s => s.reorderDomains)
+  const addTeam          = usePortfolioStore(s => s.addTeam)
+  const updateTeam       = usePortfolioStore(s => s.updateTeam)
+  const deleteTeam       = usePortfolioStore(s => s.deleteTeam)
+  const reorderDomainTeams = usePortfolioStore(s => s.reorderDomainTeams)
+  const addMember        = usePortfolioStore(s => s.addMember)
+  const updateMember     = usePortfolioStore(s => s.updateMember)
+  const deleteMember     = usePortfolioStore(s => s.deleteMember)
+  const reorderTeamMembers = usePortfolioStore(s => s.reorderTeamMembers)
+
+  // Role gating: Admin (null) has full CRUD; any selected member is read-only.
+  const { activeMemberId } = useViewStore()
+  const isAdmin = activeMemberId === null
 
   const [modal, setModal]              = useState<ModalState>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
@@ -1197,13 +1244,26 @@ export function OrgPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
+  // ── O(1) lookup Maps ──────────────────────────────────────────────────
+  // teamMap replaces teams.find(t => t.id === tid) called per member in the
+  // filter's search string builder — O(1) vs O(teams) per member.
+  // allocMap pre-computes each member's quarter allocation once so the filter
+  // function doesn't recompute it on every matchesMember() call — this converts
+  // N×O(projects) redundant calls into a single O(N×projects) pass.
+  const teamMap  = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const allocMap = useMemo(
+    () => new Map(members.map(m => [m.id, memberQuarterAllocation(m.id, projects)])),
+    [members, projects]
+  )
+
   // ── Stats — computed over all members, unaffected by filter state ─────
+  // Reads from allocMap (pre-computed above) to avoid a second full pass.
   const stats = useMemo(() => {
     let overCount  = 0
     let riskCount  = 0
     let totalAlloc = 0
     for (const m of members) {
-      const alloc = memberQuarterAllocation(m.id, projects)
+      const alloc = allocMap.get(m.id) ?? 0
       const cap   = m.capacity
       totalAlloc += alloc
       if (alloc > cap) overCount++
@@ -1215,7 +1275,7 @@ export function OrgPage() {
       riskCount,
       avgAlloc: members.length > 0 ? Math.round(totalAlloc / members.length) : 0,
     }
-  }, [members, projects])
+  }, [members, allocMap])
 
   // ── Filtered data — drives which domains/teams/members render ─────────
   // Each domain entry has a list of team entries; each team entry has:
@@ -1226,14 +1286,16 @@ export function OrgPage() {
 
     const matchesMember = (m: Member): boolean => {
       if (q) {
+        // Use teamMap for O(1) lookups instead of teams.find() per member.
         const memberTeams = m.teamIds
-          .map(tid => teams.find(t => t.id === tid)?.name ?? '')
+          .map(tid => teamMap.get(tid)?.name ?? '')
           .join(' ')
         const haystack = `${m.name} ${m.role} ${memberTeams}`.toLowerCase()
         if (!haystack.includes(q)) return false
       }
       if (allocFilter !== 'all') {
-        const alloc = memberQuarterAllocation(m.id, projects)
+        // Use pre-computed allocMap — avoids iterating all projects per member.
+        const alloc = allocMap.get(m.id) ?? 0
         const cap   = m.capacity
         if (allocFilter === 'over'    && alloc <= cap) return false
         if (allocFilter === 'at-risk' && !(alloc <= cap && cap > 0 && alloc / cap > 0.8)) return false
@@ -1527,7 +1589,7 @@ export function OrgPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Hidden file input for CSV upload */}
+            {/* Hidden file input for CSV upload — always present so handleImportCSV can ref it */}
             <input
               ref={fileInputRef}
               type="file"
@@ -1535,51 +1597,57 @@ export function OrgPage() {
               className="hidden"
               onChange={handleImportCSV}
             />
-            {/* ── Add dropdown ─────────────────────────────────────────
-                Single "Add" button with a small menu for Domain / Team / Person.
-                The overlay beneath the menu closes it when clicking outside.
-            */}
-            <div className="relative">
-              <Button onClick={() => setAddDropOpen(o => !o)}>
-                <Plus size={15} /> Add
-              </Button>
-              {addDropOpen && (
-                <>
-                  {/* Invisible backdrop to close on outside click */}
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setAddDropOpen(false)}
-                  />
-                  {/* Dropdown menu */}
-                  <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 bg-white shadow-md dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => { setAddDropOpen(false); setModal({ type: 'domain', mode: 'add' }) }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <Building2 size={14} className="text-slate-400" /> New Domain
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setAddDropOpen(false); setModal({ type: 'team', mode: 'add', domainId: '' }) }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
-                    >
-                      <Users size={14} className="text-slate-400" /> New Team
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setAddDropOpen(false); setModal({ type: 'member', mode: 'add', teamId: '' }) }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
-                    >
-                      <UserCircle size={14} className="text-slate-400" /> New Person
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-              <Upload size={14} /> Import CSV
-            </Button>
+            {/* Admin-only: Add dropdown, Import CSV */}
+            {isAdmin && (
+              <>
+                {/* ── Add dropdown ─────────────────────────────────────────
+                    Single "Add" button with a small menu for Domain / Team / Person.
+                    The overlay beneath the menu closes it when clicking outside.
+                */}
+                <div className="relative">
+                  <Button onClick={() => setAddDropOpen(o => !o)}>
+                    <Plus size={15} /> Add
+                  </Button>
+                  {addDropOpen && (
+                    <>
+                      {/* Invisible backdrop to close on outside click */}
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setAddDropOpen(false)}
+                      />
+                      {/* Dropdown menu */}
+                      <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 bg-white shadow-md dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => { setAddDropOpen(false); setModal({ type: 'domain', mode: 'add' }) }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          <Building2 size={14} className="text-slate-400" /> New Domain
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setAddDropOpen(false); setModal({ type: 'team', mode: 'add', domainId: '' }) }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                        >
+                          <Users size={14} className="text-slate-400" /> New Team
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setAddDropOpen(false); setModal({ type: 'member', mode: 'add', teamId: '' }) }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
+                        >
+                          <UserCircle size={14} className="text-slate-400" /> New Person
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                  <Upload size={14} /> Import CSV
+                </Button>
+              </>
+            )}
+            {/* Export is available to everyone — read-only operation */}
             <Button variant="outline" onClick={handleDownloadCSV}>
               <Download size={14} /> Export CSV
             </Button>
@@ -1755,6 +1823,7 @@ export function OrgPage() {
                 buildingMode={buildingMode}
                 setModal={setModal}
                 setDeleteTarget={setDeleteTarget}
+                isAdmin={isAdmin}
               />
             ))}
           </SortableContext>

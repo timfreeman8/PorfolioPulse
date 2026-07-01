@@ -345,4 +345,16 @@ export interface PortfolioState {
   weeklyPulses: WeeklyPulse[]
   /** Role-to-annual-cost mappings for portfolio financial analysis. */
   resourceRates: ResourceRate[]
+  /**
+   * Member IDs granted administrator access. Admins see all data and can
+   * create/edit/delete anything. All other logged-in members are "viewers"
+   * (read-only, filtered to their own projects).
+   *
+   * Empty array = bootstrap mode: every login gets admin until at least one
+   * admin is configured via Settings → Access Control. This lets the first
+   * user get in and set up the admin list.
+   *
+   * When Azure AD auth is added, this list is replaced by AAD group membership.
+   */
+  adminMemberIds: string[]
 }

@@ -1556,7 +1556,8 @@ export function PlanningPage() {
   // Derive display values for the selected year/quarter — used in the page header summary.
   const selectedFYYear = FY_YEARS[selectedYearIdx]
   const yearQuartersForDisplay = FY_QUARTERS.filter(q => q.fyYear === selectedFYYear.fyYear)
-  const currentQ = yearQuartersForDisplay[selectedQIdx] ?? yearQuartersForDisplay[0]
+  // currentQ retained for future header summary use
+  // const currentQ = yearQuartersForDisplay[selectedQIdx] ?? yearQuartersForDisplay[0]
 
   // hasScrolled prevents repeat auto-scroll when zoom/year changes after mount.
   const hasScrolled = useRef(false)

@@ -13,12 +13,17 @@
  *   - Delete with confirmation
  *   - Unassigned projects are flagged so they stand out
  */
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Trash2, Pencil, UserX, Download, ChevronDown, Check, SearchX, Layers } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
+import { Plus, Search, Trash2, Pencil, UserX, Download, ChevronDown, Check, SearchX, Layers, List, LayoutGrid } from 'lucide-react'
 import { FilterChip } from '@/components/ui/filter-chip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table'
 import { JiraImportDialog } from '@/components/projects/JiraImportDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
@@ -27,6 +32,7 @@ import {
   STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS,
 } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { fmtDate } from '@/lib/format'
 import type { Project } from '@/types'
 
 type SortKey = 'name' | 'startDate' | 'percentComplete'
@@ -53,14 +59,6 @@ function allStakeholderGroups(projects: Project[]): string[] {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Format an ISO date string as "MMM D, YYYY", or "—" when empty. */
-function fmtDate(iso: string): string {
-  if (!iso) return '—'
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  })
-}
 
 // ─── Progress bar ─────────────────────────────────────────────────────────
 // Visual fill bar showing % complete for a project.
@@ -193,14 +191,159 @@ function StakeholderDropdown({
   )
 }
 
+// ─── Project card (grid view) ─────────────────────────────────────────────
+/**
+ * ProjectCard — single card in the grid view of ProjectsPage.
+ *
+ * Extracted as a named component so React.memo can skip re-rendering cards
+ * whose project data hasn't changed when an unrelated project in the list
+ * is updated (e.g. user opens a different card and saves).
+ *
+ * Reads `deleteProject` directly from the store (single-key selector) to avoid
+ * passing an unstable callback prop that would defeat the memo.
+ *
+ * Props `memberMap` and `initiativeMap` come from `useMemo` in the parent —
+ * they hold the same reference between renders unless the underlying data
+ * changes, so passing them here is memo-safe.
+ */
+const ProjectCard = memo(function ProjectCard({
+  project,
+  memberMap,
+  initiativeMap,
+  isAdmin,
+}: {
+  project: Project
+  memberMap: Map<string, { id: string; name: string }>
+  initiativeMap: Map<string, { id: string; name: string }>
+  isAdmin: boolean
+}) {
+  const navigate = useNavigate()
+  // Single-key selector so ProjectCard never re-renders from unrelated store slices.
+  const deleteProject = usePortfolioStore(s => s.deleteProject)
+
+  const initiative = initiativeMap.get(project.initiativeId ?? '')
+  const assignedMemberObjs = [...new Set(project.assignments.map(a => a.memberId))]
+    .map(id => memberMap.get(id))
+    .filter(Boolean) as Array<{ id: string; name: string }>
+  const isUnassigned = project.assignments.length === 0
+
+  function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (window.confirm('Delete this project? This cannot be undone.')) deleteProject(project.id)
+  }
+
+  return (
+    <div
+      onClick={() => navigate(`/projects/${project.id}`)}
+      className={cn(
+        'group relative flex flex-col gap-3 bg-white dark:bg-slate-800/60 border rounded-xl p-4',
+        'hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all cursor-pointer',
+        isUnassigned ? 'border-amber-200 dark:border-amber-800/50' : 'border-slate-200 dark:border-slate-700',
+      )}
+    >
+      {/* Action buttons — top-right corner, shown on hover */}
+      <div
+        className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={() => navigate(`/projects/${project.id}`)}
+          className="p-1 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
+          title="Edit"
+        >
+          <Pencil size={12} />
+        </button>
+        {isAdmin && (
+          <button
+            onClick={handleDelete}
+            className="p-1 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/40 transition-colors"
+            title="Delete"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* Row 1: Epic name */}
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight pr-12 line-clamp-2">
+        {project.name}
+        {isUnassigned && (
+          <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 align-middle">
+            <UserX size={8} /> Unassigned
+          </span>
+        )}
+      </p>
+
+      {/* Row 2: Description */}
+      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-snug line-clamp-2">
+        {project.description || (initiative ? initiative.name : '—')}
+      </p>
+
+      {/* Row 3: Status + Priority chips */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', STATUS_COLORS[project.status])}>
+          {project.status}
+        </span>
+        <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PRIORITY_COLORS[project.priority])}>
+          {project.priority}
+        </span>
+      </div>
+
+      {/* Row 4: Phase chip + % label, then a thin progress bar below */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-1">
+          <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PHASE_COLORS[project.phase])}>
+            {project.phase}
+          </span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            {project.percentComplete}%
+          </span>
+        </div>
+        <div className="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all"
+            style={{ width: `${project.percentComplete}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Row 5: People — comma-separated names */}
+      {assignedMemberObjs.length > 0 && (
+        <div className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap">
+          {assignedMemberObjs.slice(0, 4).map((m, i) => (
+            <span key={m.id} className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">
+              {m.name}{i < Math.min(assignedMemberObjs.length, 4) - 1 ? ',' : ''}
+            </span>
+          ))}
+          {assignedMemberObjs.length > 4 && (
+            <span className="text-[10px] text-slate-400">+{assignedMemberObjs.length - 4} more</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
+
 // ─── Projects page ────────────────────────────────────────────────────────
 
 export function ProjectsPage() {
-  const { projects, members, initiatives, deleteProject } = usePortfolioStore()
+  // useShallow prevents re-renders when unrelated slices change (e.g. teams, domains).
+  const { projects, members, initiatives, deleteProject } = usePortfolioStore(
+    useShallow(s => ({
+      projects: s.projects,
+      members: s.members,
+      initiatives: s.initiatives,
+      deleteProject: s.deleteProject,
+    }))
+  )
   // User mode: activeMemberId is set → filter to that person's projects only.
   const { activeMemberId } = useViewStore()
   const navigate = useNavigate()
   const isAdmin  = activeMemberId === null
+
+  // O(1) lookup Maps — replace O(n) .find() calls in the render loops below.
+  const memberMap     = useMemo(() => new Map(members.map(m => [m.id, m])), [members])
+  const initiativeMap = useMemo(() => new Map(initiatives.map(i => [i.id, i])), [initiatives])
 
   const [search, setSearch]           = useState('')
   const [sortKey, setSortKey]         = useState<SortKey>('startDate')
@@ -208,6 +351,7 @@ export function ProjectsPage() {
   // [] = no filter; non-empty = show only projects that match any selected group
   const [stakeholderFilter, setStakeholderFilter] = useState<string[]>([])
   const [jiraImportOpen, setJiraImportOpen] = useState(false)
+  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid')
 
   const filtered = useMemo(() => {
     let list = [...projects]
@@ -244,6 +388,54 @@ export function ProjectsPage() {
   const stakeholderGroups = useMemo(() => allStakeholderGroups(projects), [projects])
 
   const unassignedCount = projects.filter(p => p.assignments.length === 0).length
+
+  // ── Grid view virtualizer ─────────────────────────────────────────────────
+  // Chunk filtered projects into rows of GRID_COLS so the virtualizer operates
+  // on rows (each containing N cards) rather than individual items.
+  // GRID_COLS matches the xl:grid-cols-3 CSS breakpoint on wide screens.
+  // On narrower viewports (1–2 col breakpoints) cards just fill fewer slots per
+  // row — the grid CSS handles the actual layout; GRID_COLS only affects how
+  // many projects we put in each virtual chunk.
+  const GRID_COLS = 3
+  const gridRows = useMemo(() => {
+    const rows: Project[][] = []
+    for (let i = 0; i < filtered.length; i += GRID_COLS) {
+      rows.push(filtered.slice(i, i + GRID_COLS))
+    }
+    return rows
+  }, [filtered])
+
+  const gridScrollRef = useRef<HTMLDivElement>(null)
+  const gridVirtualizer = useVirtualizer({
+    count: gridRows.length,
+    getScrollElement: () => gridScrollRef.current,
+    estimateSize: () => 190, // approximate card height including gap
+    overscan: 2,
+  })
+  const virtualGridRows    = gridVirtualizer.getVirtualItems()
+  const gridTotalSize      = gridVirtualizer.getTotalSize()
+  const gridPaddingTop     = virtualGridRows.length > 0 ? virtualGridRows[0].start : 0
+  const gridPaddingBottom  = virtualGridRows.length > 0
+    ? gridTotalSize - virtualGridRows[virtualGridRows.length - 1].end
+    : 0
+
+  // ── List view virtualizer ──────────────────────────────────────────────────
+  // Scroll container for the list-view table. The grid view virtualizer uses
+  // a separate ref (gridScrollRef) since the two views can't share a scroll
+  // container — they are in separate branches of the conditional render.
+  const listScrollRef = useRef<HTMLDivElement>(null)
+  const listVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => listScrollRef.current,
+    estimateSize: () => 44, // approximate height of one TableRow
+    overscan: 5,
+  })
+  const listVirtualRows   = listVirtualizer.getVirtualItems()
+  const listTotalHeight   = listVirtualizer.getTotalSize()
+  const listPaddingTop    = listVirtualRows.length > 0 ? listVirtualRows[0].start : 0
+  const listPaddingBottom = listVirtualRows.length > 0
+    ? listTotalHeight - listVirtualRows[listVirtualRows.length - 1].end
+    : 0
 
   function handleDelete(id: string) {
     if (window.confirm('Delete this project? This cannot be undone.')) deleteProject(id)
@@ -348,133 +540,194 @@ export function ProjectsPage() {
             Clear all
           </button>
         )}
-      </div>
 
-      {/* Project grid — 3-column cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {filtered.length === 0 ? (
-          projects.length === 0 ? (
-            /* No projects at all — spans full grid width */
-            <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
-              <Layers size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">No epics found</h3>
-              <p className="text-sm text-slate-400 mb-6 max-w-xs">Add your first epic to start tracking work across the portfolio.</p>
-              {isAdmin && (
-                <Button onClick={() => navigate('/epics/new')} className="gap-2">
-                  <Plus size={15} /> Add Epic
-                </Button>
-              )}
-            </div>
-          ) : (
-            /* Filters returned zero results */
-            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-              <SearchX size={40} className="text-slate-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">No epics found</h3>
-              <p className="text-sm text-slate-400">No epics match your current search or filters.</p>
-            </div>
-          )
-        ) : filtered.map(project => {
-          const initiative = initiatives.find(i => i.id === project.initiativeId)
-          // Deduplicate by memberId — a member can appear in multiple phases
-          const assignedMemberObjs = [...new Set(project.assignments.map(a => a.memberId))]
-            .map(id => members.find(m => m.id === id))
-            .filter(Boolean) as typeof members
-          const isUnassigned = project.assignments.length === 0
-
-          return (
-            <div
-              key={project.id}
-              onClick={() => navigate(`/projects/${project.id}`)}
-              className={cn(
-                'group relative flex flex-col gap-3 bg-white dark:bg-slate-800/60 border rounded-xl p-4',
-                'hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm transition-all cursor-pointer',
-                isUnassigned ? 'border-amber-200 dark:border-amber-800/50' : 'border-slate-200 dark:border-slate-700',
-              )}
+        {/* View mode toggle */}
+        <div className="ml-auto flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md p-0.5 shrink-0">
+          {([
+            { mode: 'grid', icon: LayoutGrid, label: 'Grid' },
+            { mode: 'list', icon: List,        label: 'List' },
+          ] as { mode: 'grid' | 'list'; icon: React.ElementType; label: string }[]).map(({ mode, icon: Icon, label }) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={cn('flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium transition-colors',
+                viewMode === mode
+                  ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-700 dark:text-slate-200'
+                  : 'text-slate-400 hover:text-slate-600')}
             >
-              {/* Action buttons — top-right corner, shown on hover */}
-              <div
-                className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={e => e.stopPropagation()}
-              >
-                <button
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                  className="p-1 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
-                  title="Edit"
-                >
-                  <Pencil size={12} />
-                </button>
-                {isAdmin && (
-                  <button
-                    onClick={() => handleDelete(project.id)}
-                    className="p-1 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/40 transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Row 1: Epic name */}
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight pr-12 line-clamp-2">
-                {project.name}
-                {isUnassigned && (
-                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 align-middle">
-                    <UserX size={8} /> Unassigned
-                  </span>
-                )}
-              </p>
-
-              {/* Row 2: Description */}
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-snug line-clamp-2">
-                {project.description || (initiative ? initiative.name : '—')}
-              </p>
-
-              {/* Row 3: Status + Priority chips */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', STATUS_COLORS[project.status])}>
-                  {project.status}
-                </span>
-                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PRIORITY_COLORS[project.priority])}>
-                  {project.priority}
-                </span>
-              </div>
-
-              {/* Row 4: Phase chip + % label, then a thin progress bar below */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-1">
-                  <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', PHASE_COLORS[project.phase])}>
-                    {project.phase}
-                  </span>
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    {project.percentComplete}%
-                  </span>
-                </div>
-                {/* Progress bar — fills proportionally to percentComplete */}
-                <div className="h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-blue-500 transition-all"
-                    style={{ width: `${project.percentComplete}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Row 5: People — full names as comma-separated text */}
-              {assignedMemberObjs.length > 0 && (
-                <div className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap pt-0.5 border-t border-slate-100 dark:border-slate-700">
-                  {assignedMemberObjs.slice(0, 4).map((m, i) => (
-                    <span key={m.id} className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">
-                      {m.name}{i < Math.min(assignedMemberObjs.length, 4) - 1 ? ',' : ''}
-                    </span>
-                  ))}
-                  {assignedMemberObjs.length > 4 && (
-                    <span className="text-[10px] text-slate-400">+{assignedMemberObjs.length - 4} more</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
+              <Icon size={13} /> {label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Empty states */}
+      {filtered.length === 0 && (
+        projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <Layers size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
+            <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">No epics found</h3>
+            <p className="text-sm text-slate-400 mb-6 max-w-xs">Add your first epic to start tracking work across the portfolio.</p>
+            {isAdmin && (
+              <Button onClick={() => navigate('/epics/new')} className="gap-2">
+                <Plus size={15} /> Add Epic
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <SearchX size={40} className="text-slate-300 dark:text-slate-600 mb-4" />
+            <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">No epics found</h3>
+            <p className="text-sm text-slate-400">No epics match your current search or filters.</p>
+          </div>
+        )
+      )}
+
+      {filtered.length > 0 && viewMode === 'grid' && (
+        /* ── Grid view — row-chunked virtualizer ──
+           The scroll container has a fixed maxHeight so the virtualizer can
+           compute which rows are in view. Each virtual row is a CSS grid that
+           holds up to GRID_COLS memoized ProjectCards. Spacer divs above and
+           below the virtual rows maintain the correct scrollable height without
+           mounting off-screen cards. */
+        <div
+          ref={gridScrollRef}
+          className="overflow-y-auto flex-1"
+          style={{ maxHeight: '70vh' }}
+        >
+          {/* Top spacer — scroll space for rows above the viewport. */}
+          {gridPaddingTop > 0 && <div style={{ height: gridPaddingTop }} />}
+          {virtualGridRows.map(vRow => (
+            <div
+              key={vRow.index}
+              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mb-3"
+            >
+              {gridRows[vRow.index].map(project => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  memberMap={memberMap}
+                  initiativeMap={initiativeMap}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </div>
+          ))}
+          {/* Bottom spacer — scroll space for rows below the viewport. */}
+          {gridPaddingBottom > 0 && <div style={{ height: gridPaddingBottom }} />}
+        </div>
+      )}
+
+      {filtered.length > 0 && viewMode === 'list' && (
+        /* ── List view — virtualized table ──
+           The outer div is the scroll container read by listVirtualizer.
+           maxHeight is large enough that the table fills the remaining
+           viewport, but fixed so the virtualizer can measure it. */
+        <div
+          ref={listScrollRef}
+          className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-x-auto overflow-y-auto flex-1"
+          style={{ maxHeight: '70vh' }}
+        >
+          <Table className="table-fixed">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[280px]">Epic</TableHead>
+                <TableHead className="w-28">Status</TableHead>
+                <TableHead className="w-28">Phase</TableHead>
+                <TableHead className="w-24">Priority</TableHead>
+                <TableHead className="w-32">Progress</TableHead>
+                <TableHead className="w-32">Start</TableHead>
+                <TableHead className="w-32">Target</TableHead>
+                <TableHead>Members</TableHead>
+                {isAdmin && <TableHead className="w-16" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {/* Top spacer — represents off-screen rows above the viewport. */}
+              {listPaddingTop > 0 && (
+                <tr><td style={{ height: listPaddingTop }} /></tr>
+              )}
+              {listVirtualRows.map(vRow => {
+                const project = filtered[vRow.index]
+                // Map lookups instead of O(n) .find() per row.
+                const assignedMemberObjs = [...new Set(project.assignments.map(a => a.memberId))]
+                  .map(id => memberMap.get(id))
+                  .filter(Boolean) as typeof members
+                const isUnassigned = project.assignments.length === 0
+
+                return (
+                  <TableRow
+                    key={project.id}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <TableCell className="overflow-hidden">
+                      <p className="font-medium text-slate-900 dark:text-slate-100 text-sm truncate" title={project.name}>
+                        {project.name}
+                      </p>
+                      {isUnassigned && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                          <UserX size={8} /> Unassigned
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap', STATUS_COLORS[project.status])}>
+                        {project.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap', PHASE_COLORS[project.phase])}>
+                        {project.phase}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap', PRIORITY_COLORS[project.priority])}>
+                        {project.priority}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <ProgressBar value={project.percentComplete} />
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500 whitespace-nowrap">{fmtDate(project.startDate)}</TableCell>
+                    <TableCell className="text-xs text-slate-500 whitespace-nowrap">{fmtDate(project.targetEndDate)}</TableCell>
+                    <TableCell className="overflow-hidden text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {assignedMemberObjs.length === 0
+                        ? <span className="text-slate-300">—</span>
+                        : assignedMemberObjs.slice(0, 3).map(m => m.name).join(', ') + (assignedMemberObjs.length > 3 ? ` +${assignedMemberObjs.length - 3}` : '')
+                      }
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => navigate(`/projects/${project.id}`)}
+                            className="p-1 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(project.id)}
+                            className="p-1 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/40 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })}
+              {/* Bottom spacer — represents off-screen rows below the viewport. */}
+              {listPaddingBottom > 0 && (
+                <tr><td style={{ height: listPaddingBottom }} /></tr>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Jira import dialog */}
       <JiraImportDialog open={jiraImportOpen} onOpenChange={setJiraImportOpen} />

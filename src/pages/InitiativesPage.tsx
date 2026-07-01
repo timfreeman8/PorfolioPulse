@@ -24,6 +24,7 @@ import {
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { INITIATIVE_STATUS_COLORS, STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS } from '@/lib/colors'
 import { cn } from '@/lib/utils'
+import { fmtDateShort } from '@/lib/format'
 import type { Initiative, InitiativeStatus } from '@/types'
 
 const STATUSES: InitiativeStatus[] = ['Planning', 'Active', 'Complete', 'On Hold']
@@ -372,9 +373,7 @@ function InitiativeCard({
                   </TableHeader>
                   <TableBody>
                     {iniProjects.map(p => {
-                      const endDate = p.targetEndDate
-                        ? new Date(p.targetEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-                        : '—'
+                      const endDate = fmtDateShort(p.targetEndDate)
                       return (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium text-slate-800 max-w-[180px]">

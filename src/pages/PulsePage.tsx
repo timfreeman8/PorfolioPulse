@@ -17,7 +17,7 @@
 
 import { useState, useMemo } from 'react'
 import {
-  ChevronLeft, ChevronRight, Pencil, Plus, X, Trash2,
+  ChevronLeft, ChevronRight, Pencil, Plus, Trash2,
   Activity, Users, AlertCircle, Smile, TrendingUp, Copy,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -975,7 +975,7 @@ function PulseAnalytics({
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
                   <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                   <Tooltip
-                    formatter={(v: number | null) => [v?.toFixed(1) ?? '—', 'Avg sentiment']}
+                    formatter={(v) => [(v as number | null)?.toFixed(1) ?? '—', 'Avg sentiment']}
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
                   />
                   {/* Green reference line at 3 = "Just right" */}
@@ -1408,7 +1408,7 @@ export function PulsePage() {
                         {/* Reference band for "just right" zone (3) */}
                         <ReferenceLine y={3} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} />
                         <Tooltip
-                          formatter={(val: number) => [`${val} — ${SENTIMENT_LABELS[val]}`, 'Workload']}
+                          formatter={(val) => { const n = val as number; return [`${n} — ${SENTIMENT_LABELS[n]}`, 'Workload'] }}
                           contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
                           labelStyle={{ fontWeight: 600, marginBottom: 2 }}
                         />
@@ -1417,9 +1417,8 @@ export function PulsePage() {
                           dataKey="sentiment"
                           stroke="#6366f1"
                           strokeWidth={2}
-                          dot={(props: { cx: number; cy: number; payload: { sentiment: number } }) => {
-                            const col = SENTIMENT_COLORS[props.payload.sentiment]
-                            // Extract the hex-ish color class from bar string for dot fill.
+                          dot={(props: { cx?: number; cy?: number; payload: { sentiment: number } }) => {
+                            // SENTIMENT_COLORS unused here — color is derived from value range directly.
                             const fill = props.payload.sentiment <= 2 ? '#38bdf8'
                               : props.payload.sentiment === 3 ? '#22c55e'
                               : props.payload.sentiment === 4 ? '#fbbf24' : '#ef4444'

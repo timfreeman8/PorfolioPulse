@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Users, Layers, Target, ClipboardList, SearchX, ArrowRight } from 'lucide-react'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
+import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 
 const MAX_PER_GROUP = 5
@@ -51,7 +52,15 @@ const GROUP_META: Record<SearchResult['group'], { icon: React.ElementType; label
 
 export function SearchModal() {
   const { searchOpen, setSearchOpen } = useViewStore()
-  const { members, projects, initiatives, intakeRequests } = usePortfolioStore()
+  // useShallow prevents re-renders when unrelated slices (teams, domains) change.
+  const { members, projects, initiatives, intakeRequests } = usePortfolioStore(
+    useShallow(s => ({
+      members: s.members,
+      projects: s.projects,
+      initiatives: s.initiatives,
+      intakeRequests: s.intakeRequests,
+    }))
+  )
   const navigate = useNavigate()
 
   const [query, setQuery]   = useState('')

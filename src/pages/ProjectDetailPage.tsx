@@ -18,7 +18,8 @@
  * plan by legacyToPhases() so opening any existing project just works.
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
+import { useClickOutside } from '@/lib/useClickOutside'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, Plus, ChevronUp, ChevronDown, Trash2, X, Check,
@@ -86,13 +87,7 @@ function InitiativeCombobox({ initiatives, value, onChange }: {
   const [open, setOpen]     = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(ref, () => setOpen(false), open)
 
   const selected = initiatives.find(i => i.id === value)
   const filtered = initiatives.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
@@ -149,13 +144,7 @@ function BlockedByMultiSelect({ allProjects, selectedIds, onToggle }: {
   const [open, setOpen]     = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(ref, () => setOpen(false), open)
 
   const selected = allProjects.filter(p => selectedIds.includes(p.id))
   const filtered = allProjects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
@@ -208,13 +197,7 @@ function PhaseMemberPicker({ members, assignments, onToggle }: {
   const [open, setOpen]     = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  useClickOutside(ref, () => setOpen(false), open)
 
   const selectedIds = assignments.map(a => a.memberId)
   const selected    = members.filter(m => selectedIds.includes(m.id))

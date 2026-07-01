@@ -35,7 +35,6 @@ import type {
   Member,
   PortfolioState,
   Project,
-  PriorityItem,
   ProjectPhaseStep,
   PtoBlock,
   ResourceRate,
@@ -4076,6 +4075,7 @@ function buildState(): PortfolioState {
     initiatives, intakeRequests, escalations: [], ptoBlocks,
     weeklyPulses,
     resourceRates,
+    adminMemberIds: [],
   }
 }
 

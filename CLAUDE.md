@@ -1,30 +1,22 @@
 # SAT — Store Technology Portfolio Planning & Visibility Tool
 
-## "Add to Figma" Command
+## Project Status (as of July 2026)
 
-When the user says **"add to figma"** (or any variation like "send to figma", "capture to figma"),
-immediately run the Figma screen capture workflow — no clarifying questions needed.
+- **App title:** "SAT Portfolio Pulse" (`index.html`)
+- **Build:** Clean — `npm run build` passes with zero TypeScript errors
+- **Dev server:** `http://localhost:5174/` (`npm run dev -- --port 5174`)
+- **Deployment target:** Internal Azure (service TBD — Azure Static Web Apps preferred for SPA routing)
+- **Figma capture:** Removed — capture script and camera button have been stripped from the app
 
-**Setup (already done — do not repeat):**
-- Capture script is already injected in `index.html`
-- Dev server runs at `http://localhost:5174/` (start with `npm run dev` if not running)
-- Target Figma file key: `vErHxQFdUAqejiNpvOli0u`
+## AI Chat Feature
 
-**Workflow — one call per session, not per page:**
-1. Call `generate_figma_design` MCP tool with `fileKey: "vErHxQFdUAqejiNpvOli0u"` (no captureId) to get a new captureId.
-2. Write the captureId to `public/figma-capture.json`:
-   ```json
-   { "captureId": "<captureId>" }
-   ```
-3. Tell the user: "Navigate to the page you want, then click the **camera icon** in the top bar. The Figma toolbar will appear. Once it's open, you can capture as many pages as you want — the toolbar auto-generates new IDs after each capture."
-4. Stop — do NOT open any URLs or call `open`.
+A floating AI assistant button is pinned to the bottom-right of every page (`src/components/chat/FloatingChat.tsx`).
 
-**Notes:**
-- Do NOT auto-capture, poll, or call `open`. The user clicks the in-app camera button.
-- Only call `generate_figma_design` when the user explicitly says "add to figma" (once per session).
-- After the Figma toolbar opens, the user can navigate to any page and re-capture without another Claude call.
-- The camera button is in the TopBar (right side, between the search bar and the bell icon).
-- Do not remove the capture script from `index.html`.
+- **Icon:** `MessageSquare` with a small yellow `Sparkles` badge in the top-right corner; switches to `X` when open
+- **Model:** Claude via `@anthropic-ai/sdk` — user must supply an Anthropic API key in Settings
+- **Context:** The assistant receives a structured snapshot of the current portfolio state as context
+- **Key files:** `src/components/chat/FloatingChat.tsx`, `src/lib/chat.ts`
+- Keep the `@anthropic-ai/sdk` dependency — the chat feature is intentionally retained
 
 ---
 
@@ -400,8 +392,8 @@ When ready to add a real backend:
 - The Zustand store itself does not change — only the persistence module
 
 **Authentication**
-- Add a login page and auth context (e.g., using Supabase Auth, Auth0, or a
-  custom JWT flow)
+- Deployment target is **internal Azure** — Azure AD (Entra ID) is the natural auth provider
+- Add a login page and auth context using MSAL (Microsoft Authentication Library)
 - Protect all routes with an `<AuthGuard>` wrapper
 
 **Role-based access control (RBAC)**
@@ -412,14 +404,14 @@ Suggested roles:
 - `domain_owner` — full CRUD within their domain
 - `admin` — full access including intake approval and analytics
 
-**Recommended backend stack options**
-- Supabase (Postgres + Auth + Row-Level Security — easiest migration path)
-- PlanetScale / Neon + Drizzle ORM + NextAuth.js
-- Firebase (Firestore + Auth)
+**Recommended backend stack (Azure-aligned)**
+- Azure Static Web Apps + Azure AD authentication (built-in auth, no code needed for basic protection)
+- Azure Cosmos DB or Azure SQL for persistence
+- Azure Functions for API layer
 
 **Migration path**
-1. Stand up backend + auth provider
-2. Export current localStorage data to seed the database
-3. Swap `src/lib/persistence.ts` to call the API
-4. Add login page + `<AuthGuard>` on the router
+1. Deploy to Azure Static Web Apps (handles SPA routing automatically)
+2. Enable Azure AD auth in the Static Web App config
+3. Export current localStorage data to seed the database
+4. Swap `src/lib/persistence.ts` to call the API
 5. Add role checks in the store actions and UI (hide/disable controls by role)

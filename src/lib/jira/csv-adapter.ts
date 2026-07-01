@@ -190,7 +190,7 @@ export function parseJiraCsv(text: string, filterEpicsOnly = true): CsvParseResu
   const rows = parseCsv(text.trim())
 
   if (rows.length < 2) {
-    return { drafts: [], skipped: [], error: 'CSV appears empty — make sure you exported a non-empty issue list.' }
+    return { drafts: [], skipped: [], assigneesFound: [], error: 'CSV appears empty — make sure you exported a non-empty issue list.' }
   }
 
   const [headerRow, ...dataRows] = rows
@@ -212,6 +212,7 @@ export function parseJiraCsv(text: string, filterEpicsOnly = true): CsvParseResu
     return {
       drafts: [],
       skipped: [],
+      assigneesFound: [],
       error: 'Could not find a "Summary" column. Make sure this is a Jira issue export (not a board export or custom report).',
     }
   }

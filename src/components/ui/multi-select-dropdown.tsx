@@ -14,6 +14,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useClickOutside } from '@/lib/useClickOutside'
 
 interface MultiSelectDropdownProps {
   label: string
@@ -33,18 +34,8 @@ export function MultiSelectDropdown({
   const ref               = useRef<HTMLDivElement>(null)
   const searchRef         = useRef<HTMLInputElement>(null)
 
-  // Close on click outside
-  useEffect(() => {
-    if (!open) return
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-        setQuery('')
-      }
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+  // Close on click outside — only attaches the listener while the panel is open.
+  useClickOutside(ref, () => { setOpen(false); setQuery('') }, open)
 
   // Focus the search box when the panel opens
   useEffect(() => {

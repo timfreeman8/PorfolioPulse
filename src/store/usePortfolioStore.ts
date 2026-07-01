@@ -15,7 +15,7 @@
  * the store below following the same pattern.
  */
 import { create } from 'zustand'
-import { loadState, saveState } from '@/lib/persistence'
+import { loadState, saveState, scheduleSave } from '@/lib/persistence'
 import { normalizeRoles } from '@/lib/roles'
 import { legacyToPhases } from '@/lib/projectBuilder'
 import type {
@@ -37,9 +37,17 @@ function uid(): string {
   return crypto.randomUUID()
 }
 
-/** Call after every mutation so state is persisted via the abstraction layer. */
+/**
+ * Schedule a debounced write after every mutation.
+ * Rapid consecutive mutations (e.g. dragging a Gantt bar) are coalesced into
+ * a single localStorage write 500ms after the last change, keeping the main
+ * thread unblocked. See persistence.ts for details and trade-offs.
+ *
+ * Exception: the hydrate() action calls saveState() directly because it is a
+ * one-time bulk write that must complete before the caller triggers a reload.
+ */
 function persist(state: PortfolioState) {
-  saveState(state)
+  scheduleSave(state)
 }
 
 // ─── Store actions interface ───────────────────────────────────────────────
@@ -117,6 +125,10 @@ interface PortfolioActions {
   setResourceRate: (role: string, annualRate: number) => void
   /** Remove the rate entry for a role (role will show as "no rate defined"). */
   removeResourceRate: (role: string) => void
+
+  // Access control
+  /** Replace the full list of admin member IDs (used by Settings → Access Control). */
+  setAdminMemberIds: (ids: string[]) => void
 }
 
 // ─── Empty initial state ───────────────────────────────────────────────────
@@ -132,6 +144,7 @@ const EMPTY_STATE: PortfolioState = {
   ptoBlocks: [],
   weeklyPulses: [],
   resourceRates: [],
+  adminMemberIds: [],
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────
@@ -146,6 +159,8 @@ function migrateState(state: PortfolioState): PortfolioState {
     ...state,
     // Backfill resourceRates for stores created before this field existed.
     resourceRates: state.resourceRates ?? [],
+    // Backfill adminMemberIds for stores created before role-based access was added.
+    adminMemberIds: state.adminMemberIds ?? [],
     // Backfill weeklyPulses for stores created before this field existed.
     // Migrates three historical shapes into the current PriorityItem[] format:
     //   1. Old PriorityItem  { text, size, label? } — strip label, keep text+size.
@@ -191,7 +206,9 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
     // ── Hydrate ────────────────────────────────────────────────────────────
     hydrate(state) {
       set(state)
-      persist(state)
+      // Use saveState directly (not scheduleSave) — hydrate is a bulk import
+      // that must be written before the caller triggers a page reload.
+      saveState(state)
     },
 
     // ── Domains ────────────────────────────────────────────────────────────
@@ -694,6 +711,14 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
           ...s,
           resourceRates: s.resourceRates.filter(r => r.role !== role),
         }
+        persist(next)
+        return next
+      })
+    },
+
+    setAdminMemberIds(ids) {
+      set(s => {
+        const next: PortfolioState = { ...s, adminMemberIds: ids }
         persist(next)
         return next
       })

@@ -38,13 +38,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS, avatarColor } from '@/lib/colors'
 import { MEMBER_DISCIPLINES } from '@/lib/roles'
 import { cn } from '@/lib/utils'
+import { fmtDateShort } from '@/lib/format'
 import type { Member, Project } from '@/types'
 
 // ─── Member edit form ─────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ import type { Member, Project } from '@/types'
 function MemberEditForm({
   member,
   onSave,
-  onCancel,
+  onCancel: _onCancel,
 }: {
   member: Member
   onSave: (data: Omit<Member, 'id' | 'projectIds'>) => void
@@ -211,9 +212,7 @@ function ProjectRow({ project, rank, initiativeName, onEdit, onDelete }: {
     opacity: isDragging ? 0.4 : 1,
   }
 
-  const endDate = project.targetEndDate
-    ? new Date(project.targetEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-    : '—'
+  const endDate = fmtDateShort(project.targetEndDate)
 
   return (
     <TableRow ref={setNodeRef} style={style} className="group cursor-pointer hover:bg-slate-50" onClick={onEdit}>
@@ -361,6 +360,7 @@ export function MemberDetailPage() {
    * immediately since assignments drive membership throughout the app.
    */
   function handleAssign(project: Project) {
+    if (!member) return
     updateProject(project.id, {
       assignments: [
         ...project.assignments,
