@@ -17,7 +17,7 @@
 import { create } from 'zustand'
 import { loadState, saveState, scheduleSave } from '@/lib/persistence'
 import { sendTeamsAlert } from '@/lib/notifications'
-import { normalizeRoles } from '@/lib/roles'
+import { normalizeRoles, roleCategoryOf } from '@/lib/roles'
 import { legacyToPhases } from '@/lib/projectBuilder'
 import type {
   Domain,
@@ -28,6 +28,7 @@ import type {
   PortfolioState,
   Project,
   PtoBlock,
+  RoleDefinition,
   Team,
   WeeklyPulse,
 } from '@/types'
@@ -118,7 +119,7 @@ interface PortfolioActions {
   updatePulse: (id: string, patch: Partial<Omit<WeeklyPulse, 'id'>>) => void
   deletePulse: (id: string) => void
 
-  // Resource rates
+  // Resource rates (legacy — kept for backwards compat; prefer roleDefinitions)
   /**
    * Upsert an annual rate for a role. Creates the entry if the role is new,
    * or updates the existing entry when the role already has a rate.
@@ -126,6 +127,14 @@ interface PortfolioActions {
   setResourceRate: (role: string, annualRate: number) => void
   /** Remove the rate entry for a role (role will show as "no rate defined"). */
   removeResourceRate: (role: string) => void
+
+  // Role definitions — the primary source of truth for job title metadata
+  /** Create a new role definition. Returns the created definition with its generated id. */
+  addRoleDefinition: (def: Omit<RoleDefinition, 'id'>) => RoleDefinition
+  /** Update any subset of fields on an existing role definition. */
+  updateRoleDefinition: (id: string, patch: Partial<Omit<RoleDefinition, 'id'>>) => void
+  /** Delete a role definition by id. Does not cascade to members — their role string is left unchanged. */
+  removeRoleDefinition: (id: string) => void
 
   // Access control
   /** Replace the full list of admin member IDs (used by Settings → Access Control). */
@@ -145,6 +154,7 @@ const EMPTY_STATE: PortfolioState = {
   ptoBlocks: [],
   weeklyPulses: [],
   resourceRates: [],
+  roleDefinitions: [],
   adminMemberIds: [],
 }
 
@@ -156,10 +166,32 @@ const EMPTY_STATE: PortfolioState = {
  * sync with the canonical role list in src/lib/roles.ts.
  */
 function migrateState(state: PortfolioState): PortfolioState {
+  // ── Seed roleDefinitions from existing data if not yet populated ────────
+  // When loading a store that pre-dates this field, build the initial set from
+  // every unique member role string + any existing resourceRate entries. This
+  // ensures users who already configured rates don't lose them on upgrade.
+  const rawRoleDefinitions: RoleDefinition[] = state.roleDefinitions ?? []
+  const seededRoleDefinitions: RoleDefinition[] = rawRoleDefinitions.length > 0
+    ? rawRoleDefinitions
+    : (() => {
+        const existingRates: { role: string; annualRate: number }[] = state.resourceRates ?? []
+        const rateMap = new Map(existingRates.map(r => [r.role, r.annualRate]))
+        const uniqueRoles = [...new Set((state.members ?? []).map(m => m.role).filter(Boolean))]
+        return uniqueRoles.map(name => ({
+          id: crypto.randomUUID(),
+          name,
+          category: roleCategoryOf(name),
+          annualRate: rateMap.get(name) ?? 0,
+          aadJobTitle: '',
+        }))
+      })()
+
   return {
     ...state,
     // Backfill resourceRates for stores created before this field existed.
     resourceRates: state.resourceRates ?? [],
+    // Seed roleDefinitions — empty on first load, preserved on subsequent loads.
+    roleDefinitions: seededRoleDefinitions,
     // Backfill adminMemberIds for stores created before role-based access was added.
     adminMemberIds: state.adminMemberIds ?? [],
     // Backfill weeklyPulses for stores created before this field existed.
@@ -759,6 +791,42 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
         const next: PortfolioState = {
           ...s,
           resourceRates: s.resourceRates.filter(r => r.role !== role),
+        }
+        persist(next)
+        return next
+      })
+    },
+
+    // ── Role definitions ────────────────────────────────────────────────────
+    addRoleDefinition(def) {
+      const definition: RoleDefinition = { id: uid(), ...def }
+      set(s => {
+        const next: PortfolioState = {
+          ...s,
+          roleDefinitions: [...s.roleDefinitions, definition],
+        }
+        persist(next)
+        return next
+      })
+      return definition
+    },
+    updateRoleDefinition(id, patch) {
+      set(s => {
+        const next: PortfolioState = {
+          ...s,
+          roleDefinitions: s.roleDefinitions.map(d =>
+            d.id === id ? { ...d, ...patch } : d
+          ),
+        }
+        persist(next)
+        return next
+      })
+    },
+    removeRoleDefinition(id) {
+      set(s => {
+        const next: PortfolioState = {
+          ...s,
+          roleDefinitions: s.roleDefinitions.filter(d => d.id !== id),
         }
         persist(next)
         return next

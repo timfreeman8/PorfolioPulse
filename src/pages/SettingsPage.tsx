@@ -1,39 +1,33 @@
 /**
- * Settings page — data management hub for the SAT portfolio tool.
+ * Settings page — configuration hub for the SAT portfolio tool.
  *
- * Three sections (top to bottom):
+ * Tabs:
  *
- * 1. RESOURCE RATES — Editable table mapping each unique member role to an
- *    annual salary rate. Rates auto-save on blur. Used by the Analytics
- *    Financial tab to calculate portfolio headcount cost and project ROI.
+ * 1. ROLES & RATES — Editable table of job title role definitions. Each role
+ *    has a name (matching Member.role), an org-chart category, an annual salary
+ *    cost, and an optional Azure AD job title for future auto-mapping. Discipline
+ *    is a per-person attribute managed on the member profile, not on the role.
  *
- * 2. EXPORT — Download any entity collection as a CSV file, or export the
- *    entire portfolio state as a JSON snapshot. CSVs are designed for human
- *    editing in spreadsheet applications (Excel, Numbers, Google Sheets).
+ * 2. ACCESS CONTROL (admin only) — Manage the list of member IDs with admin
+ *    access. Will be replaced by Azure AD group membership when auth is added.
  *
- * 3. IMPORT — Upload a previously-exported CSV or JSON snapshot to replace
- *    the current data. The entity type is auto-detected from the CSV headers,
- *    so there's no need to select it manually. Importing replaces the entity
- *    collection atomically via the store's `hydrate()` action.
+ * 3. NOTIFICATIONS — Configure a Microsoft Teams incoming webhook URL for
+ *    automatic alerts when projects are blocked or members exceed capacity.
  *
- * Workflow:
- *   Export → edit in a spreadsheet → import back → the app reflects the changes.
+ * 4. EXPORT — Download any entity collection as a CSV file, or export the
+ *    entire portfolio state as a JSON snapshot.
  *
- * Notes on CSV format:
- *   - Multi-value fields (memberIds, teamIds) are stored as semicolon-separated
- *     values in a single column.
- *   - Assignments (project ↔ member links) are a separate file because they
- *     carry per-member allocation data that can't be flattened cleanly.
- *   - When importing projects, upload assignments.csv FIRST so the parser can
- *     attach assignments to the right project rows.
+ * 5. DANGER ZONE — Destructive actions: clear PTO, clear epic data,
+ *    save/restore project snapshots, wipe all data.
  */
 
-import { useRef, useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
-  Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
-  FlaskConical, Save, History, CalendarOff, CalendarX, Activity,
+  Download, Database, AlertCircle, CheckCircle2,
+  PackageOpen, X, Trash2,
+  Save, History, CalendarX,
   Shield, UserX, UserCheck, Bell, HardDrive,
+  Plus, Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,99 +47,12 @@ import {
   exportInitiativesCsv,
   exportIntakeCsv,
   exportFullSnapshot,
-  importRosterCsv,
-  importDomainsCsv,
-  importTeamsCsv,
-  importMembersCsv,
-  importProjectsCsv,
-  importAssignmentsCsv,
-  importInitiativesCsv,
-  importIntakeCsv,
-  importFullSnapshot,
-  detectCsvEntityType,
-  type CsvEntityType,
 } from '@/lib/csv'
-import { buildSeedState, buildSampleProjectState, buildPulseSeedData } from '@/lib/seedData'
 import { clearState, getStorageSizeBytes } from '@/lib/persistence'
 import { getTeamsWebhookUrl, setTeamsWebhookUrl } from '@/lib/notifications'
+import { ALL_ROLE_CATEGORIES } from '@/lib/roles'
 
-import type { PortfolioState, ProjectMemberAssignment } from '@/types'
-
-// ─── Ordering helpers ──────────────────────────────────────────────────────
-// These two functions let "Load Sample Data" preserve whatever domain/team/member
-// ordering the user has set via drag-and-drop, even after syncing new seed data.
-// New items (added in the seed) are appended after known ones in their group.
-
-/**
- * Snapshot the current ordering from the live store state.
- * Returns: ordered domain IDs, ordered team IDs per domain, ordered member IDs per team.
- */
-function captureOrdering(state: PortfolioState) {
-  return {
-    domainIds: state.domains.map(d => d.id),
-    teamIdsByDomain: new Map(
-      state.domains.map(d => [
-        d.id,
-        state.teams.filter(t => t.domainId === d.id).map(t => t.id),
-      ])
-    ),
-    memberIdsByTeam: new Map(
-      state.teams.map(t => [t.id, [...t.memberIds]])
-    ),
-  }
-}
-
-/**
- * Apply a previously-captured ordering to a fresh seed state.
- * Items whose IDs no longer exist in the new state are silently dropped.
- * Items that are new (not in the saved order) are appended to their group.
- */
-function applyOrdering(
-  newState: PortfolioState,
-  ordering: ReturnType<typeof captureOrdering>
-): PortfolioState {
-  // Reorder domains — known IDs in saved order, then any brand-new domains at end.
-  const domainById = new Map(newState.domains.map(d => [d.id, d]))
-  const knownDomainIds = new Set(ordering.domainIds)
-  const orderedDomains = [
-    ...ordering.domainIds.map(id => domainById.get(id)).filter(Boolean),
-    ...newState.domains.filter(d => !knownDomainIds.has(d.id)),
-  ] as PortfolioState['domains']
-
-  // Reorder teams within each domain.
-  const teamById = new Map(newState.teams.map(t => [t.id, t]))
-  const orderedTeams: PortfolioState['teams'] = []
-  for (const domain of orderedDomains) {
-    const savedTeamIds = ordering.teamIdsByDomain.get(domain.id) ?? []
-    const savedTeamIdSet = new Set(savedTeamIds)
-    const domainTeams = newState.teams.filter(t => t.domainId === domain.id)
-    const domainTeamIds = new Set(domainTeams.map(t => t.id))
-    orderedTeams.push(
-      // Known teams in saved order (skip any that no longer exist in this domain)
-      ...savedTeamIds.filter(id => domainTeamIds.has(id)).map(id => teamById.get(id)!),
-      // Brand-new teams not in the saved order
-      ...domainTeams.filter(t => !savedTeamIdSet.has(t.id)),
-    )
-  }
-
-  // Reorder memberIds within each team.
-  const reorderedTeams = orderedTeams.map(team => {
-    const savedMemberIds = ordering.memberIdsByTeam.get(team.id) ?? []
-    const savedMemberIdSet = new Set(savedMemberIds)
-    const currentMemberIds = new Set(team.memberIds)
-    return {
-      ...team,
-      memberIds: [
-        // Known members in saved order (skip any who left the team)
-        ...savedMemberIds.filter(id => currentMemberIds.has(id)),
-        // Brand-new members not in the saved order
-        ...team.memberIds.filter(id => !savedMemberIdSet.has(id)),
-      ],
-    }
-  })
-
-  return { ...newState, domains: orderedDomains, teams: reorderedTeams }
-}
+import type { PortfolioState, RoleDefinition } from '@/types'
 
 // ─── Project snapshot ──────────────────────────────────────────────────────
 // A lightweight checkpoint for the project layer only (projects, initiatives,
@@ -208,133 +115,265 @@ function fmtNumber(n: number): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
 }
 
-// ─── Resource Rates section ────────────────────────────────────────────────
+// ─── Role Definitions section ──────────────────────────────────────────────
 
 /**
- * ResourceRatesSection — table of unique member roles with editable annual rates.
+ * RoleDefinitionsSection — editable table of job title role definitions.
  *
- * Rates are saved to the store on blur (auto-save pattern). Each role row shows
- * the role name, an annual cost input, and a clear button. Roles without a rate
- * show a placeholder "—" and an "Add rate" affordance. A summary line at the
- * bottom shows how many roles have rates and the total headcount cost.
+ * Each row stores a role name (matching Member.role), an org-filter category,
+ * an annual cost rate, and an optional Azure AD job title for future auto-mapping.
+ * Discipline is a per-person attribute managed on the member profile, not here.
+ *
+ * Click any row to edit it inline; confirm with Enter or the checkmark, cancel
+ * with Escape or ×. "Add Role" at the footer opens a blank row.
+ * Deleting a role that is in use shows the member count in the tooltip but does
+ * not block deletion — the members' role string is left unchanged.
  */
-function ResourceRatesSection() {
-  const { members, resourceRates, setResourceRate, removeResourceRate } = usePortfolioStore()
+function RoleDefinitionsSection() {
+  const {
+    roleDefinitions, members,
+    addRoleDefinition, updateRoleDefinition, removeRoleDefinition,
+  } = usePortfolioStore()
 
-  // Collect the unique set of role strings across all members.
-  const uniqueRoles = Array.from(new Set(members.map(m => m.role))).sort()
+  // Which row is currently being edited by id. null = view mode.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  // Whether the "Add Role" blank row is currently open.
+  const [addingNew, setAddingNew] = useState(false)
 
-  // Local state for in-flight edits — maps role → current input string.
-  // We store the raw string so the user can type freely before committing on blur.
-  const [editing, setEditing] = useState<Record<string, string>>({})
+  // Draft values for the row being edited or added.
+  const [draft, setDraft] = useState({
+    name: '', category: '', annualRate: '', aadJobTitle: '',
+  })
 
-  // Build a fast lookup from the store's resourceRates array.
-  const rateByRole = new Map(resourceRates.map(r => [r.role, r.annualRate]))
+  // Pre-compute member count per role name so the delete tooltip is O(1) per row.
+  const memberCountByRole = useMemo(
+    () => new Map(members.map(m => [m.role, members.filter(x => x.role === m.role).length])),
+    [members]
+  )
 
-  // Summary calculations.
-  const rolesWithRate = uniqueRoles.filter(r => rateByRole.has(r))
-  const totalCost = rolesWithRate.reduce((sum, role) => {
-    // Count distinct members with this role for the total cost.
-    const count = members.filter(m => m.role === role).length
-    return sum + (rateByRole.get(role) ?? 0) * count
+  /** Activate edit mode for an existing row, copying its values into draft. */
+  function startEdit(def: RoleDefinition) {
+    if (addingNew) return  // don't open two editable rows simultaneously
+    setEditingId(def.id)
+    setDraft({
+      name:        def.name,
+      category:    def.category,
+      annualRate:  def.annualRate > 0 ? fmtNumber(def.annualRate) : '',
+      aadJobTitle: def.aadJobTitle ?? '',
+    })
+  }
+
+  /** Parse the annual rate draft string → safe integer (0 if blank/invalid). */
+  function parseRate(raw: string): number {
+    const cleaned = raw.replace(/[$,\s]/g, '')
+    const n = Number(cleaned)
+    return (!cleaned || isNaN(n) || n < 0) ? 0 : Math.round(n)
+  }
+
+  /** Save changes to an existing row and exit edit mode. */
+  function commitEdit() {
+    if (!editingId) return
+    updateRoleDefinition(editingId, {
+      name:        draft.name.trim(),
+      category:    draft.category,
+      annualRate:  parseRate(draft.annualRate),
+      aadJobTitle: draft.aadJobTitle.trim() || undefined,
+    })
+    setEditingId(null)
+  }
+
+  /** Discard any pending edit or add. */
+  function cancelEdit() {
+    setEditingId(null)
+    setAddingNew(false)
+  }
+
+  /** Open the "Add Role" blank row with sensible defaults. */
+  function startAdd() {
+    if (editingId !== null) return  // can't add while editing another row
+    setAddingNew(true)
+    setDraft({ name: '', category: ALL_ROLE_CATEGORIES[0], annualRate: '', aadJobTitle: '' })
+  }
+
+  /** Commit the new role to the store and close the blank row. */
+  function commitAdd() {
+    if (draft.name.trim()) {
+      addRoleDefinition({
+        name:        draft.name.trim(),
+        category:    draft.category,
+        annualRate:  parseRate(draft.annualRate),
+        aadJobTitle: draft.aadJobTitle.trim() || undefined,
+      })
+    }
+    setAddingNew(false)
+  }
+
+  // Summary: roles with a rate set, total headcount cost across all members.
+  const rolesWithRate = roleDefinitions.filter(d => d.annualRate > 0)
+  const totalCost = roleDefinitions.reduce((sum, d) => {
+    const count = memberCountByRole.get(d.name) ?? 0
+    return sum + d.annualRate * count
   }, 0)
 
-  /** Called when the user changes the input for a role. Tracks raw string only. */
-  function handleChange(role: string, raw: string) {
-    setEditing(prev => ({ ...prev, [role]: raw }))
-  }
+  // Shared grid column layout — 5 columns: name | category | rate | aad | delete.
+  const COL = 'grid-cols-[1fr_150px_120px_180px_36px]'
 
-  /**
-   * On blur: parse the input value and persist to the store if valid and changed.
-   * Strip commas and dollar signs so users can paste formatted numbers.
-   */
-  function handleBlur(role: string) {
-    const raw = editing[role]
-    if (raw === undefined) return  // untouched field — nothing to save
-    // Clean user input: remove "$", "," and whitespace before parsing.
-    const cleaned = raw.replace(/[$,\s]/g, '')
-    const parsed = Number(cleaned)
-    if (!cleaned || isNaN(parsed) || parsed <= 0) {
-      // Invalid entry — revert display by clearing the editing state for this role.
-      setEditing(prev => { const next = { ...prev }; delete next[role]; return next })
-      return
-    }
-    setResourceRate(role, Math.round(parsed))
-    // Clear the editing override so the display reverts to the formatted store value.
-    setEditing(prev => { const next = { ...prev }; delete next[role]; return next })
-  }
+  // Reusable select style for category dropdown in edit mode.
+  const selectCls = 'h-7 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-1 w-full'
 
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+
       {/* Table header */}
-      <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <span>Role</span>
+      <div className={cn('grid gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 text-xs font-medium text-slate-500 dark:text-slate-400', COL)}>
+        <span>Role Name</span>
+        <span>Category</span>
         <span>Annual Rate</span>
+        <span>AAD Job Title</span>
         <span />
       </div>
 
       {/* Role rows */}
-      {uniqueRoles.map(role => {
-        const stored = rateByRole.get(role)
-        const hasRate = stored !== undefined
-        // Prefer the in-flight edit value; otherwise show the stored value formatted.
-        const displayValue = editing[role] !== undefined
-          ? editing[role]
-          : (hasRate ? fmtNumber(stored!) : '')
+      {roleDefinitions.map(def => {
+        const isEditing = editingId === def.id
+        const memberCount = memberCountByRole.get(def.name) ?? 0
 
+        if (isEditing) {
+          // Edit mode: all cells become inputs; confirm/cancel at the right.
+          return (
+            <div key={def.id} className={cn('grid gap-2 items-center px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-950/20', COL)}>
+              <Input
+                autoFocus
+                value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                className="h-7 text-xs"
+                placeholder="Role name"
+              />
+              <select value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} className={selectCls}>
+                {ALL_ROLE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-slate-400 shrink-0">$</span>
+                <Input
+                  value={draft.annualRate}
+                  onChange={e => setDraft(d => ({ ...d, annualRate: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                  className="h-7 text-xs"
+                  placeholder="0"
+                  inputMode="numeric"
+                />
+              </div>
+              <Input
+                value={draft.aadJobTitle}
+                onChange={e => setDraft(d => ({ ...d, aadJobTitle: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                className="h-7 text-xs"
+                placeholder="AD Job Title"
+              />
+              <div className="flex items-center gap-0.5">
+                <button onClick={commitEdit} title="Save" className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 p-0.5">
+                  <CheckCircle2 size={14} />
+                </button>
+                <button onClick={cancelEdit} title="Cancel" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )
+        }
+
+        // View mode: click anywhere on the row to enter edit mode.
         return (
           <div
-            key={role}
-            className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 last:border-0"
+            key={def.id}
+            onClick={() => startEdit(def)}
+            className={cn('grid gap-3 items-center px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 last:border-0 group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors', COL)}
           >
-            <span className="text-sm text-slate-700 dark:text-slate-200">{role}</span>
-
-            {/* Annual rate input with $ prefix */}
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-slate-400 dark:text-slate-500">$</span>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={displayValue}
-                placeholder={hasRate ? '' : 'Add rate'}
-                onChange={e => handleChange(role, e.target.value)}
-                onBlur={() => handleBlur(role)}
-                className={cn(
-                  'h-8 w-32 text-right text-sm',
-                  !hasRate && 'placeholder:text-slate-400 dark:placeholder:text-slate-500 italic',
-                )}
-              />
-            </div>
-
-            {/* Clear button — only shown when a rate is defined */}
-            {hasRate ? (
-              <button
-                type="button"
-                onClick={() => removeResourceRate(role)}
-                title="Clear rate"
-                className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
-              >
-                <X size={14} />
-              </button>
-            ) : (
-              /* Placeholder to keep grid alignment consistent */
-              <span className="w-4" />
-            )}
+            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+              {def.name || <span className="italic text-slate-400">untitled</span>}
+            </span>
+            <span className="text-xs text-slate-600 dark:text-slate-400 truncate">{def.category}</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">
+              {def.annualRate > 0
+                ? `$${fmtNumber(def.annualRate)}`
+                : <span className="text-xs italic text-slate-400">not set</span>}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {def.aadJobTitle || <span className="text-slate-300 dark:text-slate-600">—</span>}
+            </span>
+            {/* Delete button — appears on row hover, tooltip warns if role is in use */}
+            <button
+              onClick={e => { e.stopPropagation(); removeRoleDefinition(def.id) }}
+              title={memberCount > 0 ? `${memberCount} member(s) use this role — members are not changed` : 'Delete role'}
+              className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
         )
       })}
 
-      {/* Summary line */}
-      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700">
+      {/* New role blank row — shown when Add Role is clicked */}
+      {addingNew && (
+        <div className={cn('grid gap-2 items-center px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-green-50/30 dark:bg-green-950/10', COL)}>
+          <Input
+            autoFocus
+            value={draft.name}
+            onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') cancelEdit() }}
+            className="h-7 text-xs"
+            placeholder="Role name"
+          />
+          <select value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} className={selectCls}>
+            {ALL_ROLE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-slate-400 shrink-0">$</span>
+            <Input
+              value={draft.annualRate}
+              onChange={e => setDraft(d => ({ ...d, annualRate: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') cancelEdit() }}
+              className="h-7 text-xs"
+              placeholder="0"
+              inputMode="numeric"
+            />
+          </div>
+          <Input
+            value={draft.aadJobTitle}
+            onChange={e => setDraft(d => ({ ...d, aadJobTitle: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') cancelEdit() }}
+            className="h-7 text-xs"
+            placeholder="AD Job Title"
+          />
+          <div className="flex items-center gap-0.5">
+            <button onClick={commitAdd} title="Add role" className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200 p-0.5">
+              <CheckCircle2 size={14} />
+            </button>
+            <button onClick={cancelEdit} title="Cancel" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Footer: Add Role button + cost summary */}
+      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4 flex-wrap">
+        <button
+          onClick={startAdd}
+          disabled={addingNew || editingId !== null}
+          className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+        >
+          <Plus size={13} /> Add Role
+        </button>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           <span className="font-medium text-slate-700 dark:text-slate-200">
-            {rolesWithRate.length} of {uniqueRoles.length}
+            {rolesWithRate.length} of {roleDefinitions.length}
           </span>
-          {' '}roles have rates defined
+          {' '}roles have rates
           {totalCost > 0 && (
             <>
-              {' · '}
-              Total annual headcount cost:{' '}
+              {' · '}Total headcount cost:{' '}
               <span className="font-semibold text-slate-800 dark:text-slate-100">
                 {fmtCompact(totalCost)}
               </span>
@@ -344,14 +383,6 @@ function ResourceRatesSection() {
       </div>
     </div>
   )
-}
-
-// ─── Types ─────────────────────────────────────────────────────────────────
-
-interface ImportResult {
-  ok: boolean
-  message: string
-  detail?: string
 }
 
 // ─── Export card ──────────────────────────────────────────────────────────
@@ -387,252 +418,6 @@ function ExportCard({
     </div>
   )
 }
-
-// ─── Pending assignments state ─────────────────────────────────────────────
-// When importing projects, the user should upload assignments.csv first so
-// the parser can attach assignments. We keep parsed assignments in module-level
-// state (outside React) since they're ephemeral and survive re-renders.
-
-let pendingAssignments: Map<string, ProjectMemberAssignment[]> = new Map()
-
-// ─── Import section ────────────────────────────────────────────────────────
-
-/**
- * ImportSection — file upload UI that auto-detects entity type and applies
- * the import to the store. Provides clear feedback on what was imported.
- */
-function ImportSection() {
-  const store = usePortfolioStore()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [result, setResult] = useState<ImportResult | null>(null)
-  const [dragging, setDragging] = useState(false)
-  const [showInstructions, setShowInstructions] = useState(false)
-
-  /** Apply a parsed CSV to the appropriate slice of the store state. */
-  function applyImport(entityType: CsvEntityType, csvText: string): ImportResult {
-    const state = store as unknown as PortfolioState & { hydrate: (s: PortfolioState) => void }
-    const current: PortfolioState = {
-      domains:        store.domains,
-      teams:          store.teams,
-      members:        store.members,
-      projects:       store.projects,
-      initiatives:    store.initiatives,
-      intakeRequests: store.intakeRequests,
-      escalations:    store.escalations,
-      ptoBlocks:      store.ptoBlocks,
-      resourceRates:  store.resourceRates,
-      weeklyPulses:   store.weeklyPulses,
-      adminMemberIds: store.adminMemberIds,
-    }
-
-    switch (entityType) {
-      case 'roster': {
-        // Single file replaces domains + teams + members atomically.
-        // Current arrays are passed so existing IDs can be reused by name,
-        // keeping project assignment references stable.
-        const { domains, teams, members } = importRosterCsv(csvText, current.domains, current.teams)
-        state.hydrate({ ...current, domains, teams, members })
-        return {
-          ok: true,
-          message: `Imported ${domains.length} domains, ${teams.length} teams, ${members.length} members.`,
-        }
-      }
-      // Legacy cases — still handled so old individual CSV files can be reimported.
-      case 'domains': {
-        const imported = importDomainsCsv(csvText)
-        state.hydrate({ ...current, domains: imported })
-        return { ok: true, message: `Imported ${imported.length} domains.` }
-      }
-      case 'teams': {
-        const imported = importTeamsCsv(csvText, current.domains)
-        state.hydrate({ ...current, teams: imported })
-        return { ok: true, message: `Imported ${imported.length} teams.` }
-      }
-      case 'members': {
-        const imported = importMembersCsv(csvText, current.teams, current.domains)
-        state.hydrate({ ...current, members: imported })
-        return { ok: true, message: `Imported ${imported.length} members.` }
-      }
-      case 'assignments': {
-        // Store parsed assignments so they're available when projects are imported next.
-        // Pass current members so member names in the CSV can be resolved to IDs.
-        pendingAssignments = importAssignmentsCsv(csvText, current.members)
-        const total = [...pendingAssignments.values()].reduce((s, a) => s + a.length, 0)
-        return {
-          ok: true,
-          message: `Parsed ${total} assignments for ${pendingAssignments.size} projects.`,
-          detail: 'Now upload projects.csv to attach these assignments to projects.',
-        }
-      }
-      case 'projects': {
-        // Pass current initiatives and projects so names resolve to IDs (including blockedBy).
-        const imported = importProjectsCsv(csvText, pendingAssignments, current.initiatives, current.projects)
-        // Rebuild member.projectIds from assignments to keep the store consistent.
-        const updatedMembers = current.members.map(m => ({
-          ...m,
-          projectIds: imported
-            .filter(p => p.assignments.some(a => a.memberId === m.id))
-            .map(p => p.id),
-        }))
-        state.hydrate({ ...current, projects: imported, members: updatedMembers })
-        // Clear pending assignments after use.
-        pendingAssignments = new Map()
-        return {
-          ok: true,
-          message: `Imported ${imported.length} projects.`,
-          detail: `${imported.filter(p => p.assignments.length > 0).length} projects have assignments attached.`,
-        }
-      }
-      case 'initiatives': {
-        const imported = importInitiativesCsv(csvText)
-        state.hydrate({ ...current, initiatives: imported })
-        return { ok: true, message: `Imported ${imported.length} initiatives.` }
-      }
-      case 'intake': {
-        const imported = importIntakeCsv(csvText)
-        state.hydrate({ ...current, intakeRequests: imported })
-        return { ok: true, message: `Imported ${imported.length} intake requests.` }
-      }
-    }
-  }
-
-  /** Handle a file from the input or drop event. */
-  function processFile(file: File) {
-    setResult(null)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result as string
-      if (!text) {
-        setResult({ ok: false, message: 'File is empty.' })
-        return
-      }
-
-      // JSON snapshot path
-      if (file.name.endsWith('.json') || text.trimStart().startsWith('{')) {
-        try {
-          const snapshot = importFullSnapshot(text)
-          const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-          s.hydrate(snapshot)
-          setResult({
-            ok: true,
-            message: `Full snapshot imported.`,
-            detail: `${snapshot.domains.length} domains, ${snapshot.teams.length} teams, ${snapshot.members.length} members, ${snapshot.projects.length} projects.`,
-          })
-        } catch (err) {
-          setResult({ ok: false, message: 'Invalid JSON snapshot.', detail: String(err) })
-        }
-        return
-      }
-
-      // CSV path — auto-detect entity type
-      const entityType = detectCsvEntityType(text)
-      if (!entityType) {
-        setResult({
-          ok: false,
-          message: 'Could not detect entity type from CSV headers.',
-          detail: 'Make sure the file was exported from this tool and the header row is intact.',
-        })
-        return
-      }
-
-      try {
-        const res = applyImport(entityType, text)
-        setResult(res)
-      } catch (err) {
-        setResult({ ok: false, message: 'Import failed.', detail: String(err) })
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) processFile(file)
-    // Reset input so the same file can be re-uploaded if needed.
-    e.target.value = ''
-  }
-
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) processFile(file)
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Drop zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        onClick={() => fileRef.current?.click()}
-        className={cn(
-          'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
-          dragging
-            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/25'
-            : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40 dark:hover:bg-blue-900/15',
-        )}
-      >
-        <Upload size={24} className="mx-auto mb-2 text-slate-400" />
-        <p className="text-sm font-medium text-slate-700">Drop a CSV or JSON file here</p>
-        <p className="text-xs text-slate-400 mt-1">or click to browse</p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,.json"
-          className="sr-only"
-          onChange={onFileChange}
-        />
-      </div>
-
-      {/* Result feedback */}
-      {result && (
-        <div className={cn(
-          'flex gap-3 p-4 rounded-lg border',
-          result.ok
-            ? 'bg-green-50 dark:bg-green-900/25 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-            : 'bg-red-50 dark:bg-red-900/25 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
-        )}>
-          {result.ok
-            ? <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-green-600" />
-            : <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-600" />
-          }
-          <div>
-            <p className="text-sm font-medium">{result.message}</p>
-            {result.detail && <p className="text-xs mt-0.5 opacity-80">{result.detail}</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Import order instructions */}
-      <button
-        onClick={() => setShowInstructions(i => !i)}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors"
-      >
-        {showInstructions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        Import order &amp; tips
-      </button>
-      {showInstructions && (
-        <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-4 space-y-1 border border-slate-100">
-          <p className="font-medium text-slate-700 mb-2">Recommended import order</p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>roster.csv — domains + teams + members in one file</li>
-            <li>initiatives.csv — must exist before projects reference them</li>
-            <li>assignments.csv — <strong>upload before projects.csv</strong> so assignments attach correctly</li>
-            <li>projects.csv — assignments from step 3 are attached automatically</li>
-            <li>intake.csv — standalone, no dependencies</li>
-          </ol>
-          <p className="mt-3 text-slate-400">
-            Tip: for a full replace, use <strong>Export Full Snapshot → JSON</strong> and re-import the JSON.
-            It restores everything in one step with no ordering concerns.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
 
 // ─── Access control section ────────────────────────────────────────────────
 
@@ -773,7 +558,7 @@ export function SettingsPage() {
   const store = usePortfolioStore()
 
   // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'notifications' | 'export' | 'import' | 'danger'>('rates')
+  const [activeTab, setActiveTab] = useState<'roles' | 'access' | 'notifications' | 'export' | 'danger'>('roles')
 
   // Teams webhook URL — read from localStorage on mount; saved on blur.
   const [webhookUrl, setWebhookUrl] = useState(() => getTeamsWebhookUrl())
@@ -847,11 +632,12 @@ export function SettingsPage() {
       projects,
       initiatives,
       intakeRequests,
-      escalations:   store.escalations,
-      ptoBlocks:     store.ptoBlocks,
-      resourceRates: store.resourceRates,
-      weeklyPulses:  store.weeklyPulses,
-      adminMemberIds: store.adminMemberIds,
+      escalations:     store.escalations,
+      ptoBlocks:       store.ptoBlocks,
+      resourceRates:   store.resourceRates,
+      weeklyPulses:    store.weeklyPulses,
+      adminMemberIds:  store.adminMemberIds,
+      roleDefinitions: store.roleDefinitions,
     }
     const ts = new Date().toISOString().slice(0, 10)
     downloadJson(`sat-snapshot-${ts}.json`, exportFullSnapshot(state))
@@ -859,24 +645,23 @@ export function SettingsPage() {
 
   return (
     <div className="p-8 overflow-y-auto h-full">
-      <div className="max-w-2xl space-y-6">
+      <div className="max-w-5xl space-y-6">
 
       {/* Header + tab bar */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-          Manage resource rates, import/export data, and reset the portfolio.
+          Manage roles, rates, access control, notifications, and portfolio data.
         </p>
 
         {/* Tab switcher — Access Control is only shown to admins */}
         <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
           {([
-            { id: 'rates',         label: 'Resource Rates',   Icon: DollarSign,  adminOnly: false },
-            { id: 'access',        label: 'Access Control',   Icon: Shield,      adminOnly: true  },
-            { id: 'notifications', label: 'Notifications',    Icon: Bell,        adminOnly: false },
-            { id: 'export',        label: 'Export',           Icon: Download,    adminOnly: false },
-            { id: 'import',        label: 'Import',           Icon: Upload,      adminOnly: false },
-            { id: 'danger',        label: 'Danger Zone',      Icon: AlertCircle, adminOnly: false },
+            { id: 'roles',         label: 'Roles & Rates',       Icon: Layers,      adminOnly: false },
+            { id: 'access',        label: 'Access Control',      Icon: Shield,      adminOnly: true  },
+            { id: 'notifications', label: 'Notifications',       Icon: Bell,        adminOnly: false },
+            { id: 'export',        label: 'Export',              Icon: Download,    adminOnly: false },
+            { id: 'danger',        label: 'Danger Zone',         Icon: AlertCircle, adminOnly: false },
           ] as const).filter(t => !t.adminOnly || authRole === 'admin').map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -895,15 +680,17 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Resource Rates tab */}
-      {activeTab === 'rates' && (
-        <section>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-            Set annual salary rates per role to enable portfolio-level cost and ROI analysis.
-            Rates are fixed (salaried) — allocation % is used to compute project cost share, not to
-            adjust the base rate. Rates auto-save when you leave the field.
+      {/* Roles & Disciplines tab */}
+      {activeTab === 'roles' && (
+        <section className="space-y-5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Define job title roles with their org-chart category and annual cost rate.
+            The <strong>AAD Job Title</strong> column is the Azure AD "Job Title" attribute that
+            will auto-map incoming users to this role when Azure AD authentication is enabled.
+            Click any row to edit it; press <kbd className="font-mono">Enter</kbd> to save or{' '}
+            <kbd className="font-mono">Esc</kbd> to cancel.
           </p>
-          <ResourceRatesSection />
+          <RoleDefinitionsSection />
         </section>
       )}
 
@@ -1108,24 +895,6 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* Import tab */}
-      {activeTab === 'import' && (
-        <section>
-          <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <div className="flex items-start gap-3 mb-5 pb-4 border-b border-slate-100">
-              <FileText size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Upload any CSV or JSON file exported from this tool. The entity type is auto-detected
-                from the header row — no need to specify it manually. Importing <strong>replaces</strong> the
-                entity collection entirely (existing rows are overwritten, rows not in the file are removed).
-              </p>
-            </div>
-            <ImportSection />
-          </div>
-        </section>
-      )}
-
-
       {/* Danger Zone tab */}
       {activeTab === 'danger' && (
         <section>
@@ -1134,122 +903,6 @@ export function SettingsPage() {
           <h2 className="text-base font-semibold text-red-700">Danger Zone</h2>
         </div>
         <div className="border border-red-200 rounded-xl divide-y divide-red-100">
-
-          {/* Load sample data */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <RotateCcw size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample Data</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Replaces all current data with the built-in sample dataset. Use this to reset
-                  to a known good state for testing.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Sample Data',
-                'This replaces everything — domains, teams, members, and projects — with the built-in sample dataset. Your current data cannot be recovered.',
-                'Load Sample Data',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  const ordering = captureOrdering(usePortfolioStore.getState())
-                  s.hydrate(applyOrdering(buildSeedState(), ordering))
-                },
-              )}
-            >
-              <RotateCcw size={13} />
-              Load Sample Data
-            </Button>
-          </div>
-
-          {/* Load sample projects — overlays demo projects onto the live roster */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <FlaskConical size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample Epics</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Overlays 29 realistic projects, 5 initiatives, and 5 intake requests onto your
-                  current roster so you can explore analytics, capacity planning, and other features
-                  with real names.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Sample Projects',
-                'This replaces all current projects, initiatives, and intake requests with sample data. Your roster (domains, teams, members) will not be affected.',
-                'Load Sample Projects',
-                () => {
-                const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                const current = usePortfolioStore.getState()
-                const { projects, initiatives, intakeRequests } = buildSampleProjectState()
-                // Rebuild each member's projectIds from the sample projects' assignment lists.
-                const projectIdsByMember = new Map<string, string[]>()
-                for (const p of projects) {
-                  for (const { memberId } of p.assignments) {
-                    const arr = projectIdsByMember.get(memberId) ?? []
-                    arr.push(p.id)
-                    projectIdsByMember.set(memberId, arr)
-                  }
-                }
-                s.hydrate({
-                  ...current,
-                  projects,
-                  initiatives,
-                  intakeRequests,
-                  members: current.members.map(m => ({
-                    ...m,
-                    projectIds: projectIdsByMember.get(m.id) ?? [],
-                  })),
-                })
-                },
-              )}
-            >
-              <FlaskConical size={13} />
-              Load Samples
-            </Button>
-          </div>
-
-          {/* Load sample PTO — overlays seed PTO blocks onto the live data */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <CalendarOff size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample PTO</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Replaces all PTO blocks with the 23 sample entries from the seed dataset
-                  (spread across FY2026). Does not affect people, epics, or other data.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Sample PTO',
-                'This replaces all current PTO blocks with the seed dataset. Your roster and epics will not be affected.',
-                'Load Sample PTO',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  const current = usePortfolioStore.getState()
-                  s.hydrate({ ...current, ptoBlocks: buildSeedState().ptoBlocks })
-                },
-              )}
-            >
-              <CalendarOff size={13} />
-              Load Sample PTO
-            </Button>
-          </div>
 
           {/* Clear PTO — wipe all PTO blocks */}
           <div className="flex items-center justify-between gap-4 px-5 py-4">
@@ -1401,65 +1054,6 @@ export function SettingsPage() {
             </Button>
           </div>
 
-          {/* Load pulse seed data — replace weekly pulses with multi-week sample entries */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <Activity size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Pulse Seed Data</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Replaces all pulse entries with sample data spanning 5 weeks (Jun 1–29). Existing pulse entries will be overwritten.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Pulse Seed Data',
-                'This will replace all existing pulse entries with sample data for 5 weeks (Jun 1–29 2026). Your roster, projects, and other data will not be affected.',
-                'Load Seed Data',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  s.hydrate({ ...usePortfolioStore.getState(), weeklyPulses: buildPulseSeedData() })
-                },
-              )}
-            >
-              <Activity size={13} />
-              Load Pulse Seed Data
-            </Button>
-          </div>
-
-          {/* Clear pulse data — wipe all weekly pulse entries, roster and epics stay */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <Activity size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Clear All Pulse Data</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Permanently deletes all weekly pulse entries. Your roster, epics, and other data are not affected.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Clear All Pulse Data',
-                'This permanently deletes every Design Pulse entry across all weeks. Your roster and epics will not be affected.',
-                'Clear All Pulses',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  s.hydrate({ ...usePortfolioStore.getState(), weeklyPulses: [] })
-                },
-              )}
-            >
-              <Activity size={13} />
-              Clear All Pulses
-            </Button>
-          </div>
 
           {/* Clear all data */}
           <div className="flex items-center justify-between gap-4 px-5 py-4">

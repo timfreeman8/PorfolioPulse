@@ -773,16 +773,18 @@ export function importFullSnapshot(json: string): PortfolioState {
     }
   }
   return {
-    domains:        parsed.domains        ?? [],
-    teams:          parsed.teams          ?? [],
-    members:        parsed.members        ?? [],
-    projects:       parsed.projects       ?? [],
-    initiatives:    parsed.initiatives    ?? [],
-    intakeRequests: parsed.intakeRequests ?? [],
-    escalations:    parsed.escalations    ?? [],
-    ptoBlocks:      parsed.ptoBlocks      ?? [],
-    resourceRates:  parsed.resourceRates  ?? [],
-    weeklyPulses:   parsed.weeklyPulses   ?? [],
-    adminMemberIds: parsed.adminMemberIds ?? [],
+    domains:         parsed.domains         ?? [],
+    teams:           parsed.teams           ?? [],
+    members:         parsed.members         ?? [],
+    projects:        parsed.projects        ?? [],
+    initiatives:     parsed.initiatives     ?? [],
+    intakeRequests:  parsed.intakeRequests  ?? [],
+    escalations:     parsed.escalations     ?? [],
+    ptoBlocks:       parsed.ptoBlocks       ?? [],
+    resourceRates:   parsed.resourceRates   ?? [],
+    weeklyPulses:    parsed.weeklyPulses    ?? [],
+    adminMemberIds:  parsed.adminMemberIds  ?? [],
+    // Backfill roleDefinitions for snapshots created before this field existed.
+    roleDefinitions: parsed.roleDefinitions ?? [],
   }
 }

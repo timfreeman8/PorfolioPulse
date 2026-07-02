@@ -171,6 +171,32 @@ export interface ResourceRate {
   annualRate: number
 }
 
+/**
+ * A fully-described job title definition used to build the Azure AD → member
+ * profile mapping table. Combines the role name (what appears on Member.role),
+ * the org-filter bucket (category), the default discipline tag, the annual cost
+ * rate, and an optional Azure AD "Job Title" field value for auto-matching.
+ *
+ * This replaces the simpler ResourceRate type as the single source of truth for
+ * role-related metadata. ResourceRate is kept in the store only for backwards
+ * compatibility with existing localStorage data.
+ */
+export interface RoleDefinition {
+  id: string
+  /** Job title string — corresponds to Member.role, e.g. "Software Engineer III" */
+  name: string
+  /** Org-chart filter bucket, e.g. "Engineering", "Product Design", "Leadership" */
+  category: string
+  /** Annual fully-loaded salary cost in dollars for financial analytics */
+  annualRate: number
+  /**
+   * The Azure AD "Job Title" attribute value that should auto-map to this role.
+   * Leave blank until AAD auth is enabled; it's stored now so the mapping table
+   * can be built before the auth swap happens.
+   */
+  aadJobTitle?: string
+}
+
 export interface Initiative {
   id: string
   name: string
@@ -345,6 +371,12 @@ export interface PortfolioState {
   weeklyPulses: WeeklyPulse[]
   /** Role-to-annual-cost mappings for portfolio financial analysis. */
   resourceRates: ResourceRate[]
+  /**
+   * Fully-described role definitions — the primary source of truth for job title
+   * metadata including category, annual rate, and AAD mapping hints.
+   * Seeded from member roles + existing resourceRates on first load.
+   */
+  roleDefinitions: RoleDefinition[]
   /**
    * Member IDs granted administrator access. Admins see all data and can
    * create/edit/delete anything. All other logged-in members are "viewers"
