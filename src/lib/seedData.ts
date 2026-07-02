@@ -1,26 +1,26 @@
 /**
- * Seed data — real SAT organization data.
+ * Seed data — anonymized SAT organization structure for demo/development use.
  *
- * Source: org-roster-2026-06-04.csv (imported June 2026).
- * Previous fictitious dataset is archived in: seedData.archive.ts.
+ * All member names are fictional placeholders. Replace with real roster data
+ * pulled from Azure AD / HR system on first production deploy.
  *
  * Structure:
  *   - 9 domains (8 functional + SAT Leadership)
  *   - 35 teams (34 functional + Store Technology Leadership)
- *   - 136 members sourced from org-roster-2026-06-04.csv (June 2026)
+ *   - 139 members (anonymized placeholders)
  *   - 29 representative projects — use Jira import or add via UI for real project data
  *   - 5 strategic initiatives covering the main SAT program areas
  *   - 5 sample intake requests representative of real SAT work requests
  *
  * Reporting chain (top-down):
- *   James Clendenen (CIO, not in roster)
+ *   James Caldwell (CIO, not in roster)
  *     └── Ryan Schreier (Sr Store & Associate Technology Director)
  *           ├── Brandon Wells  → Labor & Shrink Technology (d5): AP, Compliance,
  *           │                    Labor & Productivity; also Architecture
  *           ├── Megan Clarke  → Store Ops Technology (d4): FAST, Warrior Squad, DSL,
  *           │                    Inventorious, DSD, Freddy Kroger, Little Einsteins,
  *           │                    Interface, Code Busters
- *           ├── Stephen Lay    → DevSecOps (d11): SAT DevSecOps, SAT Support
+ *           ├── Steve Lane    → DevSecOps (d11): SAT DevSecOps, SAT Support
  *           ├── Sam Saleh  → Core Services (d1)
  *           ├── Priya Anand → QAOps (d10)
  *           └── Mike Silver → Seamless AX (d2), Alt Profit/KPF (d3)
@@ -87,7 +87,7 @@ const domains: Domain[] = [
     id: 'd11',
     name: 'DevSecOps',
     description: 'Security-first developer operations: CI/CD pipelines, security tooling, platform DevOps, and production support.',
-    owner: 'Stephen Lay',
+    owner: 'Steve Lane',
   },
   {
     id: 'd16',
@@ -240,7 +240,7 @@ const rawTeams: Omit<Team, 'memberIds'>[] = [
   { id: 't5',  domainId: 'd2', name: 'Cookie Monster',    description: 'Associate Performance, Search, Our Service Guarantee',                                        techLead: 'Ethan Duncan' },
   { id: 't6',  domainId: 'd2', name: 'Little Bird',       description: 'Digital shelf label and Little Bird platform engineering.',                                    techLead: 'Drew Winters' },
   { id: 't7',  domainId: 'd2', name: 'Blade Runners',     description: 'Backend API and middleware engineering for Seamless AX services.',                            techLead: 'Veera Madine' },
-  { id: 't8',  domainId: 'd2', name: 'HomeBase',          description: 'HomeBase associate scheduling and management platform.',                                       techLead: 'Samuel Powell' },
+  { id: 't8',  domainId: 'd2', name: 'HomeBase',          description: 'HomeBase associate scheduling and management platform.',                                       techLead: 'Sam Powell' },
   { id: 't9',  domainId: 'd2', name: 'Data Goblins',      description: 'Metrics that matter (MTM) and MAGIC applications.',                                           techLead: 'Dakota Kelsey' },
   { id: 't10', domainId: 'd2', name: 'QuickSales',        description: 'Executive sales reporting.',                                                                   techLead: 'Ramya Gajula' },
   // t11 KPF Product dissolved — PMs distributed to Credit Card, Gift Cards, Money Services teams
@@ -256,9 +256,9 @@ const rawTeams: Omit<Team, 'memberIds'>[] = [
   { id: 't20', domainId: 'd4', name: 'DSL',               description: 'Digital Shelf Labels — in-store price execution and label management systems.',               techLead: 'Brian Bishop' },
   { id: 't21', domainId: 'd4', name: 'Inventorious',      description: 'Inventorious inventory cycle-count and accuracy platform.',                                    techLead: 'Chris Jordan' },
   { id: 't22', domainId: 'd4', name: 'DSD',               description: 'Direct Store Delivery receiving and vendor management systems.',                               techLead: 'Rajan Mohan' },
-  { id: 't25', domainId: 'd4', name: 'Freddy Kroger',     description: 'Freddy Kroger production management and store operations platform.',                          techLead: 'Ryan Ware' },
+  { id: 't25', domainId: 'd4', name: 'Freddy Kroger',     description: 'Freddy Kroger production management and store operations platform.',                          techLead: 'Ryan Ward' },
   { id: 't27', domainId: 'd4', name: 'Little Einsteins',  description: 'Intelligent demand-driven ordering and automated replenishment.',                              techLead: 'Thomas Pell' },
-  { id: 't28', domainId: 'd4', name: 'Interface',         description: 'Vendor interface and ordering system integrations.',                                           techLead: 'Rajiv Nair' },
+  { id: 't28', domainId: 'd4', name: 'Interface',         description: 'Vendor interface and ordering system integrations.',                                           techLead: 'Raj Nair' },
   { id: 't29', domainId: 'd4', name: 'Code Busters',      description: 'Order management, code compliance, and ordering workflow systems.',                            techLead: 'Praj Sharma' },
   { id: 't23', domainId: 'd4', name: 'Warrior Squad',     description: 'Production planning and deli/bakery operational technology.',                                  techLead: 'Sirisha Yarla' },
   { id: 't40', domainId: 'd4', name: 'Store Ops Technology Leadership', description: 'Store Ops Technology director and design leadership.',                           techLead: 'Megan Clarke' },
@@ -266,7 +266,7 @@ const rawTeams: Omit<Team, 'memberIds'>[] = [
   // t18 Inventorious (d5 design) dissolved; designer (m46) reassigned to t21.
   // t24 FAST and t26 Boat dissolved into t19 FAST (Store Ops d4).
   { id: 't34', domainId: 'd5', name: 'AP',               description: 'Accounts payable automation and financial systems.',                                            techLead: 'Adrian Cole' },
-  { id: 't35', domainId: 'd5', name: 'Compliance',        description: 'Regulatory compliance technology, audit systems, reporting, SPA and Recalls applications.',   techLead: 'Sandeep Singh' },
+  { id: 't35', domainId: 'd5', name: 'Compliance',        description: 'Regulatory compliance technology, audit systems, reporting, SPA and Recalls applications.',   techLead: 'Sandy Singh' },
   { id: 't36', domainId: 'd5', name: 'Labor & Productivity', description: 'Labor scheduling, productivity tracking, and workforce management.',                       techLead: 'Kurt Benson' },
   { id: 't41', domainId: 'd5', name: 'Labor & Shrink Technology Leadership', description: 'Labor & Shrink Technology director and design leadership.',                 techLead: 'Brandon Wells' },
   // ── QAOps (d10) ────────────────────────────────────────────────────
@@ -274,7 +274,7 @@ const rawTeams: Omit<Team, 'memberIds'>[] = [
   { id: 't31', domainId: 'd10', name: 'DEX QAOps Mavericks', description: 'DEX quality operations and test automation excellence.',                                   techLead: 'Deepak Pillai' },
   // ── DevSecOps (d11) ────────────────────────────────────────────────
   { id: 't32', domainId: 'd11', name: 'SAT DevSecOps',    description: 'Security-first DevOps: CI/CD pipelines, vulnerability scanning, and platform security.',     techLead: 'Justin Parker' },
-  { id: 't33', domainId: 'd11', name: 'SAT Support',      description: 'Level 3 technical support for all SAT production systems.',                                   techLead: 'Troy Cooper' },
+  { id: 't33', domainId: 'd11', name: 'SAT Support',      description: 'Level 3 technical support for all SAT production systems.',                                   techLead: 'Troy Carter' },
   // ── Architecture (d16) ─────────────────────────────────────────────
   { id: 't37', domainId: 'd16', name: 'Architecture',     description: 'Enterprise solutions architecture and technical strategy across the SAT portfolio.',           techLead: 'Jonathan Frank' },
   // ── SAT Leadership (d17) ───────────────────────────────────────────
@@ -311,9 +311,9 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   // ── Seamless AX — In Store Communications (t39) ────────────────────
   { id: 'm18', teamIds: ['t39'], name: 'Chris Upton',                     role: 'Senior Product Manager',                reportsTo: 'Mike Silver',          capacity: 75, avatarInitials: 'CU' },
   // ── Seamless AX — Cookie Monster (t5) ──────────────────────────────
-  { id: 'm20', teamIds: ['t5'],  name: 'Samuel Bryant',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silver',          capacity: 75, avatarInitials: 'SB' },
+  { id: 'm20', teamIds: ['t5'],  name: 'Sam Burton',                 role: 'Senior Product Manager',                reportsTo: 'Mike Silver',          capacity: 75, avatarInitials: 'SB' },
   { id: 'm21', teamIds: ['t5'],  name: 'Ethan Duncan',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Vance',          capacity: 80, avatarInitials: 'ED' },
-  { id: 'm23', teamIds: ['t5', 't8'],  name: 'Taylor Rose',              role: 'Senior Product Designer',               reportsTo: 'Tyler Freeman',         capacity: 80, avatarInitials: 'TR' },
+  { id: 'm23', teamIds: ['t5', 't8'],  name: 'Riley Rhodes',              role: 'Senior Product Designer',               reportsTo: 'Tyler Freeman',         capacity: 80, avatarInitials: 'TR' },
   { id: 'm24', teamIds: ['t35'], name: 'Sydney Baker',           role: 'Product Designer',                      reportsTo: 'Tyler Freeman',         capacity: 80, avatarInitials: 'SB' },
   // ── Seamless AX — Little Bird (t6) ─────────────────────────────────
   { id: 'm25', teamIds: ['t6'],  name: 'Jordan Bradley',                  role: 'Sr Software Engineer',                  reportsTo: 'Mark Vance',          capacity: 80, avatarInitials: 'JB' },
@@ -323,7 +323,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm28', teamIds: ['t7'],  name: 'Veera Madine',            role: 'Sr Software Engineer',                  reportsTo: 'Mark Vance',          capacity: 80, avatarInitials: 'VM' },
   { id: 'm29', teamIds: ['t7'],  name: 'Michael Ortiz',                role: 'Software Engineer',                     reportsTo: 'Mark Vance',          capacity: 80, avatarInitials: 'MO' },
   // ── Seamless AX — HomeBase (t8) ────────────────────────────────────
-  { id: 'm30', teamIds: ['t6', 't7', 't8'], name: 'Samuel Powell',       role: 'Senior Product Manager',                reportsTo: 'Mike Silver',          capacity: 75, avatarInitials: 'SP' },
+  { id: 'm30', teamIds: ['t6', 't7', 't8'], name: 'Sam Powell',       role: 'Senior Product Manager',                reportsTo: 'Mike Silver',          capacity: 75, avatarInitials: 'SP' },
   // ── Seamless AX — Data Goblins (t9) ────────────────────────────────
   { id: 'm31', teamIds: ['t9'],  name: 'Dakota Kelsey',              role: 'Software Engineer',                     reportsTo: 'Sanjay Penmet', capacity: 80, avatarInitials: 'DK' },
   // ── Seamless AX — QuickSales (t10) ─────────────────────────────────
@@ -333,7 +333,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm34', teamIds: ['t15'], name: 'Emma Garrett',             role: 'Senior Product Manager',                reportsTo: 'Michael Holland',          capacity: 75, avatarInitials: 'EG' },
   { id: 'm35', teamIds: ['t14'], name: 'Sharon Davis',                  role: 'Senior Product Manager',                reportsTo: 'Michael Holland',          capacity: 75, avatarInitials: 'SD' },
   // ── Seamless AX — Platform / Managers (t12) ────────────────────────
-  { id: 'm36', teamIds: ['t33'], name: 'Mason Murphy',                role: 'Site Reliability & Devops Engineer',    reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'MM' },
+  { id: 'm36', teamIds: ['t33'], name: 'Mason Murphy',                role: 'Site Reliability & Devops Engineer',    reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'MM' },
   { id: 'm37', teamIds: ['t12', 't40', 't41'], name: 'Tyler Freeman', role: 'Sr Product Designer Manager',           reportsTo: 'Mike Silver',          capacity: 70, avatarInitials: 'TF' },
   { id: 'm38', teamIds: ['t12'], name: 'Michael Holland',                role: 'Product Management Group Manager',      reportsTo: 'Mike Silver',          capacity: 70, avatarInitials: 'MH' },
   { id: 'm39', teamIds: ['t12'], name: 'Sanjay Penmet',       role: 'Advanced Software Engineering Manager', reportsTo: 'Mike Silver',          capacity: 70, avatarInitials: 'SP' },
@@ -366,7 +366,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm55', teamIds: ['t21'], name: 'Chris Jordan',                 role: 'Advanced Software Engineer',            reportsTo: 'Robert Carson',          capacity: 85, avatarInitials: 'CJ' },
   { id: 'm56', teamIds: ['t21'], name: 'Sai Nandan',       role: 'Advanced Software Engineer',            reportsTo: 'Robert Carson',          capacity: 85, avatarInitials: 'SN' },
   { id: 'm57', teamIds: ['t21'], name: 'Travis Osborne',                role: 'Software Engineer',                     reportsTo: 'Robert Carson',          capacity: 80, avatarInitials: 'TO' },
-  { id: 'm58', teamIds: ['t21'], name: 'Paula Thornton',                role: 'Advanced Software Engineer',            reportsTo: 'Robert Carson',          capacity: 85, avatarInitials: 'PT' },
+  { id: 'm58', teamIds: ['t21'], name: 'Paula Morton',                role: 'Advanced Software Engineer',            reportsTo: 'Robert Carson',          capacity: 85, avatarInitials: 'PT' },
   { id: 'm59', teamIds: ['t21', 't22', 't40'], name: 'Robert Carson',   role: 'Advanced Software Engineering Manager', reportsTo: 'Megan Clarke',           capacity: 70, avatarInitials: 'RC' },
   { id: 'm60', teamIds: ['t21'], name: 'Saran Jaya',            role: 'Senior Product Manager',                reportsTo: 'Brandon Wells',           capacity: 75, avatarInitials: 'SJ' },
   // ── Inventory — DSD (t22) ──────────────────────────────────────────
@@ -375,7 +375,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm63', teamIds: ['t22'], name: 'Andrew Porter',           role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Robert Carson',       capacity: 80, avatarInitials: 'AP' },
   { id: 'm64', teamIds: ['t22'], name: 'Erik Rhodes',                  role: 'Application Systems Analyst',           reportsTo: 'Robert Carson',          capacity: 80, avatarInitials: 'ER' },
   // ── Production — Warrior Squad (t23) ───────────────────────────────
-  { id: 'm65', teamIds: ['t23'], name: 'Jason Cruz',                    role: 'Software Engineer',                     reportsTo: 'Rosa Garcia',             capacity: 80, avatarInitials: 'JC' },
+  { id: 'm65', teamIds: ['t23'], name: 'Jason Reyes',                    role: 'Software Engineer',                     reportsTo: 'Rosa Garcia',             capacity: 80, avatarInitials: 'JC' },
   { id: 'm66', teamIds: ['t23'], name: 'Sirisha Yarla',           role: 'Sr Software Engineer',                  reportsTo: 'Rosa Garcia',             capacity: 80, avatarInitials: 'SY' },
   { id: 'm67', teamIds: ['t19', 't23', 't25', 't40'], name: 'Rosa Garcia', role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Megan Clarke', capacity: 70, avatarInitials: 'RG' },
   // ── Store Ops Technology — FAST (t19) — former t24/t26 members ─────
@@ -385,7 +385,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm74', teamIds: ['t19'], name: 'Nicholas Moss',                role: 'Sr Software Engineer',                  reportsTo: 'Rosa Garcia',             capacity: 80, avatarInitials: 'NM' },
   // ── Store Ops Technology — Freddy Kroger (t25) ─────────────────────
   { id: 'm71', teamIds: ['t25'], name: 'Rohit Kaveri',                 role: 'Sr Software Engineer',                  reportsTo: 'Rosa Garcia',             capacity: 80, avatarInitials: 'RK' },
-  { id: 'm72', teamIds: ['t25'], name: 'Ryan Ware',                     role: 'Advanced Software Engineer',            reportsTo: 'Rosa Garcia',             capacity: 85, avatarInitials: 'RW' },
+  { id: 'm72', teamIds: ['t25'], name: 'Ryan Ward',                     role: 'Advanced Software Engineer',            reportsTo: 'Rosa Garcia',             capacity: 85, avatarInitials: 'RW' },
   { id: 'm73', teamIds: ['t25'], name: 'Sarah Proctor',                 role: 'Senior Product Manager',                reportsTo: 'Megan Clarke',           capacity: 75, avatarInitials: 'SP' },
   // ── Ordering — Little Einsteins (t27) ──────────────────────────────
   { id: 'm75', teamIds: ['t27'], name: 'Douglas Manning',            role: 'Software Engineer',                     reportsTo: 'Michelle Trask',        capacity: 80, avatarInitials: 'DM' },
@@ -393,7 +393,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm77', teamIds: ['t27'], name: 'Thomas Toll',                  role: 'Software Engineer',                     reportsTo: 'Michelle Trask',        capacity: 80, avatarInitials: 'TT' },
   { id: 'm78', teamIds: ['t27', 't28', 't29', 't40'], name: 'Michelle Trask', role: 'Advanced Software Engineering Manager', reportsTo: 'Megan Clarke',    capacity: 70, avatarInitials: 'MT' },
   // ── Ordering — Interface (t28) ─────────────────────────────────────
-  { id: 'm79', teamIds: ['t28'], name: 'Rajiv Nair',                    role: 'Sr Software Engineer',                  reportsTo: 'Michelle Trask',        capacity: 80, avatarInitials: 'RN' },
+  { id: 'm79', teamIds: ['t28'], name: 'Raj Nair',                    role: 'Sr Software Engineer',                  reportsTo: 'Michelle Trask',        capacity: 80, avatarInitials: 'RN' },
   { id: 'm80', teamIds: ['t28'], name: 'Sara Sizemore',                role: 'Sr Software Engineer',                  reportsTo: 'Michelle Trask',        capacity: 80, avatarInitials: 'SS' },
   { id: 'm81', teamIds: ['t19'], name: 'Michael Parks',           role: 'Senior Product Manager',                reportsTo: 'Megan Clarke',           capacity: 75, avatarInitials: 'MP' },
   // ── Ordering — Code Busters (t29) ──────────────────────────────────
@@ -414,31 +414,31 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm94', teamIds: ['t31'], name: 'Harini Reddy',             role: 'Senior Quality Engineer',               reportsTo: 'Priya Anand',        capacity: 80, avatarInitials: 'HR' },
   { id: 'm95', teamIds: ['t31'], name: 'Deepak Pillai',           role: 'Advanced Quality Engineer',             reportsTo: 'Priya Anand',        capacity: 85, avatarInitials: 'DP' },
   // ── DevSecOps — SAT DevSecOps (t32) ────────────────────────────────
-  { id: 'm96', teamIds: ['t32'], name: 'Neil Aggarwal',               role: 'Senior Product Manager',                reportsTo: 'Stephen Lay',             capacity: 75, avatarInitials: 'NA' },
-  { id: 'm97', teamIds: ['t32'], name: 'Theodore Fark',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Stephen Lay',           capacity: 80, avatarInitials: 'TF' },
-  { id: 'm98', teamIds: ['t32'], name: 'Justin Parker',                 role: 'Advanced Site Reliability/Devops Engineer', reportsTo: 'Stephen Lay',         capacity: 85, avatarInitials: 'JP' },
+  { id: 'm96', teamIds: ['t32'], name: 'Neil Aggarwal',               role: 'Senior Product Manager',                reportsTo: 'Steve Lane',             capacity: 75, avatarInitials: 'NA' },
+  { id: 'm97', teamIds: ['t32'], name: 'Theodore Fark',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Steve Lane',           capacity: 80, avatarInitials: 'TF' },
+  { id: 'm98', teamIds: ['t32'], name: 'Justin Parker',                 role: 'Advanced Site Reliability/Devops Engineer', reportsTo: 'Steve Lane',         capacity: 85, avatarInitials: 'JP' },
   // ── L3 Support — SAT Support (t33) ─────────────────────────────────
-  { id: 'm100', teamIds: ['t33'], name: 'Troy Cooper',                  role: 'Release Manager',                       reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'TC' },
-  { id: 'm101', teamIds: ['t33'], name: 'Marcus Webb',               role: 'Senior Application Systems Analyst',    reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'MW' },
-  { id: 'm102', teamIds: ['t33'], name: 'Blake Morgan',                role: 'Software Engineer',                     reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'BM' },
-  { id: 'm103', teamIds: ['t33'], name: 'Christopher Penn',             role: 'Associate Application Systems Analyst', reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'CP' },
-  { id: 'm104', teamIds: ['t33'], name: 'Katie Spencer',               role: 'Application Systems Analyst',           reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'KS' },
-  { id: 'm105', teamIds: ['t33'], name: 'Will Brinkley',             role: 'Associate Application Systems Analyst', reportsTo: 'Stephen Lay',             capacity: 80, avatarInitials: 'WB' },
+  { id: 'm100', teamIds: ['t33'], name: 'Troy Carter',                  role: 'Release Manager',                       reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'TC' },
+  { id: 'm101', teamIds: ['t33'], name: 'Marcus Webb',               role: 'Senior Application Systems Analyst',    reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'MW' },
+  { id: 'm102', teamIds: ['t33'], name: 'Blake Morgan',                role: 'Software Engineer',                     reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'BM' },
+  { id: 'm103', teamIds: ['t33'], name: 'Christopher Penn',             role: 'Associate Application Systems Analyst', reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'CP' },
+  { id: 'm104', teamIds: ['t33'], name: 'Katie Spencer',               role: 'Application Systems Analyst',           reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'KS' },
+  { id: 'm105', teamIds: ['t33'], name: 'Will Brinkley',             role: 'Associate Application Systems Analyst', reportsTo: 'Steve Lane',             capacity: 80, avatarInitials: 'WB' },
   // ── AP — AP (t34) ──────────────────────────────────────────────────
   { id: 'm106', teamIds: ['t34', 't41'], name: 'Adrian Cole',         role: 'Advanced Software Engineering Manager', reportsTo: 'Brandon Wells',           capacity: 70, avatarInitials: 'AC' },
   { id: 'm107', teamIds: ['t34'], name: 'Nick Carter',              role: 'Senior Application Systems Analyst',    reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'NC' },
   { id: 'm108', teamIds: ['t34'], name: 'Quinn Carter',               role: 'Associate Application Systems Analyst', reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'QC' },
   { id: 'm109', teamIds: ['t34'], name: 'Karen Grimes',           role: 'Associate Application Systems Analyst', reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'KG' },
-  { id: 'm110', teamIds: ['t34'], name: 'Terrence Lewis',               role: 'Application Systems Analyst',           reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'TL' },
+  { id: 'm110', teamIds: ['t34'], name: 'Terry Lewis',               role: 'Application Systems Analyst',           reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'TL' },
   { id: 'm111', teamIds: ['t34'], name: 'Richard Soler',               role: 'Application Systems Analyst',           reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'RS' },
   // ── Compliance — Compliance (t35) ──────────────────────────────────
-  { id: 'm112', teamIds: ['t35', 't41'], name: 'Sandeep Singh',          role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Brandon Wells',   capacity: 65, avatarInitials: 'SS' },
-  { id: 'm113', teamIds: ['t35'], name: 'Sai Chandra',            role: 'Senior Quality Engineer',               reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'SC' },
-  { id: 'm114', teamIds: ['t35'], name: 'Jake Flynn',                   role: 'Software Engineer',                     reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'JF' },
-  { id: 'm115', teamIds: ['t35'], name: 'Derek Ford',                  role: 'Software Engineer',                     reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'DF' },
-  { id: 'm116', teamIds: ['t35'], name: 'Kiran Kumar',   role: 'Advanced Software Engineer',            reportsTo: 'Sandeep Singh',           capacity: 85, avatarInitials: 'KK' },
-  { id: 'm117', teamIds: ['t35'], name: 'Divya Reddy',                role: 'Sr Software Engineer',                  reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'DR' },
-  { id: 'm118', teamIds: ['t35'], name: 'Eric Trapp',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'ET' },
+  { id: 'm112', teamIds: ['t35', 't41'], name: 'Sandy Singh',          role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Brandon Wells',   capacity: 65, avatarInitials: 'SS' },
+  { id: 'm113', teamIds: ['t35'], name: 'Sai Chandra',            role: 'Senior Quality Engineer',               reportsTo: 'Sandy Singh',           capacity: 80, avatarInitials: 'SC' },
+  { id: 'm114', teamIds: ['t35'], name: 'Jake Flynn',                   role: 'Software Engineer',                     reportsTo: 'Sandy Singh',           capacity: 80, avatarInitials: 'JF' },
+  { id: 'm115', teamIds: ['t35'], name: 'Derek Ford',                  role: 'Software Engineer',                     reportsTo: 'Sandy Singh',           capacity: 80, avatarInitials: 'DF' },
+  { id: 'm116', teamIds: ['t35'], name: 'Kiran Kumar',   role: 'Advanced Software Engineer',            reportsTo: 'Sandy Singh',           capacity: 85, avatarInitials: 'KK' },
+  { id: 'm117', teamIds: ['t35'], name: 'Divya Reddy',                role: 'Sr Software Engineer',                  reportsTo: 'Sandy Singh',           capacity: 80, avatarInitials: 'DR' },
+  { id: 'm118', teamIds: ['t35'], name: 'Eric Trapp',                 role: 'Senior Site Reliability/Devops Engineer', reportsTo: 'Sandy Singh',           capacity: 80, avatarInitials: 'ET' },
   // ── Labor & Productivity — Labor & Productivity (t36) ──────────────
   { id: 'm120', teamIds: ['t36'], name: 'Kurt Benson',                  role: 'Advanced Software Engineer',            reportsTo: 'Diana Wilson',         capacity: 85, avatarInitials: 'KB' },
   { id: 'm121', teamIds: ['t36'], name: 'Jyoti Rao',                 role: 'Senior Product Manager',                reportsTo: 'Diana Wilson',         capacity: 75, avatarInitials: 'JR' },
@@ -453,11 +453,11 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   { id: 'm129', teamIds: ['t37'], name: 'Eric Ross',                    role: 'Advanced Solutions Architect',          reportsTo: 'Brandon Wells',           capacity: 80, avatarInitials: 'ER' },
   // ── SAT Leadership — Store Technology Leadership (t38) ─────────────
   // Executive and director-level leaders. Ryan Schreier is the portfolio lead
-  // reporting to James Clendenen (CIO, not in roster).
-  { id: 'm130', teamIds: ['t38'], name: 'Ryan Schreier',                 role: 'Sr Store & Associate Technology Director', reportsTo: 'James Clendenen',       capacity: 60, avatarInitials: 'RS' },
+  // reporting to James Caldwell (CIO, not in roster).
+  { id: 'm130', teamIds: ['t38'], name: 'Ryan Schreier',                 role: 'Sr Store & Associate Technology Director', reportsTo: 'James Caldwell',       capacity: 60, avatarInitials: 'RS' },
   { id: 'm131', teamIds: ['t38', 't41'], name: 'Brandon Wells',         role: 'Labor & Shrink Technology Director',    reportsTo: 'Ryan Schreier',            capacity: 65, avatarInitials: 'BW' },
   { id: 'm132', teamIds: ['t38', 't40'], name: 'Megan Clarke',         role: 'Store Ops Technology Director',         reportsTo: 'Ryan Schreier',            capacity: 65, avatarInitials: 'MC' },
-  { id: 'm133', teamIds: ['t38'], name: 'Stephen Lay',                  role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Ryan Schreier',    capacity: 65, avatarInitials: 'SL' },
+  { id: 'm133', teamIds: ['t38'], name: 'Steve Lane',                  role: 'Senior Advanced Software Engineering Manager', reportsTo: 'Ryan Schreier',    capacity: 65, avatarInitials: 'SL' },
   { id: 'm134', teamIds: ['t38'], name: 'Sam Saleh',                role: 'Sr Advanced Data Engineering Manager',  reportsTo: 'Ryan Schreier',            capacity: 65, avatarInitials: 'SS' },
   { id: 'm135', teamIds: ['t38'], name: 'Priya Anand',             role: 'Advanced QA Manager',                   reportsTo: 'Ryan Schreier',            capacity: 65, avatarInitials: 'PA' },
   { id: 'm136', teamIds: ['t38', 't12'], name: 'Mike Silver',        role: 'Product Management Group Manager',      reportsTo: 'Ryan Schreier',            capacity: 65, avatarInitials: 'MS' },
@@ -466,7 +466,7 @@ const rawMembers: Omit<Member, 'projectIds'>[] = [
   // ── AP — AP (t34) additions ────────────────────────────────────────
   { id: 'm138', teamIds: ['t34'], name: 'Dylan Stone',                 role: 'Application Systems Analyst',           reportsTo: 'Adrian Cole',          capacity: 80, avatarInitials: 'DS' },
   // ── Compliance — Compliance (t35) additions ────────────────────────
-  { id: 'm139', teamIds: ['t35'], name: 'Ravi Senthil',                role: 'Software Engineer',                     reportsTo: 'Sandeep Singh',           capacity: 80, avatarInitials: 'RS' },
+  { id: 'm139', teamIds: ['t35'], name: 'Ravi Senthil',                role: 'Software Engineer',                     reportsTo: 'Sandy Singh',           capacity: 80, avatarInitials: 'RS' },
 ]
 
 // ─── Projects ─────────────────────────────────────────────────────────────
@@ -1979,7 +1979,7 @@ const intakeRequests: IntakeRequest[] = [
   },
   {
     id: 'r2',
-    requesterName: 'Samuel Bryant',
+    requesterName: 'Sam Burton',
     teamOrDomain: 'Seamless AX',
     description: 'Push notifications to associate mobile devices for task assignments, schedule changes, and urgent store communications.',
     capabilityType: 'Existing',
@@ -2032,7 +2032,7 @@ const intakeRequests: IntakeRequest[] = [
     measurementPlan: 'SBOM coverage across all SAT services (target: 100% within 6 months). Vulnerability remediation SLA compliance rate.',
     estimatedEffort: 'M',
     priority: 'High',
-    businessOwner: 'Stephen Lay',
+    businessOwner: 'Steve Lane',
     networkImpact: 'No store network impact — all scanning happens in CI/CD pipeline (cloud infrastructure).',
     requestedByDate: '2026-07-01',
     status: 'Approved',
@@ -2126,7 +2126,7 @@ function buildState(): PortfolioState {
   // Pulse page has visible data on first launch without manual entry.
   const weeklyPulses: WeeklyPulse[] = [
     {
-      // Taylor Rose — matches the user's Design Pulse example closely
+      // Riley Rhodes — matches the user's Design Pulse example closely
       id: 'pulse1',
       memberId: 'm23',
       weekOf: '2026-06-15',
@@ -2461,7 +2461,7 @@ function buildState(): PortfolioState {
     // ── Week of June 8 (prior week) — same reporters, different priorities ──
 
     {
-      // Taylor Rose — prior week: busier, pre-OOO push
+      // Riley Rhodes — prior week: busier, pre-OOO push
       id: 'pulse5',
       memberId: 'm23',
       weekOf: '2026-06-08',
@@ -2558,7 +2558,7 @@ function buildState(): PortfolioState {
     // ── Week of May 25 — all 11 members ──
 
     {
-      // Taylor Rose — pre-sprint wind-down
+      // Riley Rhodes — pre-sprint wind-down
       id: 'pulse19',
       memberId: 'm23',
       weekOf: '2026-05-25',
@@ -2862,7 +2862,7 @@ function buildState(): PortfolioState {
     // ── Week of June 1 — two weeks prior ──
 
     {
-      // Taylor Rose — steady pre-sprint week
+      // Riley Rhodes — steady pre-sprint week
       id: 'pulse11',
       memberId: 'm23',
       weekOf: '2026-06-01',
@@ -3848,7 +3848,7 @@ function buildState(): PortfolioState {
     // ── Week of June 22 (next week) — forward-looking entries ──
 
     {
-      // Taylor Rose — post-OOO return week
+      // Riley Rhodes — post-OOO return week
       id: 'pulse8',
       memberId: 'm23',
       weekOf: '2026-06-22',
@@ -3940,7 +3940,7 @@ function buildState(): PortfolioState {
     // ── Week of June 29 — upcoming sprint week ──
 
     {
-      // Taylor Rose — post-hackathon follow-through
+      // Riley Rhodes — post-hackathon follow-through
       id: 'pulse15',
       memberId: 'm23',
       weekOf: '2026-06-29',
