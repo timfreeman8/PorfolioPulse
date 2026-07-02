@@ -28,10 +28,10 @@
  *     attach assignments to the right project rows.
  */
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
-  Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronUp, PackageOpen, DollarSign, X, Trash2,
+  Download, Database, AlertCircle, CheckCircle2,
+  PackageOpen, DollarSign, X, Trash2,
   Save, History, CalendarX,
   Shield, UserX, UserCheck, Bell, HardDrive,
 } from 'lucide-react'
@@ -53,22 +53,11 @@ import {
   exportInitiativesCsv,
   exportIntakeCsv,
   exportFullSnapshot,
-  importRosterCsv,
-  importDomainsCsv,
-  importTeamsCsv,
-  importMembersCsv,
-  importProjectsCsv,
-  importAssignmentsCsv,
-  importInitiativesCsv,
-  importIntakeCsv,
-  importFullSnapshot,
-  detectCsvEntityType,
-  type CsvEntityType,
 } from '@/lib/csv'
 import { clearState, getStorageSizeBytes } from '@/lib/persistence'
 import { getTeamsWebhookUrl, setTeamsWebhookUrl } from '@/lib/notifications'
 
-import type { PortfolioState, ProjectMemberAssignment } from '@/types'
+import type { PortfolioState } from '@/types'
 
 // ─── Project snapshot ──────────────────────────────────────────────────────
 // A lightweight checkpoint for the project layer only (projects, initiatives,
@@ -269,14 +258,6 @@ function ResourceRatesSection() {
   )
 }
 
-// ─── Types ─────────────────────────────────────────────────────────────────
-
-interface ImportResult {
-  ok: boolean
-  message: string
-  detail?: string
-}
-
 // ─── Export card ──────────────────────────────────────────────────────────
 
 /**
@@ -310,252 +291,6 @@ function ExportCard({
     </div>
   )
 }
-
-// ─── Pending assignments state ─────────────────────────────────────────────
-// When importing projects, the user should upload assignments.csv first so
-// the parser can attach assignments. We keep parsed assignments in module-level
-// state (outside React) since they're ephemeral and survive re-renders.
-
-let pendingAssignments: Map<string, ProjectMemberAssignment[]> = new Map()
-
-// ─── Import section ────────────────────────────────────────────────────────
-
-/**
- * ImportSection — file upload UI that auto-detects entity type and applies
- * the import to the store. Provides clear feedback on what was imported.
- */
-function ImportSection() {
-  const store = usePortfolioStore()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [result, setResult] = useState<ImportResult | null>(null)
-  const [dragging, setDragging] = useState(false)
-  const [showInstructions, setShowInstructions] = useState(false)
-
-  /** Apply a parsed CSV to the appropriate slice of the store state. */
-  function applyImport(entityType: CsvEntityType, csvText: string): ImportResult {
-    const state = store as unknown as PortfolioState & { hydrate: (s: PortfolioState) => void }
-    const current: PortfolioState = {
-      domains:        store.domains,
-      teams:          store.teams,
-      members:        store.members,
-      projects:       store.projects,
-      initiatives:    store.initiatives,
-      intakeRequests: store.intakeRequests,
-      escalations:    store.escalations,
-      ptoBlocks:      store.ptoBlocks,
-      resourceRates:  store.resourceRates,
-      weeklyPulses:   store.weeklyPulses,
-      adminMemberIds: store.adminMemberIds,
-    }
-
-    switch (entityType) {
-      case 'roster': {
-        // Single file replaces domains + teams + members atomically.
-        // Current arrays are passed so existing IDs can be reused by name,
-        // keeping project assignment references stable.
-        const { domains, teams, members } = importRosterCsv(csvText, current.domains, current.teams)
-        state.hydrate({ ...current, domains, teams, members })
-        return {
-          ok: true,
-          message: `Imported ${domains.length} domains, ${teams.length} teams, ${members.length} members.`,
-        }
-      }
-      // Legacy cases — still handled so old individual CSV files can be reimported.
-      case 'domains': {
-        const imported = importDomainsCsv(csvText)
-        state.hydrate({ ...current, domains: imported })
-        return { ok: true, message: `Imported ${imported.length} domains.` }
-      }
-      case 'teams': {
-        const imported = importTeamsCsv(csvText, current.domains)
-        state.hydrate({ ...current, teams: imported })
-        return { ok: true, message: `Imported ${imported.length} teams.` }
-      }
-      case 'members': {
-        const imported = importMembersCsv(csvText, current.teams, current.domains)
-        state.hydrate({ ...current, members: imported })
-        return { ok: true, message: `Imported ${imported.length} members.` }
-      }
-      case 'assignments': {
-        // Store parsed assignments so they're available when projects are imported next.
-        // Pass current members so member names in the CSV can be resolved to IDs.
-        pendingAssignments = importAssignmentsCsv(csvText, current.members)
-        const total = [...pendingAssignments.values()].reduce((s, a) => s + a.length, 0)
-        return {
-          ok: true,
-          message: `Parsed ${total} assignments for ${pendingAssignments.size} projects.`,
-          detail: 'Now upload projects.csv to attach these assignments to projects.',
-        }
-      }
-      case 'projects': {
-        // Pass current initiatives and projects so names resolve to IDs (including blockedBy).
-        const imported = importProjectsCsv(csvText, pendingAssignments, current.initiatives, current.projects)
-        // Rebuild member.projectIds from assignments to keep the store consistent.
-        const updatedMembers = current.members.map(m => ({
-          ...m,
-          projectIds: imported
-            .filter(p => p.assignments.some(a => a.memberId === m.id))
-            .map(p => p.id),
-        }))
-        state.hydrate({ ...current, projects: imported, members: updatedMembers })
-        // Clear pending assignments after use.
-        pendingAssignments = new Map()
-        return {
-          ok: true,
-          message: `Imported ${imported.length} projects.`,
-          detail: `${imported.filter(p => p.assignments.length > 0).length} projects have assignments attached.`,
-        }
-      }
-      case 'initiatives': {
-        const imported = importInitiativesCsv(csvText)
-        state.hydrate({ ...current, initiatives: imported })
-        return { ok: true, message: `Imported ${imported.length} initiatives.` }
-      }
-      case 'intake': {
-        const imported = importIntakeCsv(csvText)
-        state.hydrate({ ...current, intakeRequests: imported })
-        return { ok: true, message: `Imported ${imported.length} intake requests.` }
-      }
-    }
-  }
-
-  /** Handle a file from the input or drop event. */
-  function processFile(file: File) {
-    setResult(null)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result as string
-      if (!text) {
-        setResult({ ok: false, message: 'File is empty.' })
-        return
-      }
-
-      // JSON snapshot path
-      if (file.name.endsWith('.json') || text.trimStart().startsWith('{')) {
-        try {
-          const snapshot = importFullSnapshot(text)
-          const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-          s.hydrate(snapshot)
-          setResult({
-            ok: true,
-            message: `Full snapshot imported.`,
-            detail: `${snapshot.domains.length} domains, ${snapshot.teams.length} teams, ${snapshot.members.length} members, ${snapshot.projects.length} projects.`,
-          })
-        } catch (err) {
-          setResult({ ok: false, message: 'Invalid JSON snapshot.', detail: String(err) })
-        }
-        return
-      }
-
-      // CSV path — auto-detect entity type
-      const entityType = detectCsvEntityType(text)
-      if (!entityType) {
-        setResult({
-          ok: false,
-          message: 'Could not detect entity type from CSV headers.',
-          detail: 'Make sure the file was exported from this tool and the header row is intact.',
-        })
-        return
-      }
-
-      try {
-        const res = applyImport(entityType, text)
-        setResult(res)
-      } catch (err) {
-        setResult({ ok: false, message: 'Import failed.', detail: String(err) })
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) processFile(file)
-    // Reset input so the same file can be re-uploaded if needed.
-    e.target.value = ''
-  }
-
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) processFile(file)
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Drop zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        onClick={() => fileRef.current?.click()}
-        className={cn(
-          'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
-          dragging
-            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/25'
-            : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40 dark:hover:bg-blue-900/15',
-        )}
-      >
-        <Upload size={24} className="mx-auto mb-2 text-slate-400" />
-        <p className="text-sm font-medium text-slate-700">Drop a CSV or JSON file here</p>
-        <p className="text-xs text-slate-400 mt-1">or click to browse</p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,.json"
-          className="sr-only"
-          onChange={onFileChange}
-        />
-      </div>
-
-      {/* Result feedback */}
-      {result && (
-        <div className={cn(
-          'flex gap-3 p-4 rounded-lg border',
-          result.ok
-            ? 'bg-green-50 dark:bg-green-900/25 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-            : 'bg-red-50 dark:bg-red-900/25 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
-        )}>
-          {result.ok
-            ? <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-green-600" />
-            : <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-600" />
-          }
-          <div>
-            <p className="text-sm font-medium">{result.message}</p>
-            {result.detail && <p className="text-xs mt-0.5 opacity-80">{result.detail}</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Import order instructions */}
-      <button
-        onClick={() => setShowInstructions(i => !i)}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors"
-      >
-        {showInstructions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        Import order &amp; tips
-      </button>
-      {showInstructions && (
-        <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-4 space-y-1 border border-slate-100">
-          <p className="font-medium text-slate-700 mb-2">Recommended import order</p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>roster.csv — domains + teams + members in one file</li>
-            <li>initiatives.csv — must exist before projects reference them</li>
-            <li>assignments.csv — <strong>upload before projects.csv</strong> so assignments attach correctly</li>
-            <li>projects.csv — assignments from step 3 are attached automatically</li>
-            <li>intake.csv — standalone, no dependencies</li>
-          </ol>
-          <p className="mt-3 text-slate-400">
-            Tip: for a full replace, use <strong>Export Full Snapshot → JSON</strong> and re-import the JSON.
-            It restores everything in one step with no ordering concerns.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
 
 // ─── Access control section ────────────────────────────────────────────────
 
@@ -696,7 +431,7 @@ export function SettingsPage() {
   const store = usePortfolioStore()
 
   // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'notifications' | 'export' | 'import' | 'danger'>('rates')
+  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'notifications' | 'export' | 'danger'>('rates')
 
   // Teams webhook URL — read from localStorage on mount; saved on blur.
   const [webhookUrl, setWebhookUrl] = useState(() => getTeamsWebhookUrl())
@@ -798,7 +533,6 @@ export function SettingsPage() {
             { id: 'access',        label: 'Access Control',   Icon: Shield,      adminOnly: true  },
             { id: 'notifications', label: 'Notifications',    Icon: Bell,        adminOnly: false },
             { id: 'export',        label: 'Export',           Icon: Download,    adminOnly: false },
-            { id: 'import',        label: 'Import',           Icon: Upload,      adminOnly: false },
             { id: 'danger',        label: 'Danger Zone',      Icon: AlertCircle, adminOnly: false },
           ] as const).filter(t => !t.adminOnly || authRole === 'admin').map(({ id, label, Icon }) => (
             <button
@@ -1030,24 +764,6 @@ export function SettingsPage() {
           </div>
         </section>
       )}
-
-      {/* Import tab */}
-      {activeTab === 'import' && (
-        <section>
-          <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <div className="flex items-start gap-3 mb-5 pb-4 border-b border-slate-100">
-              <FileText size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Upload any CSV or JSON file exported from this tool. The entity type is auto-detected
-                from the header row — no need to specify it manually. Importing <strong>replaces</strong> the
-                entity collection entirely (existing rows are overwritten, rows not in the file are removed).
-              </p>
-            </div>
-            <ImportSection />
-          </div>
-        </section>
-      )}
-
 
       {/* Danger Zone tab */}
       {activeTab === 'danger' && (
