@@ -178,10 +178,15 @@ export function LoginPage() {
         </div>
       </div>
 
-      {/* Future auth note */}
-      <p className="mt-8 text-xs text-slate-400 dark:text-slate-600 text-center max-w-xs">
-        Azure AD single sign-on will replace this screen when authentication is enabled.
-      </p>
+      {/* Future auth note + data disclaimer */}
+      <div className="mt-8 flex flex-col items-center gap-2 max-w-xs text-center">
+        <p className="text-xs text-slate-400 dark:text-slate-600">
+          Azure AD single sign-on will replace this screen when authentication is enabled.
+        </p>
+        <p className="text-xs text-slate-400 dark:text-slate-600">
+          All member names are anonymized placeholders. Real roster data can be mapped via Azure AD or imported from your HR system.
+        </p>
+      </div>
     </div>
   )
 }
