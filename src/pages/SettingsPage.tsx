@@ -32,7 +32,7 @@ import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
   ChevronDown, ChevronUp, PackageOpen, DollarSign, X, Trash2,
-  Save, History, CalendarX, Activity,
+  Save, History, CalendarX,
   Shield, UserX, UserCheck, Bell, HardDrive,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -1208,35 +1208,6 @@ export function SettingsPage() {
             </Button>
           </div>
 
-          {/* Clear pulse data — wipe all weekly pulse entries, roster and epics stay */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <Activity size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Clear All Pulse Data</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Permanently deletes all weekly pulse entries. Your roster, epics, and other data are not affected.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Clear All Pulse Data',
-                'This permanently deletes every Design Pulse entry across all weeks. Your roster and epics will not be affected.',
-                'Clear All Pulses',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  s.hydrate({ ...usePortfolioStore.getState(), weeklyPulses: [] })
-                },
-              )}
-            >
-              <Activity size={13} />
-              Clear All Pulses
-            </Button>
-          </div>
 
           {/* Clear all data */}
           <div className="flex items-center justify-between gap-4 px-5 py-4">
