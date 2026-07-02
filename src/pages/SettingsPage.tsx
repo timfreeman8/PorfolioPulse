@@ -517,7 +517,7 @@ export function SettingsPage() {
 
   return (
     <div className="p-8 overflow-y-auto h-full">
-      <div className="max-w-2xl space-y-6">
+      <div className="max-w-5xl space-y-6">
 
       {/* Header + tab bar */}
       <div>
