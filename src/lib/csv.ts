@@ -36,15 +36,29 @@ import type {
 
 /**
  * Escape a single cell value for CSV output.
- * Wraps in double-quotes if the value contains commas, quotes, or newlines.
- * Internal double-quotes are escaped by doubling: " → ""
+ *
+ * Two layers of protection:
+ *   1. Wraps in double-quotes when the value contains commas, quotes, newlines,
+ *      tabs, or the formula-injection prefix characters (see below).
+ *      Internal double-quotes are escaped by doubling: " → ""
+ *   2. **Formula injection guard** (OWASP CSV Injection):
+ *      Excel, Google Sheets, and LibreOffice interpret cells that start with
+ *      `=`, `+`, `-`, or `@` as formulas, which can execute arbitrary code or
+ *      exfiltrate data when the exported file is opened.  We neutralise this by
+ *      prepending a tab character so the cell is treated as plain text.  The tab
+ *      also triggers the quoting branch so it is safely enclosed in double-quotes
+ *      and invisible in most spreadsheet renderers.
  */
 function escapeCell(value: unknown): string {
   const s = value == null ? '' : String(value)
-  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-    return '"' + s.replace(/"/g, '""') + '"'
+  // Neutralise formula-injection characters at the start of the value.
+  const safe = s.length > 0 && /^[=+\-@]/.test(s) ? '\t' + s : s
+  // Quote if the (possibly tab-prefixed) value contains any delimiter or
+  // control character — including the tab we may have just prepended.
+  if (safe.includes(',') || safe.includes('"') || safe.includes('\n') || safe.includes('\r') || safe.includes('\t')) {
+    return '"' + safe.replace(/"/g, '""') + '"'
   }
-  return s
+  return safe
 }
 
 /**
@@ -760,34 +774,86 @@ export function exportFullSnapshot(state: PortfolioState): string {
 
 /**
  * Parse a JSON snapshot back to PortfolioState.
- * Throws if the JSON is invalid or missing required top-level keys.
+ *
+ * Validation layers:
+ *   1. JSON.parse — rejects malformed JSON immediately.
+ *   2. Top-level structure — required array fields must exist and be arrays.
+ *   3. Array size limits — caps each collection at 50 000 items so a crafted
+ *      snapshot cannot exhaust memory or cause a multi-second parse hang.
+ *   4. Prototype-pollution guard — the parsed object is checked to be a plain
+ *      object (not null, not an array, not a Function) before reading fields.
+ *
+ * Throws with a human-readable message for any structural violation so the
+ * Settings page can surface the reason to the user.
  */
 export function importFullSnapshot(json: string): PortfolioState {
-  const parsed = JSON.parse(json)
+  // Hard cap: snapshots larger than 50 MB are almost certainly malformed or
+  // intentionally crafted to exhaust memory during JSON.parse.
+  if (json.length > 50 * 1024 * 1024) {
+    throw new Error('Snapshot file is too large (> 50 MB). Export a fresh snapshot and try again.')
+  }
+
+  const parsed: unknown = JSON.parse(json)
+
+  // Top-level must be a plain object, not an array or primitive.
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Invalid snapshot: root must be a JSON object.')
+  }
+
+  // Cast to a loose record now that we've confirmed it's an object.
+  const root = parsed as Record<string, unknown>
+
+  // Prevent prototype-pollution: reject any snapshot that carries __proto__,
+  // constructor, or prototype as a key.
+  const dangerousKeys = ['__proto__', 'constructor', 'prototype']
+  for (const k of dangerousKeys) {
+    if (Object.prototype.hasOwnProperty.call(root, k)) {
+      throw new Error(`Invalid snapshot: forbidden key "${k}" detected.`)
+    }
+  }
+
   const required: (keyof PortfolioState)[] = [
     'domains', 'teams', 'members', 'projects', 'initiatives', 'intakeRequests',
   ]
+  // Maximum elements per collection — prevents DoS via huge arrays.
+  const MAX_ITEMS = 50_000
   for (const key of required) {
-    if (!Array.isArray(parsed[key])) {
+    if (!Array.isArray(root[key])) {
       throw new Error(`Invalid snapshot: missing or non-array field "${key}"`)
+    }
+    if ((root[key] as unknown[]).length > MAX_ITEMS) {
+      throw new Error(`Invalid snapshot: field "${key}" exceeds maximum of ${MAX_ITEMS} items.`)
     }
   }
   return {
-    domains:         parsed.domains         ?? [],
-    teams:           parsed.teams           ?? [],
-    members:         parsed.members         ?? [],
-    projects:        parsed.projects        ?? [],
-    initiatives:     parsed.initiatives     ?? [],
-    intakeRequests:  parsed.intakeRequests  ?? [],
-    escalations:     parsed.escalations     ?? [],
-    ptoBlocks:       parsed.ptoBlocks       ?? [],
-    resourceRates:   parsed.resourceRates   ?? [],
-    weeklyPulses:    parsed.weeklyPulses    ?? [],
-    adminMemberIds:  parsed.adminMemberIds  ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    domains:         (root.domains         as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    teams:           (root.teams           as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    members:         (root.members         as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    projects:        (root.projects        as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    initiatives:     (root.initiatives     as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    intakeRequests:  (root.intakeRequests  as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    escalations:     (root.escalations     as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ptoBlocks:       (root.ptoBlocks       as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resourceRates:   (root.resourceRates   as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    weeklyPulses:    (root.weeklyPulses    as any[]) ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    adminMemberIds:  (root.adminMemberIds  as any[]) ?? [],
     // Backfill roleDefinitions for snapshots created before this field existed.
-    roleDefinitions: parsed.roleDefinitions ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    roleDefinitions: (root.roleDefinitions as any[]) ?? [],
     // Backfill disciplines for snapshots created before this field existed.
     // migrateState() will re-seed from MEMBER_DISCIPLINES on load if this is empty.
-    disciplines: parsed.disciplines ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    disciplines:     (root.disciplines     as any[]) ?? [],
   }
 }
