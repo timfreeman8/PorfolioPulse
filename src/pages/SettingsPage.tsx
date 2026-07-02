@@ -31,8 +31,8 @@
 import { useRef, useState } from 'react'
 import {
   Download, Upload, Database, FileText, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronUp, PackageOpen, DollarSign, X, RotateCcw, Trash2,
-  FlaskConical, Save, History, CalendarOff, CalendarX, Activity,
+  ChevronDown, ChevronUp, PackageOpen, DollarSign, X, Trash2,
+  Save, History, CalendarX, Activity,
   Shield, UserX, UserCheck, Bell, HardDrive,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -65,87 +65,10 @@ import {
   detectCsvEntityType,
   type CsvEntityType,
 } from '@/lib/csv'
-import { buildSeedState, buildSampleProjectState, buildPulseSeedData } from '@/lib/seedData'
 import { clearState, getStorageSizeBytes } from '@/lib/persistence'
 import { getTeamsWebhookUrl, setTeamsWebhookUrl } from '@/lib/notifications'
 
 import type { PortfolioState, ProjectMemberAssignment } from '@/types'
-
-// ─── Ordering helpers ──────────────────────────────────────────────────────
-// These two functions let "Load Sample Data" preserve whatever domain/team/member
-// ordering the user has set via drag-and-drop, even after syncing new seed data.
-// New items (added in the seed) are appended after known ones in their group.
-
-/**
- * Snapshot the current ordering from the live store state.
- * Returns: ordered domain IDs, ordered team IDs per domain, ordered member IDs per team.
- */
-function captureOrdering(state: PortfolioState) {
-  return {
-    domainIds: state.domains.map(d => d.id),
-    teamIdsByDomain: new Map(
-      state.domains.map(d => [
-        d.id,
-        state.teams.filter(t => t.domainId === d.id).map(t => t.id),
-      ])
-    ),
-    memberIdsByTeam: new Map(
-      state.teams.map(t => [t.id, [...t.memberIds]])
-    ),
-  }
-}
-
-/**
- * Apply a previously-captured ordering to a fresh seed state.
- * Items whose IDs no longer exist in the new state are silently dropped.
- * Items that are new (not in the saved order) are appended to their group.
- */
-function applyOrdering(
-  newState: PortfolioState,
-  ordering: ReturnType<typeof captureOrdering>
-): PortfolioState {
-  // Reorder domains — known IDs in saved order, then any brand-new domains at end.
-  const domainById = new Map(newState.domains.map(d => [d.id, d]))
-  const knownDomainIds = new Set(ordering.domainIds)
-  const orderedDomains = [
-    ...ordering.domainIds.map(id => domainById.get(id)).filter(Boolean),
-    ...newState.domains.filter(d => !knownDomainIds.has(d.id)),
-  ] as PortfolioState['domains']
-
-  // Reorder teams within each domain.
-  const teamById = new Map(newState.teams.map(t => [t.id, t]))
-  const orderedTeams: PortfolioState['teams'] = []
-  for (const domain of orderedDomains) {
-    const savedTeamIds = ordering.teamIdsByDomain.get(domain.id) ?? []
-    const savedTeamIdSet = new Set(savedTeamIds)
-    const domainTeams = newState.teams.filter(t => t.domainId === domain.id)
-    const domainTeamIds = new Set(domainTeams.map(t => t.id))
-    orderedTeams.push(
-      // Known teams in saved order (skip any that no longer exist in this domain)
-      ...savedTeamIds.filter(id => domainTeamIds.has(id)).map(id => teamById.get(id)!),
-      // Brand-new teams not in the saved order
-      ...domainTeams.filter(t => !savedTeamIdSet.has(t.id)),
-    )
-  }
-
-  // Reorder memberIds within each team.
-  const reorderedTeams = orderedTeams.map(team => {
-    const savedMemberIds = ordering.memberIdsByTeam.get(team.id) ?? []
-    const savedMemberIdSet = new Set(savedMemberIds)
-    const currentMemberIds = new Set(team.memberIds)
-    return {
-      ...team,
-      memberIds: [
-        // Known members in saved order (skip any who left the team)
-        ...savedMemberIds.filter(id => currentMemberIds.has(id)),
-        // Brand-new members not in the saved order
-        ...team.memberIds.filter(id => !savedMemberIdSet.has(id)),
-      ],
-    }
-  })
-
-  return { ...newState, domains: orderedDomains, teams: reorderedTeams }
-}
 
 // ─── Project snapshot ──────────────────────────────────────────────────────
 // A lightweight checkpoint for the project layer only (projects, initiatives,
@@ -1135,122 +1058,6 @@ export function SettingsPage() {
         </div>
         <div className="border border-red-200 rounded-xl divide-y divide-red-100">
 
-          {/* Load sample data */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <RotateCcw size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample Data</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Replaces all current data with the built-in sample dataset. Use this to reset
-                  to a known good state for testing.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Sample Data',
-                'This replaces everything — domains, teams, members, and projects — with the built-in sample dataset. Your current data cannot be recovered.',
-                'Load Sample Data',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  const ordering = captureOrdering(usePortfolioStore.getState())
-                  s.hydrate(applyOrdering(buildSeedState(), ordering))
-                },
-              )}
-            >
-              <RotateCcw size={13} />
-              Load Sample Data
-            </Button>
-          </div>
-
-          {/* Load sample projects — overlays demo projects onto the live roster */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <FlaskConical size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample Epics</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Overlays 29 realistic projects, 5 initiatives, and 5 intake requests onto your
-                  current roster so you can explore analytics, capacity planning, and other features
-                  with real names.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Sample Projects',
-                'This replaces all current projects, initiatives, and intake requests with sample data. Your roster (domains, teams, members) will not be affected.',
-                'Load Sample Projects',
-                () => {
-                const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                const current = usePortfolioStore.getState()
-                const { projects, initiatives, intakeRequests } = buildSampleProjectState()
-                // Rebuild each member's projectIds from the sample projects' assignment lists.
-                const projectIdsByMember = new Map<string, string[]>()
-                for (const p of projects) {
-                  for (const { memberId } of p.assignments) {
-                    const arr = projectIdsByMember.get(memberId) ?? []
-                    arr.push(p.id)
-                    projectIdsByMember.set(memberId, arr)
-                  }
-                }
-                s.hydrate({
-                  ...current,
-                  projects,
-                  initiatives,
-                  intakeRequests,
-                  members: current.members.map(m => ({
-                    ...m,
-                    projectIds: projectIdsByMember.get(m.id) ?? [],
-                  })),
-                })
-                },
-              )}
-            >
-              <FlaskConical size={13} />
-              Load Samples
-            </Button>
-          </div>
-
-          {/* Load sample PTO — overlays seed PTO blocks onto the live data */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <CalendarOff size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Sample PTO</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Replaces all PTO blocks with the 23 sample entries from the seed dataset
-                  (spread across FY2026). Does not affect people, epics, or other data.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Sample PTO',
-                'This replaces all current PTO blocks with the seed dataset. Your roster and epics will not be affected.',
-                'Load Sample PTO',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  const current = usePortfolioStore.getState()
-                  s.hydrate({ ...current, ptoBlocks: buildSeedState().ptoBlocks })
-                },
-              )}
-            >
-              <CalendarOff size={13} />
-              Load Sample PTO
-            </Button>
-          </div>
-
           {/* Clear PTO — wipe all PTO blocks */}
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <div className="flex items-start gap-3">
@@ -1398,36 +1205,6 @@ export function SettingsPage() {
             >
               <PackageOpen size={13} />
               Clear Epic Data
-            </Button>
-          </div>
-
-          {/* Load pulse seed data — replace weekly pulses with multi-week sample entries */}
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <Activity size={15} className="text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Load Pulse Seed Data</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Replaces all pulse entries with sample data spanning 5 weeks (Jun 1–29). Existing pulse entries will be overwritten.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600"
-              onClick={() => danger(
-                'Load Pulse Seed Data',
-                'This will replace all existing pulse entries with sample data for 5 weeks (Jun 1–29 2026). Your roster, projects, and other data will not be affected.',
-                'Load Seed Data',
-                () => {
-                  const s = store as unknown as { hydrate: (s: PortfolioState) => void }
-                  s.hydrate({ ...usePortfolioStore.getState(), weeklyPulses: buildPulseSeedData() })
-                },
-              )}
-            >
-              <Activity size={13} />
-              Load Pulse Seed Data
             </Button>
           </div>
 
