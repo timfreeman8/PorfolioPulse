@@ -786,5 +786,8 @@ export function importFullSnapshot(json: string): PortfolioState {
     adminMemberIds:  parsed.adminMemberIds  ?? [],
     // Backfill roleDefinitions for snapshots created before this field existed.
     roleDefinitions: parsed.roleDefinitions ?? [],
+    // Backfill disciplines for snapshots created before this field existed.
+    // migrateState() will re-seed from MEMBER_DISCIPLINES on load if this is empty.
+    disciplines: parsed.disciplines ?? [],
   }
 }

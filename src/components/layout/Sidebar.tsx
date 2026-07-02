@@ -36,6 +36,8 @@ import {
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useAuthStore } from '@/store/useAuthStore'
+import { avatarColor } from '@/lib/colors'
 import { useTheme } from '@/lib/useTheme'
 
 // Use CSS variable so dark mode flips it automatically (--sidebar is
@@ -68,6 +70,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const escalations = usePortfolioStore(s => s.escalations)
   const openCount = escalations.filter(e => e.status === 'Open').length
   const { isDark, toggle: toggleTheme } = useTheme()
+
+  // Resolve the logged-in user's member record for the profile card at the bottom.
+  const { userId } = useAuthStore()
+  const me = usePortfolioStore(s => s.members.find(m => m.id === userId))
+  const { bg: avBg, text: avText } = avatarColor(me?.name ?? '')
 
   // The <aside> is used in two different layout contexts:
   //   Desktop: a shrink-0 flex child in the row, width driven by `collapsed`.
@@ -146,6 +153,40 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             </NavLink>
           ))}
         </nav>
+
+        {/* Profile card — links to /profile for the logged-in user.
+            Expanded: avatar + name + role in a horizontal row.
+            Collapsed (desktop only): avatar circle only, centered.
+            Matches the active-link visual style from NAV_ITEMS. */}
+        <div className="border-t border-slate-200 px-2 py-2">
+          <NavLink
+            to="/profile"
+            onClick={onMobileClose}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 transition-colors',
+                isActive
+                  ? 'bg-slate-200 text-slate-900'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                collapsed && 'md:justify-center md:px-0',
+              )
+            }
+            title={collapsed ? (me?.name ?? 'My Profile') : undefined}
+          >
+            {/* Avatar circle — consistent size in both expanded and collapsed states */}
+            <div
+              className={cn('rounded-full flex items-center justify-center font-semibold shrink-0', avBg, avText)}
+              style={{ width: 32, height: 32, fontSize: 12 }}
+            >
+              {me?.avatarInitials ?? '?'}
+            </div>
+            {/* Name + role — hidden in collapsed mode */}
+            <div className={cn('min-w-0', collapsed && 'md:hidden')}>
+              <p className="text-sm font-medium truncate leading-tight">{me?.name ?? 'My Profile'}</p>
+              <p className="text-xs text-slate-500 truncate leading-tight">{me?.role ?? ''}</p>
+            </div>
+          </NavLink>
+        </div>
 
         {/* Bottom controls: dark mode toggle + desktop collapse/expand.
             The collapse button is hidden on mobile (md:flex) because the mobile

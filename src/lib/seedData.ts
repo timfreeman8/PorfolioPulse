@@ -4210,9 +4210,10 @@ function buildState(): PortfolioState {
     initiatives, intakeRequests, escalations: [], ptoBlocks,
     weeklyPulses,
     resourceRates,
-    // roleDefinitions starts empty in seed data —
-    // migrateState() in usePortfolioStore will seed it from member roles + resourceRates on first load.
+    // roleDefinitions and disciplines start empty in seed data —
+    // migrateState() in usePortfolioStore will seed them from member roles and MEMBER_DISCIPLINES on first load.
     roleDefinitions: [],
+    disciplines: [],
     adminMemberIds: [],
   }
 }
