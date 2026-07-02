@@ -497,14 +497,19 @@ function ValueByInitiativeBar({
 export function AnalyticsPage() {
   // useShallow prevents re-renders caused by mutations to unrelated slices of
   // the store (e.g. adding a PTO block shouldn't re-render the analytics page).
-  const { domains, teams, members, projects, initiatives, resourceRates } = usePortfolioStore(
+  const { domains, teams, members, projects, initiatives, roleDefinitions } = usePortfolioStore(
     useShallow(s => ({
-      domains:       s.domains,
-      teams:         s.teams,
-      members:       s.members,
-      projects:      s.projects,
-      initiatives:   s.initiatives,
-      resourceRates: s.resourceRates,
+      domains:         s.domains,
+      teams:           s.teams,
+      members:         s.members,
+      projects:        s.projects,
+      initiatives:     s.initiatives,
+      // Use roleDefinitions as the source of truth for cost rates.
+      // Fall back to resourceRates (legacy field) only if roleDefinitions is empty
+      // — this protects existing localStorage data during the migration window.
+      roleDefinitions: s.roleDefinitions.length > 0
+        ? s.roleDefinitions
+        : s.resourceRates.map(r => ({ id: r.role, name: r.role, category: '', discipline: '', annualRate: r.annualRate })),
     }))
   )
 
@@ -699,10 +704,14 @@ export function AnalyticsPage() {
 
   // ── Financial tab — data ─────────────────────────────────────────────────
 
-  /** Fast role → annual rate lookup from the store. */
+  /**
+   * Fast role → annual rate lookup built from roleDefinitions.
+   * roleDefinitions use `name` as the role key; ResourceRate used `role`.
+   * Mapping here keeps the downstream totalHeadcountCost calculation unchanged.
+   */
   const rateByRole = useMemo(
-    () => new Map(resourceRates.map(r => [r.role, r.annualRate])),
-    [resourceRates],
+    () => new Map(roleDefinitions.map(d => [d.name, d.annualRate])),
+    [roleDefinitions],
   )
 
   /**
@@ -1134,7 +1143,7 @@ export function AnalyticsPage() {
               {totalHeadcountCost > 0 ? fmtCompact(totalHeadcountCost) : '—'}
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-              {members.length} members · {resourceRates.length} roles rated
+              {members.length} members · {roleDefinitions.filter(d => d.annualRate > 0).length} roles rated
             </p>
           </CardContent>
         </Card>

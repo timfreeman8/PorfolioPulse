@@ -1,39 +1,33 @@
 /**
- * Settings page — data management hub for the SAT portfolio tool.
+ * Settings page — configuration hub for the SAT portfolio tool.
  *
- * Three sections (top to bottom):
+ * Tabs:
  *
- * 1. RESOURCE RATES — Editable table mapping each unique member role to an
- *    annual salary rate. Rates auto-save on blur. Used by the Analytics
- *    Financial tab to calculate portfolio headcount cost and project ROI.
+ * 1. ROLES & RATES — Editable table of job title role definitions. Each role
+ *    has a name (matching Member.role), an org-chart category, an annual salary
+ *    cost, and an optional Azure AD job title for future auto-mapping. Discipline
+ *    is a per-person attribute managed on the member profile, not on the role.
  *
- * 2. EXPORT — Download any entity collection as a CSV file, or export the
- *    entire portfolio state as a JSON snapshot. CSVs are designed for human
- *    editing in spreadsheet applications (Excel, Numbers, Google Sheets).
+ * 2. ACCESS CONTROL (admin only) — Manage the list of member IDs with admin
+ *    access. Will be replaced by Azure AD group membership when auth is added.
  *
- * 3. IMPORT — Upload a previously-exported CSV or JSON snapshot to replace
- *    the current data. The entity type is auto-detected from the CSV headers,
- *    so there's no need to select it manually. Importing replaces the entity
- *    collection atomically via the store's `hydrate()` action.
+ * 3. NOTIFICATIONS — Configure a Microsoft Teams incoming webhook URL for
+ *    automatic alerts when projects are blocked or members exceed capacity.
  *
- * Workflow:
- *   Export → edit in a spreadsheet → import back → the app reflects the changes.
+ * 4. EXPORT — Download any entity collection as a CSV file, or export the
+ *    entire portfolio state as a JSON snapshot.
  *
- * Notes on CSV format:
- *   - Multi-value fields (memberIds, teamIds) are stored as semicolon-separated
- *     values in a single column.
- *   - Assignments (project ↔ member links) are a separate file because they
- *     carry per-member allocation data that can't be flattened cleanly.
- *   - When importing projects, upload assignments.csv FIRST so the parser can
- *     attach assignments to the right project rows.
+ * 5. DANGER ZONE — Destructive actions: clear PTO, clear epic data,
+ *    save/restore project snapshots, wipe all data.
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Download, Database, AlertCircle, CheckCircle2,
-  PackageOpen, DollarSign, X, Trash2,
+  PackageOpen, X, Trash2,
   Save, History, CalendarX,
   Shield, UserX, UserCheck, Bell, HardDrive,
+  Plus, Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -56,8 +50,9 @@ import {
 } from '@/lib/csv'
 import { clearState, getStorageSizeBytes } from '@/lib/persistence'
 import { getTeamsWebhookUrl, setTeamsWebhookUrl } from '@/lib/notifications'
+import { ALL_ROLE_CATEGORIES } from '@/lib/roles'
 
-import type { PortfolioState } from '@/types'
+import type { PortfolioState, RoleDefinition } from '@/types'
 
 // ─── Project snapshot ──────────────────────────────────────────────────────
 // A lightweight checkpoint for the project layer only (projects, initiatives,
@@ -120,133 +115,265 @@ function fmtNumber(n: number): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
 }
 
-// ─── Resource Rates section ────────────────────────────────────────────────
+// ─── Role Definitions section ──────────────────────────────────────────────
 
 /**
- * ResourceRatesSection — table of unique member roles with editable annual rates.
+ * RoleDefinitionsSection — editable table of job title role definitions.
  *
- * Rates are saved to the store on blur (auto-save pattern). Each role row shows
- * the role name, an annual cost input, and a clear button. Roles without a rate
- * show a placeholder "—" and an "Add rate" affordance. A summary line at the
- * bottom shows how many roles have rates and the total headcount cost.
+ * Each row stores a role name (matching Member.role), an org-filter category,
+ * an annual cost rate, and an optional Azure AD job title for future auto-mapping.
+ * Discipline is a per-person attribute managed on the member profile, not here.
+ *
+ * Click any row to edit it inline; confirm with Enter or the checkmark, cancel
+ * with Escape or ×. "Add Role" at the footer opens a blank row.
+ * Deleting a role that is in use shows the member count in the tooltip but does
+ * not block deletion — the members' role string is left unchanged.
  */
-function ResourceRatesSection() {
-  const { members, resourceRates, setResourceRate, removeResourceRate } = usePortfolioStore()
+function RoleDefinitionsSection() {
+  const {
+    roleDefinitions, members,
+    addRoleDefinition, updateRoleDefinition, removeRoleDefinition,
+  } = usePortfolioStore()
 
-  // Collect the unique set of role strings across all members.
-  const uniqueRoles = Array.from(new Set(members.map(m => m.role))).sort()
+  // Which row is currently being edited by id. null = view mode.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  // Whether the "Add Role" blank row is currently open.
+  const [addingNew, setAddingNew] = useState(false)
 
-  // Local state for in-flight edits — maps role → current input string.
-  // We store the raw string so the user can type freely before committing on blur.
-  const [editing, setEditing] = useState<Record<string, string>>({})
+  // Draft values for the row being edited or added.
+  const [draft, setDraft] = useState({
+    name: '', category: '', annualRate: '', aadJobTitle: '',
+  })
 
-  // Build a fast lookup from the store's resourceRates array.
-  const rateByRole = new Map(resourceRates.map(r => [r.role, r.annualRate]))
+  // Pre-compute member count per role name so the delete tooltip is O(1) per row.
+  const memberCountByRole = useMemo(
+    () => new Map(members.map(m => [m.role, members.filter(x => x.role === m.role).length])),
+    [members]
+  )
 
-  // Summary calculations.
-  const rolesWithRate = uniqueRoles.filter(r => rateByRole.has(r))
-  const totalCost = rolesWithRate.reduce((sum, role) => {
-    // Count distinct members with this role for the total cost.
-    const count = members.filter(m => m.role === role).length
-    return sum + (rateByRole.get(role) ?? 0) * count
+  /** Activate edit mode for an existing row, copying its values into draft. */
+  function startEdit(def: RoleDefinition) {
+    if (addingNew) return  // don't open two editable rows simultaneously
+    setEditingId(def.id)
+    setDraft({
+      name:        def.name,
+      category:    def.category,
+      annualRate:  def.annualRate > 0 ? fmtNumber(def.annualRate) : '',
+      aadJobTitle: def.aadJobTitle ?? '',
+    })
+  }
+
+  /** Parse the annual rate draft string → safe integer (0 if blank/invalid). */
+  function parseRate(raw: string): number {
+    const cleaned = raw.replace(/[$,\s]/g, '')
+    const n = Number(cleaned)
+    return (!cleaned || isNaN(n) || n < 0) ? 0 : Math.round(n)
+  }
+
+  /** Save changes to an existing row and exit edit mode. */
+  function commitEdit() {
+    if (!editingId) return
+    updateRoleDefinition(editingId, {
+      name:        draft.name.trim(),
+      category:    draft.category,
+      annualRate:  parseRate(draft.annualRate),
+      aadJobTitle: draft.aadJobTitle.trim() || undefined,
+    })
+    setEditingId(null)
+  }
+
+  /** Discard any pending edit or add. */
+  function cancelEdit() {
+    setEditingId(null)
+    setAddingNew(false)
+  }
+
+  /** Open the "Add Role" blank row with sensible defaults. */
+  function startAdd() {
+    if (editingId !== null) return  // can't add while editing another row
+    setAddingNew(true)
+    setDraft({ name: '', category: ALL_ROLE_CATEGORIES[0], annualRate: '', aadJobTitle: '' })
+  }
+
+  /** Commit the new role to the store and close the blank row. */
+  function commitAdd() {
+    if (draft.name.trim()) {
+      addRoleDefinition({
+        name:        draft.name.trim(),
+        category:    draft.category,
+        annualRate:  parseRate(draft.annualRate),
+        aadJobTitle: draft.aadJobTitle.trim() || undefined,
+      })
+    }
+    setAddingNew(false)
+  }
+
+  // Summary: roles with a rate set, total headcount cost across all members.
+  const rolesWithRate = roleDefinitions.filter(d => d.annualRate > 0)
+  const totalCost = roleDefinitions.reduce((sum, d) => {
+    const count = memberCountByRole.get(d.name) ?? 0
+    return sum + d.annualRate * count
   }, 0)
 
-  /** Called when the user changes the input for a role. Tracks raw string only. */
-  function handleChange(role: string, raw: string) {
-    setEditing(prev => ({ ...prev, [role]: raw }))
-  }
+  // Shared grid column layout — 5 columns: name | category | rate | aad | delete.
+  const COL = 'grid-cols-[1fr_150px_120px_180px_36px]'
 
-  /**
-   * On blur: parse the input value and persist to the store if valid and changed.
-   * Strip commas and dollar signs so users can paste formatted numbers.
-   */
-  function handleBlur(role: string) {
-    const raw = editing[role]
-    if (raw === undefined) return  // untouched field — nothing to save
-    // Clean user input: remove "$", "," and whitespace before parsing.
-    const cleaned = raw.replace(/[$,\s]/g, '')
-    const parsed = Number(cleaned)
-    if (!cleaned || isNaN(parsed) || parsed <= 0) {
-      // Invalid entry — revert display by clearing the editing state for this role.
-      setEditing(prev => { const next = { ...prev }; delete next[role]; return next })
-      return
-    }
-    setResourceRate(role, Math.round(parsed))
-    // Clear the editing override so the display reverts to the formatted store value.
-    setEditing(prev => { const next = { ...prev }; delete next[role]; return next })
-  }
+  // Reusable select style for category dropdown in edit mode.
+  const selectCls = 'h-7 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-1 w-full'
 
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+
       {/* Table header */}
-      <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <span>Role</span>
+      <div className={cn('grid gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 text-xs font-medium text-slate-500 dark:text-slate-400', COL)}>
+        <span>Role Name</span>
+        <span>Category</span>
         <span>Annual Rate</span>
+        <span>AAD Job Title</span>
         <span />
       </div>
 
       {/* Role rows */}
-      {uniqueRoles.map(role => {
-        const stored = rateByRole.get(role)
-        const hasRate = stored !== undefined
-        // Prefer the in-flight edit value; otherwise show the stored value formatted.
-        const displayValue = editing[role] !== undefined
-          ? editing[role]
-          : (hasRate ? fmtNumber(stored!) : '')
+      {roleDefinitions.map(def => {
+        const isEditing = editingId === def.id
+        const memberCount = memberCountByRole.get(def.name) ?? 0
 
+        if (isEditing) {
+          // Edit mode: all cells become inputs; confirm/cancel at the right.
+          return (
+            <div key={def.id} className={cn('grid gap-2 items-center px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-950/20', COL)}>
+              <Input
+                autoFocus
+                value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                className="h-7 text-xs"
+                placeholder="Role name"
+              />
+              <select value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} className={selectCls}>
+                {ALL_ROLE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-slate-400 shrink-0">$</span>
+                <Input
+                  value={draft.annualRate}
+                  onChange={e => setDraft(d => ({ ...d, annualRate: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                  className="h-7 text-xs"
+                  placeholder="0"
+                  inputMode="numeric"
+                />
+              </div>
+              <Input
+                value={draft.aadJobTitle}
+                onChange={e => setDraft(d => ({ ...d, aadJobTitle: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                className="h-7 text-xs"
+                placeholder="AD Job Title"
+              />
+              <div className="flex items-center gap-0.5">
+                <button onClick={commitEdit} title="Save" className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 p-0.5">
+                  <CheckCircle2 size={14} />
+                </button>
+                <button onClick={cancelEdit} title="Cancel" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )
+        }
+
+        // View mode: click anywhere on the row to enter edit mode.
         return (
           <div
-            key={role}
-            className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 last:border-0"
+            key={def.id}
+            onClick={() => startEdit(def)}
+            className={cn('grid gap-3 items-center px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 last:border-0 group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors', COL)}
           >
-            <span className="text-sm text-slate-700 dark:text-slate-200">{role}</span>
-
-            {/* Annual rate input with $ prefix */}
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-slate-400 dark:text-slate-500">$</span>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={displayValue}
-                placeholder={hasRate ? '' : 'Add rate'}
-                onChange={e => handleChange(role, e.target.value)}
-                onBlur={() => handleBlur(role)}
-                className={cn(
-                  'h-8 w-32 text-right text-sm',
-                  !hasRate && 'placeholder:text-slate-400 dark:placeholder:text-slate-500 italic',
-                )}
-              />
-            </div>
-
-            {/* Clear button — only shown when a rate is defined */}
-            {hasRate ? (
-              <button
-                type="button"
-                onClick={() => removeResourceRate(role)}
-                title="Clear rate"
-                className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
-              >
-                <X size={14} />
-              </button>
-            ) : (
-              /* Placeholder to keep grid alignment consistent */
-              <span className="w-4" />
-            )}
+            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+              {def.name || <span className="italic text-slate-400">untitled</span>}
+            </span>
+            <span className="text-xs text-slate-600 dark:text-slate-400 truncate">{def.category}</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">
+              {def.annualRate > 0
+                ? `$${fmtNumber(def.annualRate)}`
+                : <span className="text-xs italic text-slate-400">not set</span>}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {def.aadJobTitle || <span className="text-slate-300 dark:text-slate-600">—</span>}
+            </span>
+            {/* Delete button — appears on row hover, tooltip warns if role is in use */}
+            <button
+              onClick={e => { e.stopPropagation(); removeRoleDefinition(def.id) }}
+              title={memberCount > 0 ? `${memberCount} member(s) use this role — members are not changed` : 'Delete role'}
+              className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
         )
       })}
 
-      {/* Summary line */}
-      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700">
+      {/* New role blank row — shown when Add Role is clicked */}
+      {addingNew && (
+        <div className={cn('grid gap-2 items-center px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-green-50/30 dark:bg-green-950/10', COL)}>
+          <Input
+            autoFocus
+            value={draft.name}
+            onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') cancelEdit() }}
+            className="h-7 text-xs"
+            placeholder="Role name"
+          />
+          <select value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} className={selectCls}>
+            {ALL_ROLE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-slate-400 shrink-0">$</span>
+            <Input
+              value={draft.annualRate}
+              onChange={e => setDraft(d => ({ ...d, annualRate: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') cancelEdit() }}
+              className="h-7 text-xs"
+              placeholder="0"
+              inputMode="numeric"
+            />
+          </div>
+          <Input
+            value={draft.aadJobTitle}
+            onChange={e => setDraft(d => ({ ...d, aadJobTitle: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') cancelEdit() }}
+            className="h-7 text-xs"
+            placeholder="AD Job Title"
+          />
+          <div className="flex items-center gap-0.5">
+            <button onClick={commitAdd} title="Add role" className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200 p-0.5">
+              <CheckCircle2 size={14} />
+            </button>
+            <button onClick={cancelEdit} title="Cancel" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Footer: Add Role button + cost summary */}
+      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4 flex-wrap">
+        <button
+          onClick={startAdd}
+          disabled={addingNew || editingId !== null}
+          className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+        >
+          <Plus size={13} /> Add Role
+        </button>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           <span className="font-medium text-slate-700 dark:text-slate-200">
-            {rolesWithRate.length} of {uniqueRoles.length}
+            {rolesWithRate.length} of {roleDefinitions.length}
           </span>
-          {' '}roles have rates defined
+          {' '}roles have rates
           {totalCost > 0 && (
             <>
-              {' · '}
-              Total annual headcount cost:{' '}
+              {' · '}Total headcount cost:{' '}
               <span className="font-semibold text-slate-800 dark:text-slate-100">
                 {fmtCompact(totalCost)}
               </span>
@@ -431,7 +558,7 @@ export function SettingsPage() {
   const store = usePortfolioStore()
 
   // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'rates' | 'access' | 'notifications' | 'export' | 'danger'>('rates')
+  const [activeTab, setActiveTab] = useState<'roles' | 'access' | 'notifications' | 'export' | 'danger'>('roles')
 
   // Teams webhook URL — read from localStorage on mount; saved on blur.
   const [webhookUrl, setWebhookUrl] = useState(() => getTeamsWebhookUrl())
@@ -505,11 +632,12 @@ export function SettingsPage() {
       projects,
       initiatives,
       intakeRequests,
-      escalations:   store.escalations,
-      ptoBlocks:     store.ptoBlocks,
-      resourceRates: store.resourceRates,
-      weeklyPulses:  store.weeklyPulses,
-      adminMemberIds: store.adminMemberIds,
+      escalations:     store.escalations,
+      ptoBlocks:       store.ptoBlocks,
+      resourceRates:   store.resourceRates,
+      weeklyPulses:    store.weeklyPulses,
+      adminMemberIds:  store.adminMemberIds,
+      roleDefinitions: store.roleDefinitions,
     }
     const ts = new Date().toISOString().slice(0, 10)
     downloadJson(`sat-snapshot-${ts}.json`, exportFullSnapshot(state))
@@ -523,17 +651,17 @@ export function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-          Manage resource rates, import/export data, and reset the portfolio.
+          Manage roles, rates, access control, notifications, and portfolio data.
         </p>
 
         {/* Tab switcher — Access Control is only shown to admins */}
         <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
           {([
-            { id: 'rates',         label: 'Resource Rates',   Icon: DollarSign,  adminOnly: false },
-            { id: 'access',        label: 'Access Control',   Icon: Shield,      adminOnly: true  },
-            { id: 'notifications', label: 'Notifications',    Icon: Bell,        adminOnly: false },
-            { id: 'export',        label: 'Export',           Icon: Download,    adminOnly: false },
-            { id: 'danger',        label: 'Danger Zone',      Icon: AlertCircle, adminOnly: false },
+            { id: 'roles',         label: 'Roles & Rates',       Icon: Layers,      adminOnly: false },
+            { id: 'access',        label: 'Access Control',      Icon: Shield,      adminOnly: true  },
+            { id: 'notifications', label: 'Notifications',       Icon: Bell,        adminOnly: false },
+            { id: 'export',        label: 'Export',              Icon: Download,    adminOnly: false },
+            { id: 'danger',        label: 'Danger Zone',         Icon: AlertCircle, adminOnly: false },
           ] as const).filter(t => !t.adminOnly || authRole === 'admin').map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -552,15 +680,17 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Resource Rates tab */}
-      {activeTab === 'rates' && (
-        <section>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-            Set annual salary rates per role to enable portfolio-level cost and ROI analysis.
-            Rates are fixed (salaried) — allocation % is used to compute project cost share, not to
-            adjust the base rate. Rates auto-save when you leave the field.
+      {/* Roles & Disciplines tab */}
+      {activeTab === 'roles' && (
+        <section className="space-y-5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Define job title roles with their org-chart category and annual cost rate.
+            The <strong>AAD Job Title</strong> column is the Azure AD "Job Title" attribute that
+            will auto-map incoming users to this role when Azure AD authentication is enabled.
+            Click any row to edit it; press <kbd className="font-mono">Enter</kbd> to save or{' '}
+            <kbd className="font-mono">Esc</kbd> to cancel.
           </p>
-          <ResourceRatesSection />
+          <RoleDefinitionsSection />
         </section>
       )}
 
