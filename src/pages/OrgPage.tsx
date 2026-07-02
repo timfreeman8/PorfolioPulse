@@ -64,7 +64,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useViewStore } from '@/store/useViewStore'
 import { cn } from '@/lib/utils'
 import { avatarColor } from '@/lib/colors'
-import { roleCategoryOf, ALL_ROLE_CATEGORIES, MEMBER_DISCIPLINES } from '@/lib/roles'
+import { roleCategoryOf, ALL_ROLE_CATEGORIES } from '@/lib/roles'
 import type { Domain, Team, Member, Project } from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -984,8 +984,10 @@ function MemberForm({
   onSubmit: (data: Omit<Member, 'id' | 'projectIds'>) => void
   onCancel: () => void
 }) {
-  // Single-key selector — MemberForm only needs teams for the team picker.
+  // Single-key selectors — MemberForm needs teams for the picker + the
+  // configurable discipline list from the store (managed in Settings).
   const teams = usePortfolioStore(s => s.teams)
+  const allDisciplines = usePortfolioStore(s => s.disciplines)
   const [name, setName]                 = useState(initial?.name ?? '')
   const [role, setRole]                 = useState(initial?.role ?? '')
   // Multi-select — stored as an array so members can have more than one discipline.
@@ -1039,7 +1041,7 @@ function MemberForm({
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-slate-600">Discipline</Label>
         <div className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-9 bg-white dark:bg-slate-900 dark:border-slate-600">
-          {MEMBER_DISCIPLINES.map(d => {
+          {allDisciplines.map(d => {
             const selected = disciplines.includes(d)
             return (
               <button
@@ -1187,12 +1189,13 @@ export function OrgPage() {
   // (e.g. adding a PTO block) don't re-render the full OrgPage tree.
   // useShallow compares each selected key by reference — re-renders only when
   // domains/teams/members/projects actually change.
-  const { domains, teams, members, projects } = usePortfolioStore(
+  const { domains, teams, members, projects, disciplines: storeDisciplines } = usePortfolioStore(
     useShallow(s => ({
-      domains:  s.domains,
-      teams:    s.teams,
-      members:  s.members,
-      projects: s.projects,
+      domains:      s.domains,
+      teams:        s.teams,
+      members:      s.members,
+      projects:     s.projects,
+      disciplines:  s.disciplines,
     }))
   )
   // Action selectors are stable function references — no re-render risk.
@@ -1783,7 +1786,7 @@ export function OrgPage() {
               />
               <MultiSelectDropdown
                 label="Discipline"
-                options={MEMBER_DISCIPLINES.map(d => ({ id: d, label: d }))}
+                options={storeDisciplines.map(d => ({ id: d, label: d }))}
                 selected={selectedDisciplines}
                 onChange={setSelectedDisciplines}
               />

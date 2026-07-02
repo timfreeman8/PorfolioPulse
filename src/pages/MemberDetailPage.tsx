@@ -43,7 +43,6 @@ import {
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS, avatarColor } from '@/lib/colors'
-import { MEMBER_DISCIPLINES } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { fmtDateShort } from '@/lib/format'
 import type { Member, Project } from '@/types'
@@ -62,6 +61,8 @@ function MemberEditForm({
   onCancel: () => void
 }) {
   const { teams } = usePortfolioStore()
+  // Read the configurable discipline list from the store (managed in Settings → Disciplines).
+  const allDisciplines = usePortfolioStore(s => s.disciplines)
   const [name, setName]           = useState(member.name)
   const [role, setRole]           = useState(member.role)
   const [disciplines, setDisciplines] = useState<string[]>(member.discipline ?? [])
@@ -117,7 +118,7 @@ function MemberEditForm({
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-slate-600">Discipline</Label>
         <div className="flex flex-wrap gap-1.5 p-2 border rounded-md min-h-9 bg-white">
-          {MEMBER_DISCIPLINES.map(d => {
+          {allDisciplines.map(d => {
             const sel = disciplines.includes(d)
             return (
               <button

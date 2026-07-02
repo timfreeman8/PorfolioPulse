@@ -550,6 +550,105 @@ function AccessControlSection() {
 }
 
 
+// ─── Disciplines section ───────────────────────────────────────────────────
+
+/**
+ * DisciplinesSection — add/remove/reorder the global list of discipline
+ * options that members can be tagged with.
+ *
+ * Changes persist immediately to the Zustand store (and thus to localStorage).
+ * Consumers on ProfilePage, OrgPage, and MemberDetailPage all read from the
+ * store so they reflect additions and deletions without a reload.
+ */
+function DisciplinesSection() {
+  const disciplines     = usePortfolioStore(s => s.disciplines)
+  const addDiscipline   = usePortfolioStore(s => s.addDiscipline)
+  const removeDiscipline = usePortfolioStore(s => s.removeDiscipline)
+
+  // Draft value for the "add new" input field.
+  const [newName, setNewName] = useState('')
+  // Validation error shown inline beneath the input.
+  const [error, setError]     = useState('')
+
+  /** Validate and save a new discipline, then clear the input. */
+  const handleAdd = () => {
+    const trimmed = newName.trim()
+    if (!trimmed) { setError('Name is required.'); return }
+    if (disciplines.some(d => d.toLowerCase() === trimmed.toLowerCase())) {
+      setError('That discipline already exists.')
+      return
+    }
+    addDiscipline(trimmed)
+    setNewName('')
+    setError('')
+  }
+
+  return (
+    <section className="space-y-5">
+      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        These disciplines appear in member forms and the profile page discipline editor.
+        Add new ones to match your team structure; remove ones that are no longer relevant.
+        Removing a discipline does not affect members who already have it assigned —
+        their existing tags are preserved.
+      </p>
+
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+        {/* List of current disciplines */}
+        {disciplines.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8 px-5">
+            No disciplines defined yet. Add one below.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+            {disciplines.map((d, idx) => (
+              <li key={d} className="flex items-center gap-3 px-5 py-3">
+                {/* Order number — gives visual sense of list position */}
+                <span className="text-xs text-slate-400 w-5 text-right shrink-0">{idx + 1}</span>
+                <span className="flex-1 text-sm text-slate-800 dark:text-slate-100">{d}</span>
+                <button
+                  onClick={() => removeDiscipline(d)}
+                  className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  title={`Remove "${d}"`}
+                  aria-label={`Remove discipline ${d}`}
+                >
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Add new discipline */}
+        <div className="border-t border-slate-100 dark:border-slate-700 px-5 py-4 bg-slate-50/50 dark:bg-slate-800/50">
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1">
+              <Input
+                placeholder="New discipline name…"
+                value={newName}
+                onChange={e => { setNewName(e.target.value); setError('') }}
+                onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+                className="text-sm dark:bg-slate-700 dark:border-slate-600"
+              />
+              {error && (
+                <p className="text-xs text-red-500">{error}</p>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              className="shrink-0 gap-1.5"
+            >
+              <Plus size={13} /> Add
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
 // ─── Settings page ─────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -558,7 +657,7 @@ export function SettingsPage() {
   const store = usePortfolioStore()
 
   // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'roles' | 'access' | 'notifications' | 'export' | 'danger'>('roles')
+  const [activeTab, setActiveTab] = useState<'roles' | 'disciplines' | 'access' | 'notifications' | 'export' | 'danger'>('roles')
 
   // Teams webhook URL — read from localStorage on mount; saved on blur.
   const [webhookUrl, setWebhookUrl] = useState(() => getTeamsWebhookUrl())
@@ -638,6 +737,7 @@ export function SettingsPage() {
       weeklyPulses:    store.weeklyPulses,
       adminMemberIds:  store.adminMemberIds,
       roleDefinitions: store.roleDefinitions,
+      disciplines:     store.disciplines,
     }
     const ts = new Date().toISOString().slice(0, 10)
     downloadJson(`sat-snapshot-${ts}.json`, exportFullSnapshot(state))
@@ -658,6 +758,7 @@ export function SettingsPage() {
         <div className="flex gap-1 mt-4 border-b border-slate-200 dark:border-slate-700">
           {([
             { id: 'roles',         label: 'Roles & Rates',       Icon: Layers,      adminOnly: false },
+            { id: 'disciplines',   label: 'Disciplines',         Icon: PackageOpen, adminOnly: false },
             { id: 'access',        label: 'Access Control',      Icon: Shield,      adminOnly: true  },
             { id: 'notifications', label: 'Notifications',       Icon: Bell,        adminOnly: false },
             { id: 'export',        label: 'Export',              Icon: Download,    adminOnly: false },
@@ -692,6 +793,11 @@ export function SettingsPage() {
           </p>
           <RoleDefinitionsSection />
         </section>
+      )}
+
+      {/* Disciplines tab — add/remove discipline options shown in member forms */}
+      {activeTab === 'disciplines' && (
+        <DisciplinesSection />
       )}
 
       {/* Access Control tab — admin only */}

@@ -40,6 +40,7 @@ const OrgPage        = lazy(() => import('@/pages/OrgPage').then(m        => ({ 
 // bloat the initial bundle even though it lives on a separate route.
 const PrintPage      = lazy(() => import('@/pages/PrintPage').then(m      => ({ default: m.PrintPage      })))
 const LoginPage      = lazy(() => import('@/pages/LoginPage').then(m      => ({ default: m.LoginPage      })))
+const ProfilePage    = lazy(() => import('@/pages/ProfilePage').then(m    => ({ default: m.ProfilePage    })))
 
 // ---------------------------------------------------------------------------
 // Fallback UI shown while a lazy chunk is loading.
@@ -115,6 +116,7 @@ export default function App() {
             {/* Redirect old /org links so bookmarks still work */}
             <Route path="org"         element={<Navigate to="/people" replace />} />
             <Route path="settings"    element={<SettingsPage />} />
+            <Route path="profile"     element={<ProfilePage />} />
             {/* Legacy redirects so old bookmarks still work */}
             <Route path="capacity"    element={<Navigate to="/planning" replace />} />
             <Route path="intake"      element={<Navigate to="/pipeline" replace />} />

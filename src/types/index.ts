@@ -378,6 +378,12 @@ export interface PortfolioState {
    */
   roleDefinitions: RoleDefinition[]
   /**
+   * User-configurable list of discipline options shown in member forms and
+   * profile editor.  Managed via Settings → Disciplines.  Seeded from the
+   * static MEMBER_DISCIPLINES constant on first launch.
+   */
+  disciplines: string[]
+  /**
    * Member IDs granted administrator access. Admins see all data and can
    * create/edit/delete anything. All other logged-in members are "viewers"
    * (read-only, filtered to their own projects).

@@ -4212,6 +4212,8 @@ function buildState(): PortfolioState {
     resourceRates,
     adminMemberIds: [],
     roleDefinitions: [],
+    // disciplines starts empty — migrateState() seeds from MEMBER_DISCIPLINES on first load.
+    disciplines: [],
   }
 }
 

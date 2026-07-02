@@ -17,7 +17,7 @@
 import { create } from 'zustand'
 import { loadState, saveState, scheduleSave } from '@/lib/persistence'
 import { sendTeamsAlert } from '@/lib/notifications'
-import { normalizeRoles, roleCategoryOf } from '@/lib/roles'
+import { normalizeRoles, roleCategoryOf, MEMBER_DISCIPLINES } from '@/lib/roles'
 import { legacyToPhases } from '@/lib/projectBuilder'
 import type {
   Domain,
@@ -136,6 +136,14 @@ interface PortfolioActions {
   /** Delete a role definition by id. Does not cascade to members — their role string is left unchanged. */
   removeRoleDefinition: (id: string) => void
 
+  // Disciplines — user-configurable list of discipline options
+  /** Add a new discipline to the global list (no-op if it already exists). */
+  addDiscipline: (name: string) => void
+  /** Remove a discipline from the global list by exact name. */
+  removeDiscipline: (name: string) => void
+  /** Reorder the disciplines list (e.g. drag-and-drop). */
+  reorderDisciplines: (ordered: string[]) => void
+
   // Access control
   /** Replace the full list of admin member IDs (used by Settings → Access Control). */
   setAdminMemberIds: (ids: string[]) => void
@@ -155,6 +163,7 @@ const EMPTY_STATE: PortfolioState = {
   weeklyPulses: [],
   resourceRates: [],
   roleDefinitions: [],
+  disciplines: [],
   adminMemberIds: [],
 }
 
@@ -192,6 +201,10 @@ function migrateState(state: PortfolioState): PortfolioState {
     resourceRates: state.resourceRates ?? [],
     // Seed roleDefinitions — empty on first load, preserved on subsequent loads.
     roleDefinitions: seededRoleDefinitions,
+    // Seed disciplines from the static list on first load; preserve user edits thereafter.
+    disciplines: (state.disciplines ?? []).length > 0
+      ? state.disciplines
+      : [...MEMBER_DISCIPLINES],
     // Backfill adminMemberIds for stores created before role-based access was added.
     adminMemberIds: state.adminMemberIds ?? [],
     // Backfill weeklyPulses for stores created before this field existed.
@@ -828,6 +841,36 @@ export const usePortfolioStore = create<PortfolioState & PortfolioActions>(
           ...s,
           roleDefinitions: s.roleDefinitions.filter(d => d.id !== id),
         }
+        persist(next)
+        return next
+      })
+    },
+
+    // ── Disciplines ──────────────────────────────────────────────────────────
+    addDiscipline(name) {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      set(s => {
+        // Silently ignore duplicates (case-sensitive match).
+        if (s.disciplines.includes(trimmed)) return s
+        const next: PortfolioState = { ...s, disciplines: [...s.disciplines, trimmed] }
+        persist(next)
+        return next
+      })
+    },
+    removeDiscipline(name) {
+      set(s => {
+        const next: PortfolioState = {
+          ...s,
+          disciplines: s.disciplines.filter(d => d !== name),
+        }
+        persist(next)
+        return next
+      })
+    },
+    reorderDisciplines(ordered) {
+      set(s => {
+        const next: PortfolioState = { ...s, disciplines: ordered }
         persist(next)
         return next
       })
