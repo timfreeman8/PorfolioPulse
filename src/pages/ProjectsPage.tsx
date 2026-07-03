@@ -15,7 +15,7 @@
  */
 import { memo, useDeferredValue, useState, useMemo, useRef, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { Plus, Search, Trash2, Pencil, UserX, Download, ChevronDown, Check, SearchX, Layers, List, LayoutGrid } from 'lucide-react'
 import { FilterChip } from '@/components/ui/filter-chip'
@@ -353,7 +353,13 @@ export function ProjectsPage() {
   // [] = no filter; non-empty = show only projects that match any selected group
   const [stakeholderFilter, setStakeholderFilter] = useState<string[]>([])
   const [jiraImportOpen, setJiraImportOpen] = useState(false)
-  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid')
+  // View mode synced to URL ?view= for deep-linking.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const viewParam = searchParams.get('view')
+  const viewMode: 'grid' | 'list' = viewParam === 'list' ? 'list' : 'grid'
+  function setViewMode(v: 'grid' | 'list') {
+    setSearchParams(p => { p.set('view', v); return p }, { replace: true })
+  }
 
   const filtered = useMemo(() => {
     let list = [...projects]

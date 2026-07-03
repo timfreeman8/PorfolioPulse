@@ -52,6 +52,7 @@ import { clearState, getStorageSizeBytes } from '@/lib/persistence'
 import { getTeamsWebhookUrl, setTeamsWebhookUrl } from '@/lib/notifications'
 import { ALL_ROLE_CATEGORIES } from '@/lib/roles'
 
+import { useSearchParams } from 'react-router-dom'
 import type { PortfolioState, RoleDefinition } from '@/types'
 
 // ─── Project snapshot ──────────────────────────────────────────────────────
@@ -656,8 +657,15 @@ export function SettingsPage() {
 
   const store = usePortfolioStore()
 
-  // Active settings tab.
-  const [activeTab, setActiveTab] = useState<'roles' | 'disciplines' | 'access' | 'notifications' | 'export' | 'danger'>('roles')
+  // Active settings tab synced to URL ?tab= for deep-linking.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const SETTINGS_TABS = ['roles', 'disciplines', 'access', 'notifications', 'export', 'danger'] as const
+  type SettingsTab = typeof SETTINGS_TABS[number]
+  const tabParam = searchParams.get('tab') as SettingsTab | null
+  const activeTab: SettingsTab = SETTINGS_TABS.includes(tabParam as SettingsTab) ? tabParam! : 'roles'
+  function setActiveTab(tab: SettingsTab) {
+    setSearchParams(p => { p.set('tab', tab); return p }, { replace: true })
+  }
 
   // Teams webhook URL — read from localStorage on mount; saved on blur.
   const [webhookUrl, setWebhookUrl] = useState(() => getTeamsWebhookUrl())

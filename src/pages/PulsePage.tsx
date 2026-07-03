@@ -16,6 +16,7 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Pencil, Plus,
   Activity, Users, AlertCircle, Smile, TrendingUp,
@@ -576,11 +577,16 @@ export function PulsePage() {
   const { activeMemberId } = useViewStore()
 
   const [weekOf, setWeekOf] = useState(getDefaultWeekOf)
-  const [viewMode, setViewMode] = useState<'mine' | 'team' | 'analytics'>('mine')
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Sync tab with URL ?tab= so pulse views are deep-linkable.
+  const validTabs = ['team', 'analytics'] as const
+  const tabParam = searchParams.get('tab') as typeof validTabs[number] | null
+  const viewMode: 'team' | 'analytics' = validTabs.includes(tabParam as 'team' | 'analytics') ? tabParam! : 'team'
+  function setViewMode(tab: 'team' | 'analytics') {
+    setSearchParams(p => { p.set('tab', tab); return p }, { replace: true })
+  }
   const [editTarget, setEditTarget] = useState<{ member: Member; pulse?: WeeklyPulse } | null>(null)
   const [managerFilter, setManagerFilter] = useState<string>('')
-  // Track which history pulse IDs are expanded in My Pulse view.
-  const [historyExpanded, setHistoryExpanded] = useState<Set<string>>(new Set())
 
   // Resolve active member — null in admin mode.
   const activeMember = useMemo(
@@ -638,41 +644,10 @@ export function PulsePage() {
 
   const hasDirectReports = directReports.length > 0
 
-  // ── My Pulse data ──────────────────────────────────────────────────────────
-  // All pulses for the active member sorted newest → oldest. Used to build the
-  // history timeline and workload trend chart on the My Pulse tab.
-  const myPulses = useMemo(() => {
-    if (!activeMember) return []
-    return weeklyPulses
-      .filter(p => p.memberId === activeMember.id)
-      .sort((a, b) => b.weekOf.localeCompare(a.weekOf))
-  }, [activeMember, weeklyPulses])
-
-  // Past entries excluding the currently-selected week (shown separately at top).
-  const myHistory = useMemo(
-    () => myPulses.filter(p => p.weekOf !== weekOf),
-    [myPulses, weekOf],
-  )
-
-  // Chart data: last 12 available weeks sorted oldest → newest for left-to-right display.
-  const myTrendData = useMemo(() => {
-    return [...myPulses]
-      .slice(0, 12)
-      .reverse()
-      .map(p => ({
-        weekLabel: new Date(p.weekOf + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        sentiment: p.workloadSentiment,
-        id: p.id,
-      }))
-  }, [myPulses])
-
-  // Analytics and Team Pulse tabs are only shown when the user has reports or is in admin mode.
+  // Team Pulse and Analytics tabs — shown for managers and admins.
   const viewOptions = [
-    { value: 'mine', label: 'My Pulse' },
-    ...(hasDirectReports || activeMemberId === null ? [
-      { value: 'team', label: 'Team Pulse' },
-      { value: 'analytics', label: 'Analytics' },
-    ] : []),
+    { value: 'team', label: 'Team Pulse' },
+    { value: 'analytics', label: 'Analytics' },
   ]
 
   function openEdit(member: Member) {
@@ -701,7 +676,7 @@ export function PulsePage() {
           <SegmentedControl
             options={viewOptions}
             value={viewMode}
-            onChange={v => setViewMode(v as 'mine' | 'team' | 'analytics')}
+            onChange={v => setViewMode(v as 'team' | 'analytics')}
           />
         )}
         {activeMemberId === null && (viewMode === 'team' || viewMode === 'analytics') && managers.length > 0 && (
@@ -797,221 +772,6 @@ export function PulsePage() {
               />
             ))}
           </div>
-        </>
-      )}
-
-      {/* My Pulse view — three zones: this week, workload trend, history */}
-      {viewMode === 'mine' && (
-        <>
-          {!activeMember ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-              <Activity size={40} className="opacity-30" />
-              <p className="text-sm">Switch to a member view to see your pulse.</p>
-              <p className="text-xs text-slate-300">Use the member selector in the top bar.</p>
-            </div>
-          ) : (
-            <div className="max-w-2xl space-y-6">
-
-              {/* ── This week ── */}
-              <section>
-                <PulseCard
-                  member={activeMember}
-                  pulse={pulseByMember.get(activeMember.id)}
-                  onEdit={() => openEdit(activeMember)}
-                />
-              </section>
-
-              {/* ── Workload trend ── */}
-              {myTrendData.length > 1 && (
-                <section>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                    Workload Trend
-                  </p>
-                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-4">
-                    <ResponsiveContainer width="100%" height={120}>
-                      <LineChart data={myTrendData} margin={{ top: 8, right: 8, bottom: 0, left: -28 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                        <XAxis
-                          dataKey="weekLabel"
-                          tick={{ fontSize: 10, fill: '#94a3b8' }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          domain={[1, 5]}
-                          ticks={[1, 2, 3, 4, 5]}
-                          tick={{ fontSize: 10, fill: '#94a3b8' }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        {/* Reference band for "just right" zone (3) */}
-                        <ReferenceLine y={3} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} />
-                        <Tooltip
-                          formatter={(val) => { const n = val as number; return [`${n} — ${SENTIMENT_LABELS[n]}`, 'Workload'] }}
-                          contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                          labelStyle={{ fontWeight: 600, marginBottom: 2 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="sentiment"
-                          stroke="#6366f1"
-                          strokeWidth={2}
-                          dot={(props: { cx?: number; cy?: number; payload: { sentiment: number } }) => {
-                            // SENTIMENT_COLORS unused here — color is derived from value range directly.
-                            const fill = props.payload.sentiment <= 2 ? '#38bdf8'
-                              : props.payload.sentiment === 3 ? '#22c55e'
-                              : props.payload.sentiment === 4 ? '#fbbf24' : '#ef4444'
-                            return (
-                              <circle
-                                key={`dot-${props.cx}-${props.cy}`}
-                                cx={props.cx}
-                                cy={props.cy}
-                                r={4}
-                                fill={fill}
-                                stroke="#fff"
-                                strokeWidth={2}
-                              />
-                            )
-                          }}
-                          activeDot={{ r: 5 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                    {/* Sentiment legend */}
-                    <div className="flex items-center justify-center gap-4 mt-2 flex-wrap">
-                      {([1, 2, 3, 4, 5] as const).map(n => (
-                        <span key={n} className={cn('text-[10px] font-medium', SENTIMENT_COLORS[n].text)}>
-                          {n} — {SENTIMENT_LABELS[n]}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* ── History ── */}
-              {myHistory.length > 0 && (
-                <section>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    History
-                  </p>
-                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 divide-y divide-slate-100 dark:divide-slate-700 overflow-hidden">
-                    {myHistory.map(pulse => {
-                      const col = SENTIMENT_COLORS[pulse.workloadSentiment]
-                      const isOpen = historyExpanded.has(pulse.id)
-                      return (
-                        <div key={pulse.id}>
-                          {/* Row header — click to expand */}
-                          <button
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors text-left"
-                            onClick={() => setHistoryExpanded(prev => {
-                              const next = new Set(prev)
-                              isOpen ? next.delete(pulse.id) : next.add(pulse.id)
-                              return next
-                            })}
-                          >
-                            {/* Week label */}
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300 min-w-[130px]">
-                              {formatWeekOf(pulse.weekOf)}
-                            </span>
-                            {/* Sentiment pill */}
-                            <span className={cn(
-                              'text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0',
-                              col.bg, col.text,
-                            )}>
-                              {pulse.workloadSentiment} — {SENTIMENT_LABELS[pulse.workloadSentiment]}
-                            </span>
-                            {/* Priority preview (collapsed only) */}
-                            {!isOpen && pulse.currentPriorities.length > 0 && (
-                              <span className="text-xs text-slate-400 truncate flex-1 hidden sm:block">
-                                {pulse.currentPriorities[0].text}
-                                {pulse.currentPriorities.length > 1 && ` +${pulse.currentPriorities.length - 1} more`}
-                              </span>
-                            )}
-                            <span className="ml-auto shrink-0">
-                              <ChevronRight size={14} className={cn('text-slate-300 transition-transform', isOpen && 'rotate-90')} />
-                            </span>
-                          </button>
-
-                          {/* Expanded detail */}
-                          {isOpen && (
-                            <div className="px-4 pb-4 pt-1 space-y-3 bg-slate-50/50 dark:bg-slate-800/30">
-                              {/* Edit link */}
-                              <div className="flex justify-end">
-                                <button
-                                  className="text-[11px] text-indigo-500 hover:text-indigo-700 flex items-center gap-1"
-                                  onClick={() => {
-                                    // Navigate to this week in the header and open the edit dialog.
-                                    setWeekOf(pulse.weekOf)
-                                    setEditTarget({ member: activeMember, pulse })
-                                  }}
-                                >
-                                  <Pencil size={11} /> Edit
-                                </button>
-                              </div>
-
-                              {/* Priorities */}
-                              {pulse.currentPriorities.length > 0 && (
-                                <div>
-                                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Priorities</p>
-                                  <ol className="space-y-1">
-                                    {pulse.currentPriorities.map((p, i) => (
-                                      <li key={i} className="flex items-start gap-1.5 text-xs">
-                                        <span className="text-slate-400 shrink-0 w-3 mt-px">{i + 1}.</span>
-                                        <span className="flex-1 text-slate-700 dark:text-slate-200 leading-tight">{p.text}</span>
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 shrink-0">{p.size}</span>
-                                      </li>
-                                    ))}
-                                  </ol>
-                                </div>
-                              )}
-
-                              {/* Upcoming */}
-                              {pulse.upcoming.length > 0 && (
-                                <div>
-                                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Upcoming</p>
-                                  <ul className="space-y-0.5">
-                                    {pulse.upcoming.map((item, i) => (
-                                      <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                                        <span className="text-slate-300 mt-0.5 shrink-0">·</span>
-                                        <span className="leading-tight">{item.text}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* Dev focus */}
-                              {pulse.developmentFocus.length > 0 && (
-                                <div className="flex flex-wrap items-center gap-1">
-                                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Focus</span>
-                                  {pulse.developmentFocus.map((f, i) => (
-                                    <span key={i} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
-                                      {f.text}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* Empty history state */}
-              {myPulses.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
-                  <TrendingUp size={32} className="opacity-30" />
-                  <p className="text-sm">No pulse history yet.</p>
-                  <p className="text-xs text-slate-300">Fill in this week's pulse to get started.</p>
-                </div>
-              )}
-
-            </div>
-          )}
         </>
       )}
 

@@ -21,6 +21,7 @@
  * the user's filter selection when navigating away and back.
  */
 import { memo, useDeferredValue, useRef, useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -516,8 +517,13 @@ export function AnalyticsPage() {
   // Track dark mode so we can pass `isDark` into chart sub-components.
   const { isDark } = useTheme()
 
-  // Active tab: 'charts' (existing) or 'financial' (new).
-  const [activeTab, setActiveTab] = useState<'charts' | 'financial'>('charts')
+  // Active tab synced to URL ?tab= for deep-linking.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const activeTab: 'charts' | 'financial' = tabParam === 'financial' ? 'financial' : 'charts'
+  function setActiveTab(tab: 'charts' | 'financial') {
+    setSearchParams(p => { p.set('tab', tab); return p }, { replace: true })
+  }
 
   // ── Filters — initialised from localStorage if available ─────────────────
   // Each useState uses a lazy initialiser (() => ...) so loadFilters() runs
