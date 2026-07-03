@@ -315,7 +315,7 @@ export function MemberDetailPage() {
   const backLabel = backTo === '/org' ? 'Back to People' : 'Back'
   const {
     members, teams, projects, initiatives, weeklyPulses,
-    addProject, updateProject, reorderMemberProjects, updateMember,
+    updateProject, reorderMemberProjects, updateMember,
   } = usePortfolioStore()
   // Only admins can edit another person's details.
   const { role } = useAuthStore()

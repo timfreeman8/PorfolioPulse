@@ -40,6 +40,8 @@ import {
   formatWeekOf,
   SENTIMENT_LABELS,
   SENTIMENT_COLORS,
+  MOOD_EMOJI,
+  MOOD_LABELS,
 } from '@/components/pulse/PulseEditDialog'
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -80,6 +82,23 @@ function shiftWeek(weekOf: string, delta: 1 | -1): string {
 /** Returns all members who report directly to `manager` (matched by name string). */
 function getDirectReports(manager: Member, members: Member[]): Member[] {
   return members.filter(m => m.reportsTo === manager.name)
+}
+
+/**
+ * Returns the set of "peers" for a given member: everyone on any shared team
+ * OR sharing the same direct manager, excluding the member themselves.
+ * Used so viewers without direct reports can still see a meaningful pulse view.
+ */
+function getPeerMembers(member: Member, allMembers: Member[]): Member[] {
+  // Support both teamIds array and legacy single teamId string.
+  const myTeamIds = new Set<string>(member.teamIds?.length ? member.teamIds : [])
+  return allMembers.filter(m => {
+    if (m.id === member.id) return false
+    const theirTeamIds = m.teamIds?.length ? m.teamIds : []
+    const sameTeam = theirTeamIds.some(tid => myTeamIds.has(tid))
+    const sameManager = !!(m.reportsTo && m.reportsTo === member.reportsTo)
+    return sameTeam || sameManager
+  })
 }
 
 // ─── Pulse card ────────────────────────────────────────────────────────────
@@ -231,11 +250,12 @@ function PulseCard({
 function PulseAnalytics({
   members,
   weeklyPulses,
-  managerName,
+  groupLabel,
 }: {
   members: Member[]
   weeklyPulses: WeeklyPulse[]
-  managerName: string
+  /** Human-readable label for the group being analyzed (e.g. "Your team" or "Direct reports of X"). */
+  groupLabel: string
 }) {
   const [windowWeeks, setWindowWeeks] = useState<4 | 8 | 12>(8)
 
@@ -271,11 +291,19 @@ function PulseAnalytics({
   }, [weeklyPulses, members, weekDates])
 
   // Per-week aggregates used for the trend and submission charts.
+  // Also computes mood stats alongside workload stats.
   const weekStats = useMemo(() => weekDates.map(wk => {
     const submitted = members.filter(m => pulseMap.get(m.id)?.has(wk))
     const sentiments = submitted.map(m => pulseMap.get(m.id)!.get(wk)!.workloadSentiment)
+    // Mood data is optional — only members who submitted a mood are included in the avg.
+    const moods: number[] = submitted
+      .map(m => pulseMap.get(m.id)!.get(wk)!.moodSentiment)
+      .filter((s): s is 1 | 2 | 3 | 4 | 5 => s !== undefined)
     const avg = sentiments.length > 0
       ? sentiments.reduce((a, b) => a + b, 0) / sentiments.length
+      : null
+    const avgMood = moods.length > 0
+      ? moods.reduce((a, b) => a + b, 0) / moods.length
       : null
     return {
       weekOf: wk,
@@ -284,7 +312,10 @@ function PulseAnalytics({
       total: members.length,
       missing: members.length - submitted.length,
       avgSentiment: avg,
+      avgMood,
       overloaded: sentiments.filter(s => s >= 4).length,
+      // Members feeling low (mood 1–2) this week — used for the mood stat card.
+      lowMood: moods.filter(s => s <= 2).length,
     }
   }), [weekDates, members, pulseMap])
 
@@ -323,10 +354,29 @@ function PulseAnalytics({
     return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20)
   }, [weekDates, members, pulseMap])
 
-  // Chart data shapes for recharts.
+  // Hex colors for mood levels 1–5 — used in recharts Bar/Cell fills.
+  // (MOOD_COLORS uses Tailwind class strings, which recharts can't consume directly.)
+  const moodHexColors = ['#f87171', '#fb923c', '#10b981', '#14b8a6', '#8b5cf6']
+
+  // Mood distribution for the most recent week (how many members at each mood level 1–5).
+  const moodDist = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0]
+    members.forEach(m => {
+      const p = pulseMap.get(m.id)?.get(latestWeek)
+      if (p?.moodSentiment) counts[p.moodSentiment - 1]++
+    })
+    return ([1, 2, 3, 4, 5] as const).map((n, idx) => ({
+      label: `${MOOD_EMOJI[n]} ${MOOD_LABELS[n]}`,
+      value: counts[idx],
+      fill: moodHexColors[idx],
+    }))
+  }, [members, pulseMap, latestWeek])
+
+  // Chart data shapes for recharts — both workload and mood trend lines.
   const trendData = weekStats.map(w => ({
     label: w.label,
     avg: w.avgSentiment !== null ? parseFloat(w.avgSentiment.toFixed(2)) : null,
+    mood: w.avgMood !== null ? parseFloat((w.avgMood as number).toFixed(2)) : null,
   }))
 
   const submissionData = weekStats.map(w => ({
@@ -356,9 +406,9 @@ function PulseAnalytics({
             {n} weeks
           </button>
         ))}
-        {managerName && (
+        {groupLabel && (
           <span className="text-xs text-slate-400 ml-2">
-            {managerName}'s team · {members.length} member{members.length !== 1 ? 's' : ''}
+            {groupLabel} · {members.length} member{members.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
@@ -370,10 +420,10 @@ function PulseAnalytics({
         </div>
       ) : (
         <>
-          {/* ── Stat cards ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* ── Stat cards — workload + mood summary for the most recent week ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <StatCard
-              label="Avg sentiment this week"
+              label="Avg workload this week"
               value={latestStats.avgSentiment !== null ? latestStats.avgSentiment.toFixed(1) : '—'}
               icon={<Smile size={18} />}
               iconColor={
@@ -381,6 +431,21 @@ function PulseAnalytics({
                 latestStats.avgSentiment <= 2 ? 'bg-blue-100 text-blue-600' :
                 latestStats.avgSentiment <= 3.5 ? 'bg-green-100 text-green-600' :
                 'bg-amber-100 text-amber-600'
+              }
+            />
+            <StatCard
+              label="Avg mood this week"
+              value={
+                latestStats.avgMood !== null
+                  ? `${MOOD_EMOJI[Math.round(latestStats.avgMood as number) as 1|2|3|4|5]} ${(latestStats.avgMood as number).toFixed(1)}`
+                  : '—'
+              }
+              icon={<Smile size={18} />}
+              iconColor={
+                !latestStats.avgMood ? 'bg-slate-100 text-slate-400' :
+                (latestStats.avgMood as number) <= 2 ? 'bg-red-100 text-red-600' :
+                (latestStats.avgMood as number) <= 3.5 ? 'bg-emerald-100 text-emerald-600' :
+                'bg-violet-100 text-violet-600'
               }
             />
             <StatCard
@@ -404,28 +469,56 @@ function PulseAnalytics({
 
           {/* ── Trend + submission charts ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Avg sentiment trend over the window */}
+            {/* Avg sentiment + mood trend over the window.
+                Two lines: workload (blue) and mood (violet). */}
             <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
-                Team Avg Sentiment — {windowWeeks}w Trend
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Avg Trend — {windowWeeks}w
+                </p>
+                {/* Legend */}
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span className="inline-block w-4 h-0.5 bg-[#4471b7] rounded" />
+                    Workload
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span className="inline-block w-4 h-0.5 bg-[#8b5cf6] rounded" />
+                    Mood
+                  </span>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={trendData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
                   <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                   <Tooltip
-                    formatter={(v) => [(v as number | null)?.toFixed(1) ?? '—', 'Avg sentiment']}
+                    formatter={(v, name) => [
+                      (v as number | null)?.toFixed(1) ?? '—',
+                      name === 'avg' ? 'Avg workload' : 'Avg mood',
+                    ]}
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
                   />
-                  {/* Green reference line at 3 = "Just right" */}
+                  {/* Reference line at 3 = balanced */}
                   <ReferenceLine y={3} stroke="#22c55e" strokeDasharray="4 2" strokeOpacity={0.5} />
                   <Line
                     type="monotone"
                     dataKey="avg"
+                    name="avg"
                     stroke="#4471b7"
                     strokeWidth={2.5}
                     dot={{ r: 3.5, fill: '#4471b7' }}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="mood"
+                    name="mood"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    strokeDasharray="5 3"
+                    dot={{ r: 3, fill: '#8b5cf6' }}
                     connectNulls
                   />
                 </LineChart>
@@ -473,21 +566,29 @@ function PulseAnalytics({
                   {weekDates.map(wk => {
                     const pulse = pulseMap.get(m.id)?.get(wk)
                     const s = pulse?.workloadSentiment
+                    const mood = pulse?.moodSentiment
                     const col = s ? SENTIMENT_COLORS[s] : null
                     // Build border color from the bg color class, e.g. bg-green-50 → border-green-200
                     const borderCls = col
                       ? col.bg.replace('bg-', 'border-').replace('-50', '-200')
                       : 'border-transparent'
+                    const tooltip = s
+                      ? `${m.name}: workload ${s} (${SENTIMENT_LABELS[s]})${mood ? ` · mood ${MOOD_EMOJI[mood]}` : ''}`
+                      : `${m.name}: No submission`
                     return (
                       <div
                         key={wk}
-                        title={s ? `${m.name}: ${SENTIMENT_LABELS[s]} (${s})` : `${m.name}: No submission`}
+                        title={tooltip}
                         className={cn(
-                          'w-[54px] h-[30px] shrink-0 rounded-md flex items-center justify-center text-xs font-bold border',
+                          // Taller cell (38px) to fit workload number + mood emoji.
+                          'w-[54px] h-[38px] shrink-0 rounded-md flex flex-col items-center justify-center border gap-0.5',
                           col ? `${col.bg} ${col.text} ${borderCls}` : 'bg-slate-100 dark:bg-slate-700/40 text-slate-300 dark:text-slate-600',
                         )}
                       >
-                        {s ?? '—'}
+                        <span className="text-xs font-bold leading-none">{s ?? '—'}</span>
+                        {mood && (
+                          <span className="text-[11px] leading-none">{MOOD_EMOJI[mood]}</span>
+                        )}
                       </div>
                     )
                   })}
@@ -509,9 +610,9 @@ function PulseAnalytics({
             </div>
           </div>
 
-          {/* ── Workload distribution + Dev focus ── */}
+          {/* ── Workload distribution + Mood distribution ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Horizontal bar: how many members at each sentiment level this week */}
+            {/* Horizontal bar: members per workload sentiment level this week */}
             <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
                 Workload Distribution — {new Date(latestWeek + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -537,6 +638,38 @@ function PulseAnalytics({
                 </ResponsiveContainer>
               )}
             </div>
+
+            {/* Horizontal bar: members per mood level this week */}
+            <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
+                Mood Distribution — {new Date(latestWeek + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </p>
+              {moodDist.every(d => d.value === 0) ? (
+                <p className="text-xs text-slate-400 italic text-center py-10">No mood data for this week.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart
+                    data={moodDist}
+                    layout="vertical"
+                    margin={{ top: 0, right: 16, bottom: 0, left: 8 }}
+                  >
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                    <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    <Bar dataKey="value" name="Members" radius={[0, 4, 4, 0]}>
+                      {moodDist.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* ── Dev focus ── */}
+          <div className="grid grid-cols-1 gap-4">
+
 
             {/* Development focus frequency — aggregated tags with counts */}
             <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
@@ -606,10 +739,19 @@ export function PulsePage() {
     return managers[0] ?? null
   }, [activeMember, managers, managerFilter, members])
 
-  const directReports = useMemo(
-    () => viewedManager ? getDirectReports(viewedManager, members) : [],
-    [viewedManager, members],
-  )
+  // For member viewers: show peers (same team or same manager).
+  // For admin mode: show direct reports of the selected manager.
+  const peerMembers = useMemo(() => {
+    if (activeMember) return getPeerMembers(activeMember, members)
+    return viewedManager ? getDirectReports(viewedManager, members) : []
+  }, [activeMember, viewedManager, members])
+
+  // Human-readable label describing the scoped group shown on the page.
+  const peerLabel = useMemo(() => {
+    if (activeMember) return 'Your team'
+    if (viewedManager) return `Direct reports of ${viewedManager.name}`
+    return 'Team'
+  }, [activeMember, viewedManager])
 
   const weekPulses = useMemo(
     () => weeklyPulses.filter(p => p.weekOf === weekOf),
@@ -631,18 +773,16 @@ export function PulsePage() {
     return map
   }, [weeklyPulses, prevWeekOf])
 
-  // Team stats for the stat cards.
+  // Team stats for the stat cards — scoped to peerMembers.
   const teamStats = useMemo(() => {
-    if (directReports.length === 0) return null
-    const submitted = directReports.filter(m => pulseByMember.has(m.id))
+    if (peerMembers.length === 0) return null
+    const submitted = peerMembers.filter(m => pulseByMember.has(m.id))
     const avgSentiment = submitted.length > 0
       ? submitted.reduce((sum, m) => sum + (pulseByMember.get(m.id)?.workloadSentiment ?? 3), 0) / submitted.length
       : 0
     const overloaded = submitted.filter(m => (pulseByMember.get(m.id)?.workloadSentiment ?? 0) >= 4).length
-    return { submitted: submitted.length, total: directReports.length, avgSentiment, overloaded }
-  }, [directReports, pulseByMember])
-
-  const hasDirectReports = directReports.length > 0
+    return { submitted: submitted.length, total: peerMembers.length, avgSentiment, overloaded }
+  }, [peerMembers, pulseByMember])
 
   // Team Pulse and Analytics tabs — shown for managers and admins.
   const viewOptions = [
@@ -745,25 +885,29 @@ export function PulsePage() {
             </div>
           )}
 
-          {viewedManager && (
-            <div className="flex items-center gap-2">
-              <Users size={14} className="text-slate-400" />
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                Direct reports of <span className="font-semibold text-slate-700 dark:text-slate-200">{viewedManager.name}</span>
-                {' '}({directReports.length} member{directReports.length !== 1 ? 's' : ''})
-              </span>
-            </div>
-          )}
+          {/* Group label — shows who is in scope for this view */}
+          <div className="flex items-center gap-2">
+            <Users size={14} className="text-slate-400" />
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">{peerLabel}</span>
+              {' '}({peerMembers.length} member{peerMembers.length !== 1 ? 's' : ''})
+            </span>
+          </div>
 
-          {directReports.length === 0 && (
+          {peerMembers.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400">
               <Users size={40} className="mb-3 opacity-30" />
-              <p className="text-sm">No direct reports found.</p>
+              <p className="text-sm">No team members found.</p>
+              <p className="text-xs mt-1 opacity-70">
+                {activeMember
+                  ? 'You are not assigned to any team yet.'
+                  : 'This manager has no direct reports.'}
+              </p>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {directReports.map(member => (
+            {peerMembers.map(member => (
               <PulseCard
                 key={member.id}
                 member={member}
@@ -775,12 +919,12 @@ export function PulsePage() {
         </>
       )}
 
-      {/* Analytics view — uses the same manager scoping as Team Pulse */}
+      {/* Analytics view — scoped to the same peer group as Team Pulse */}
       {viewMode === 'analytics' && (
         <PulseAnalytics
-          members={directReports}
+          members={peerMembers}
           weeklyPulses={weeklyPulses}
-          managerName={viewedManager?.name ?? ''}
+          groupLabel={peerLabel}
         />
       )}
 
