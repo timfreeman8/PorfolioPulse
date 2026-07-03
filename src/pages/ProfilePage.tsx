@@ -32,6 +32,8 @@ import {
   formatWeekOf,
   SENTIMENT_COLORS,
   SENTIMENT_LABELS,
+  MOOD_COLORS,
+  MOOD_EMOJI,
 } from '@/components/pulse/PulseEditDialog'
 import type { WeeklyPulse } from '@/types'
 
@@ -178,8 +180,8 @@ export function ProfilePage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-      <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">My Profile</h1>
+    <div className="p-8 space-y-6 overflow-y-auto h-full">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">My Profile</h1>
 
       {/* ── 1. Identity card ──────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
@@ -371,19 +373,37 @@ export function ProfilePage() {
             'rounded-lg border px-4 py-3 space-y-2',
             SENTIMENT_COLORS[thisWeekPulse.workloadSentiment].bg,
           )}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
                 <p className={cn('text-sm font-semibold', SENTIMENT_COLORS[thisWeekPulse.workloadSentiment].text)}>
                   {thisWeekPulse.workloadSentiment} — {SENTIMENT_LABELS[thisWeekPulse.workloadSentiment]}
                 </p>
                 <p className="text-xs text-slate-500 mt-0.5">{formatWeekOf(weekOf)}</p>
               </div>
-              <button
-                onClick={() => setPulseDialogOpen(true)}
-                className="text-xs px-3 py-1.5 rounded-md border border-current text-slate-600 hover:bg-white/60 transition-colors font-medium"
-              >
-                Edit
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Mood badge — only rendered when a mood level was submitted */}
+                {thisWeekPulse.moodSentiment && (
+                  <div
+                    title={thisWeekPulse.moodNote ? `Mood: ${thisWeekPulse.moodNote}` : undefined}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border',
+                      MOOD_COLORS[thisWeekPulse.moodSentiment].bg,
+                      MOOD_COLORS[thisWeekPulse.moodSentiment].text,
+                    )}
+                  >
+                    <span>{MOOD_EMOJI[thisWeekPulse.moodSentiment]}</span>
+                    {thisWeekPulse.moodNote && (
+                      <span className="max-w-[120px] truncate">{thisWeekPulse.moodNote}</span>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={() => setPulseDialogOpen(true)}
+                  className="text-xs px-3 py-1.5 rounded-md border border-current text-slate-600 hover:bg-white/60 transition-colors font-medium"
+                >
+                  Edit
+                </button>
+              </div>
             </div>
             {/* Top priorities preview — up to 3 */}
             {thisWeekPulse.currentPriorities.filter(p => p.text).slice(0, 3).length > 0 && (
@@ -417,27 +437,44 @@ export function ProfilePage() {
           </button>
         )}
 
-        {/* Sentiment sparkline — last 6 weeks, oldest left to newest right */}
+        {/* History sparkline — last 6 weeks, oldest left to newest right.
+            Two rows: mood emoji above, workload dot below, date label at bottom. */}
         {recentPulses.length > 0 && (
           <div>
             <p className="text-xs text-slate-400 mb-2">Last {recentPulses.length} weeks</p>
             <div className="flex items-end gap-3">
               {recentPulses.map(p => {
                 const col = SENTIMENT_COLORS[p.workloadSentiment]
+                const moodLevel = p.moodSentiment
                 return (
-                  <div key={p.id} className="flex flex-col items-center gap-1.5">
-                    {/* Colored dot — diameter 16px, color reflects sentiment score */}
+                  <div key={p.id} className="flex flex-col items-center gap-1">
+                    {/* Mood emoji — transparent placeholder keeps alignment when absent */}
+                    {moodLevel ? (
+                      <span
+                        title={`Mood: ${MOOD_EMOJI[moodLevel]}${p.moodNote ? ' — ' + p.moodNote : ''}`}
+                        className="text-base leading-none"
+                      >
+                        {MOOD_EMOJI[moodLevel]}
+                      </span>
+                    ) : (
+                      <span className="text-base leading-none opacity-0">–</span>
+                    )}
+                    {/* Workload dot — colored circle, diameter 16px */}
                     <div
-                      title={`${shortWeekLabel(p.weekOf)}: ${p.workloadSentiment} — ${SENTIMENT_LABELS[p.workloadSentiment]}`}
+                      title={`Workload: ${p.workloadSentiment} — ${SENTIMENT_LABELS[p.workloadSentiment]}`}
                       className={cn('w-4 h-4 rounded-full', col.bar)}
                     />
-                    {/* Week date label beneath each dot */}
+                    {/* Week date label */}
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">
                       {shortWeekLabel(p.weekOf)}
                     </span>
                   </div>
                 )
               })}
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-[10px] text-slate-400 flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-slate-300" /> Workload</span>
+              <span className="text-[10px] text-slate-400">😊 Mood</span>
             </div>
           </div>
         )}

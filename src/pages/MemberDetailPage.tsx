@@ -14,8 +14,8 @@
  * created elsewhere that need to appear on this member's profile.
  */
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, FolderOpen, Link } from 'lucide-react'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
+import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, FolderOpen, Link as LinkIcon, Users, Briefcase, CheckCircle, Activity, ExternalLink } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -40,8 +40,16 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
+import { StatCard } from '@/components/ui/stat-card'
+import {
+  formatWeekOf,
+  SENTIMENT_COLORS,
+  SENTIMENT_LABELS,
+  MOOD_COLORS,
+  MOOD_EMOJI,
+} from '@/components/pulse/PulseEditDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
+import { useAuthStore } from '@/store/useAuthStore'
 import { STATUS_COLORS, PHASE_COLORS, PRIORITY_COLORS, avatarColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 import { fmtDateShort } from '@/lib/format'
@@ -277,6 +285,24 @@ function ProjectRow({ project, rank, initiativeName, onEdit, onDelete }: {
   )
 }
 
+// ─── Week helpers (mirrors ProfilePage logic) ─────────────────────────────
+// Returns the ISO date string for the Monday of the current relevant week.
+
+function getCurrentWeekOf(): string {
+  const today = new Date()
+  const day = today.getDay()
+  const daysToMonday = day === 0 ? 1 : day <= 4 ? 1 - day : 8 - day
+  const monday = new Date(today)
+  monday.setDate(today.getDate() + daysToMonday)
+  return monday.toISOString().slice(0, 10)
+}
+
+/** Short axis label for the pulse sparkline: "Jun 2", "Jun 9", etc. */
+function shortWeekLabel(weekOf: string): string {
+  const d = new Date(weekOf + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────
 
 export function MemberDetailPage() {
@@ -288,11 +314,13 @@ export function MemberDetailPage() {
   const backTo: string = (location.state as { from?: string } | null)?.from ?? '/org'
   const backLabel = backTo === '/org' ? 'Back to People' : 'Back'
   const {
-    members, teams, projects, initiatives,
+    members, teams, projects, initiatives, weeklyPulses,
     addProject, updateProject, reorderMemberProjects, updateMember,
   } = usePortfolioStore()
+  // Only admins can edit another person's details.
+  const { role } = useAuthStore()
+  const isAdmin = role === 'admin'
 
-  const [projectModal, setProjectModal] = useState<{ open: boolean; project?: Project }>({ open: false })
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
   // Controls the "Edit Person" dialog in the profile header.
   const [editOpen, setEditOpen] = useState(false)
@@ -349,11 +377,6 @@ export function MemberDetailPage() {
     return initiatives.find(i => i.id === iid)?.name ?? ''
   }
 
-  function handleSave(draft: Omit<typeof projects[0], 'id' | 'updatedAt'>, pid?: string) {
-    if (pid) updateProject(pid, draft)
-    else addProject(draft)
-  }
-
   /**
    * Assign an existing project to this member with a default 100% allocation.
    * Adds a new ProjectMemberAssignment entry to the project's assignments array,
@@ -395,60 +418,282 @@ export function MemberDetailPage() {
         <ArrowLeft size={15} /> {backLabel}
       </button>
 
-      {/* Member header */}
-      <div className="bg-white border border-slate-200 rounded-xl px-8 py-6">
-        <div className="flex items-center gap-5">
-          <div className={cn('flex items-center justify-center w-16 h-16 rounded-full text-2xl font-bold shrink-0', avatarColor(member.name).bg, avatarColor(member.name).text)}>
+      {/* ── Identity card — matches ProfilePage layout ─────────────────────── */}
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+        <div className="flex flex-col sm:flex-row gap-5">
+
+          {/* Avatar */}
+          <div className={cn(
+            'w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 self-start',
+            avatarColor(member.name).bg, avatarColor(member.name).text,
+          )}>
             {member.avatarInitials.slice(0, 2)}
           </div>
-          <div className="flex-1 min-w-0">
-            {/* Name + inline Edit button on the same line */}
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">{member.name}</h1>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditOpen(true)}
-                className="h-6 px-2 text-xs"
-              >
-                <Pencil size={11} className="mr-1" /> Edit
-              </Button>
+
+          {/* Details */}
+          <div className="flex-1 min-w-0 space-y-3">
+
+            {/* Name + role. Edit button only visible to admins — viewers are read-only. */}
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{member.name}</h2>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditOpen(true)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <Pencil size={11} className="mr-1" /> Edit
+                  </Button>
+                )}
+              </div>
+              <p className="text-sm text-slate-500 mt-0.5">{member.role}</p>
             </div>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <p className="text-sm text-slate-500">{member.role}</p>
-              {/* Discipline badges — one per tag */}
-              {member.discipline?.map(d => (
-                <span key={d} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                  {d}
+
+            {/* Meta row: teams · reports to · employment type — mirrors ProfilePage */}
+            <div className="flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
+              {memberTeams.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Users size={13} className="shrink-0" />
+                  {memberTeams.map(t => t.name).join(', ')}
                 </span>
-              ))}
+              )}
+              {member.reportsTo && (
+                <span className="flex items-center gap-1">
+                  <Briefcase size={13} className="shrink-0" />
+                  Reports to {member.reportsTo}
+                </span>
+              )}
+              {member.employmentType && (
+                <span className={cn(
+                  'px-2 py-0.5 rounded-full text-xs font-medium border',
+                  member.employmentType === 'Contractor'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-slate-50 text-slate-600 border-slate-200',
+                )}>
+                  {member.employmentType}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {memberTeams.map(t => t.name).join(' · ') || '—'}
-              {member.reportsTo && <span className="ml-2">· Reports to {member.reportsTo}</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-8 shrink-0 text-center">
-            <div>
-              <p className="text-3xl font-bold text-slate-900">{memberProjects.length}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Epics</p>
+
+            {/* Capacity bar — same thresholds as ProfilePage */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>Capacity</span>
+                <span className={cn(
+                  'font-semibold',
+                  member.capacity > 100 ? 'text-red-600' :
+                  member.capacity > 80  ? 'text-amber-600' : 'text-slate-700',
+                )}>
+                  {member.capacity}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all',
+                    member.capacity > 100 ? 'bg-red-500' :
+                    member.capacity > 80  ? 'bg-amber-400' :
+                    'bg-emerald-500',
+                  )}
+                  style={{ width: `${Math.min(member.capacity, 100)}%` }}
+                />
+              </div>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-blue-600">{active}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Active</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-green-600">{complete}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Complete</p>
-            </div>
+
+            {/* Disciplines — read-only chips (no add/remove since this isn't the user's own profile) */}
+            {member.discipline && member.discipline.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Disciplines</p>
+                <div className="flex flex-wrap gap-2">
+                  {member.discipline.map(d => (
+                    <span
+                      key={d}
+                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* ── Stats row — matches ProfilePage StatCard grid ─────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Epics"
+          value={memberProjects.length}
+          icon={<Briefcase size={18} />}
+          iconColor="bg-slate-100 text-slate-600"
+        />
+        <StatCard
+          label="Active"
+          value={active}
+          icon={<Activity size={18} />}
+          iconColor="bg-blue-50 text-blue-600"
+        />
+        <StatCard
+          label="Complete"
+          value={complete}
+          icon={<CheckCircle size={18} />}
+          iconColor="bg-green-50 text-green-600"
+        />
+        <StatCard
+          label="Capacity"
+          value={`${member.capacity}%`}
+          icon={<Users size={18} />}
+          iconColor={
+            member.capacity > 100 ? 'bg-red-50 text-red-600' :
+            member.capacity > 80  ? 'bg-amber-50 text-amber-600' :
+            'bg-emerald-50 text-emerald-600'
+          }
+          cardTint={
+            member.capacity > 100 ? 'border-red-200 bg-red-50/30' :
+            member.capacity > 80  ? 'border-amber-200 bg-amber-50/30' :
+            undefined
+          }
+        />
+      </div>
+
+      {/* ── Weekly Pulse widget (read-only) ─────────────────────────────── */}
+      {(() => {
+        // Derive current week and the member's pulses at render time.
+        // Wrapped in an IIFE so we can use consts without adding state.
+        const weekOf = getCurrentWeekOf()
+        const thisWeekPulse = weeklyPulses.find(
+          p => p.memberId === member.id && p.weekOf === weekOf,
+        )
+        // Last 6 weeks in chronological order for the sentiment sparkline.
+        const recentPulses = weeklyPulses
+          .filter(p => p.memberId === member.id)
+          .sort((a, b) => b.weekOf.localeCompare(a.weekOf))
+          .slice(0, 6)
+          .reverse()
+
+        if (!thisWeekPulse && recentPulses.length === 0) return null
+
+        return (
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                Weekly Pulse
+              </h2>
+              <Link
+                to="/pulse"
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors"
+              >
+                View all <ExternalLink size={11} />
+              </Link>
+            </div>
+
+            {/* Current week card — read-only summary */}
+            {thisWeekPulse ? (
+              <div className={cn(
+                'rounded-lg border px-4 py-3 space-y-2',
+                SENTIMENT_COLORS[thisWeekPulse.workloadSentiment].bg,
+              )}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className={cn('text-sm font-semibold', SENTIMENT_COLORS[thisWeekPulse.workloadSentiment].text)}>
+                      {thisWeekPulse.workloadSentiment} — {SENTIMENT_LABELS[thisWeekPulse.workloadSentiment]}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">{formatWeekOf(weekOf)}</p>
+                  </div>
+                  {/* Mood badge — shown when moodSentiment is set */}
+                  {thisWeekPulse.moodSentiment && (
+                    <div
+                      title={thisWeekPulse.moodNote ? `Mood: ${thisWeekPulse.moodNote}` : undefined}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border',
+                        MOOD_COLORS[thisWeekPulse.moodSentiment].bg,
+                        MOOD_COLORS[thisWeekPulse.moodSentiment].text,
+                      )}
+                    >
+                      <span>{MOOD_EMOJI[thisWeekPulse.moodSentiment]}</span>
+                      {thisWeekPulse.moodNote && (
+                        <span className="max-w-[120px] truncate">{thisWeekPulse.moodNote}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Top 3 priorities */}
+                {thisWeekPulse.currentPriorities.filter(p => p.text).slice(0, 3).length > 0 && (
+                  <ul className="space-y-0.5">
+                    {thisWeekPulse.currentPriorities
+                      .filter(p => p.text)
+                      .slice(0, 3)
+                      .map((p, i) => (
+                        <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
+                          <span className="text-slate-400">{i + 1}.</span>
+                          <span className="truncate">{p.text}</span>
+                          {p.size && (
+                            <span className="shrink-0 px-1 rounded bg-white/60 text-slate-500 font-medium text-[10px]">
+                              {p.size}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              // No pulse this week — show a neutral placeholder (viewer can't submit for others)
+              <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 py-4 flex items-center justify-center">
+                <p className="text-xs text-slate-400">No pulse submitted for {formatWeekOf(weekOf)}</p>
+              </div>
+            )}
+
+            {/* History sparkline — last 6 weeks, oldest left.
+                Two rows: workload (colored dot) and mood (emoji). */}
+            {recentPulses.length > 0 && (
+              <div>
+                <p className="text-xs text-slate-400 mb-2">Last {recentPulses.length} weeks</p>
+                <div className="flex items-end gap-3">
+                  {recentPulses.map(p => {
+                    const wCol = SENTIMENT_COLORS[p.workloadSentiment]
+                    const moodLevel = p.moodSentiment
+                    return (
+                      <div key={p.id} className="flex flex-col items-center gap-1">
+                        {/* Mood emoji */}
+                        {moodLevel ? (
+                          <span
+                            title={`Mood: ${MOOD_EMOJI[moodLevel]}${p.moodNote ? ' — ' + p.moodNote : ''}`}
+                            className="text-base leading-none"
+                          >
+                            {MOOD_EMOJI[moodLevel]}
+                          </span>
+                        ) : (
+                          <span className="text-base leading-none opacity-0">–</span>
+                        )}
+                        {/* Workload dot */}
+                        <div
+                          title={`Workload: ${p.workloadSentiment} — ${SENTIMENT_LABELS[p.workloadSentiment]}`}
+                          className={cn('w-4 h-4 rounded-full', wCol.bar)}
+                        />
+                        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                          {shortWeekLabel(p.weekOf)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-slate-300" /> Workload</span>
+                  <span className="text-[10px] text-slate-400">😊 Mood</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Projects section */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-slate-50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
           <div>
             <p className="text-sm font-semibold text-slate-700">
               Epics <span className="text-slate-400 font-normal">({memberProjects.length})</span>
@@ -466,9 +711,9 @@ export function MemberDetailPage() {
               disabled={assignableProjects.length === 0}
               title={assignableProjects.length === 0 ? 'All existing epics are already assigned to this member' : undefined}
             >
-              <Link size={14} className="mr-1.5" /> Assign Existing
+              <LinkIcon size={14} className="mr-1.5" /> Assign Existing
             </Button>
-            <Button size="sm" onClick={() => setProjectModal({ open: true, project: undefined })}>
+            <Button size="sm" onClick={() => navigate('/epics/new')}>
               <Plus size={14} className="mr-1.5" /> Add Epic
             </Button>
           </div>
@@ -507,7 +752,7 @@ export function MemberDetailPage() {
                         project={p}
                         rank={idx + 1}
                         initiativeName={initiativeName(p.initiativeId)}
-                        onEdit={() => setProjectModal({ open: true, project: p })}
+                        onEdit={() => navigate(`/epics/${p.id}`)}
                         onDelete={() => setDeletingProject(p)}
                       />
                     ))}
@@ -518,16 +763,6 @@ export function MemberDetailPage() {
           </ScrollArea>
         )}
       </div>
-
-      {/* Project form — single modal, no nesting */}
-      <ProjectFormDialog
-        key={projectModal.project?.id ?? 'new'}
-        open={projectModal.open}
-        onOpenChange={open => setProjectModal(s => ({ ...s, open }))}
-        initial={projectModal.project}
-        defaultMemberId={member.id}
-        onSave={handleSave}
-      />
 
       {/* Remove confirmation — removes this member from the epic's assignments, does NOT delete the project */}
       <AlertDialog open={!!deletingProject} onOpenChange={open => !open && setDeletingProject(null)}>

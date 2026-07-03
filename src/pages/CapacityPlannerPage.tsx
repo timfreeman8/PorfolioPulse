@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog'
 import { usePortfolioStore } from '@/store/usePortfolioStore'
 import { useViewStore } from '@/store/useViewStore'
 import { PHASE_COLORS, CHART_COLORS, avatarColor } from '@/lib/colors'
@@ -898,10 +897,9 @@ function MemberGanttRow({
   memberProjects: Project[]
   memberPto: PtoBlock[]
 }) {
-  const [projectModal, setProjectModal]   = useState<{ open: boolean; project?: Project }>({ open: false })
   const [ptoOpen, setPtoOpen]             = useState(false)
   const [epicPickerOpen, setEpicPickerOpen] = useState(false)
-  const { addProject, updateProject, deletePto } = usePortfolioStore()
+  const { updateProject, deletePto } = usePortfolioStore()
   const navigate = useNavigate()
   // In User mode, only this member (the active member) can manage their own row.
   const { activeMemberId } = useViewStore()
@@ -924,11 +922,6 @@ function MemberGanttRow({
     isOver   ? 'text-red-600 font-semibold' :
     isAtRisk ? 'text-amber-600 font-semibold' :
     'text-slate-500'
-
-  // Only called for new projects — editing navigates to ProjectDetailPage.
-  function handleSave(draft: Omit<Project, 'id' | 'updatedAt'>) {
-    addProject(draft)
-  }
 
   return (
     <>
@@ -1054,7 +1047,7 @@ function MemberGanttRow({
         }}
         onCreateNew={() => {
           setEpicPickerOpen(false)
-          setProjectModal({ open: true, project: undefined })
+          navigate('/epics/new')
         }}
       />
 
@@ -1063,15 +1056,6 @@ function MemberGanttRow({
         <PtoDialog open={ptoOpen} onOpenChange={setPtoOpen} member={member} />
       )}
 
-      {/* Project form — opened when user chooses "Create new epic" from the picker */}
-      <ProjectFormDialog
-        key={projectModal.project?.id ?? 'new'}
-        open={projectModal.open}
-        onOpenChange={open => setProjectModal(s => ({ ...s, open }))}
-        initial={projectModal.project}
-        defaultMemberId={member.id}
-        onSave={handleSave}
-      />
     </>
   )
 }

@@ -338,6 +338,10 @@ export interface WeeklyPulse {
   weekOf: string
   /** 1 = send me anything, 3 = just right, 5 = extremely busy. */
   workloadSentiment: 1 | 2 | 3 | 4 | 5
+  /** 1 = struggling, 3 = feeling good, 5 = excellent. Optional for backwards compat. */
+  moodSentiment?: 1 | 2 | 3 | 4 | 5
+  /** Optional free-text explanation for the mood rating (e.g. "excited about launch"). */
+  moodNote?: string
   /** Ordered list of priority items, each with text and a size tag. */
   currentPriorities: PriorityItem[]
   /** Shared context tags for the priorities section, e.g. "DSL", "AI". */
