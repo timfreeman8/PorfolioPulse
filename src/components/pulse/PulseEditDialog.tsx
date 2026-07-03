@@ -40,13 +40,40 @@ export const SENTIMENT_LABELS: Record<number, string> = {
   5: 'Extremely busy, please no more!',
 }
 
-/** Tailwind classes for each sentiment level's card background, text, and bar fill. */
+/** Tailwind classes for each workload sentiment level's card background, text, and bar fill. */
 export const SENTIMENT_COLORS: Record<number, { bg: string; text: string; bar: string }> = {
   1: { bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-700',   bar: 'bg-blue-400' },
   2: { bg: 'bg-sky-50 border-sky-200',     text: 'text-sky-700',    bar: 'bg-sky-400' },
   3: { bg: 'bg-green-50 border-green-200', text: 'text-green-700',  bar: 'bg-green-500' },
   4: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700',  bar: 'bg-amber-400' },
   5: { bg: 'bg-red-50 border-red-200',     text: 'text-red-700',    bar: 'bg-red-500' },
+}
+
+/** Labels for the mood / happiness sentiment scale (emoji + text). */
+export const MOOD_LABELS: Record<number, string> = {
+  1: '😢 Struggling',
+  2: '😕 A bit down',
+  3: '😊 Feeling good',
+  4: '😄 Happy',
+  5: '🤩 Excellent!',
+}
+
+/** Just the emoji for each mood level — used in sparkline dots and compact displays. */
+export const MOOD_EMOJI: Record<number, string> = {
+  1: '😢',
+  2: '😕',
+  3: '😊',
+  4: '😄',
+  5: '🤩',
+}
+
+/** Tailwind classes for each mood level — distinct palette from workload so the two scales are visually separable. */
+export const MOOD_COLORS: Record<number, { bg: string; text: string; bar: string }> = {
+  1: { bg: 'bg-red-50 border-red-200',         text: 'text-red-700',       bar: 'bg-red-400' },
+  2: { bg: 'bg-orange-50 border-orange-200',   text: 'text-orange-700',    bar: 'bg-orange-400' },
+  3: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700',   bar: 'bg-emerald-500' },
+  4: { bg: 'bg-teal-50 border-teal-200',       text: 'text-teal-700',      bar: 'bg-teal-500' },
+  5: { bg: 'bg-violet-50 border-violet-200',   text: 'text-violet-700',    bar: 'bg-violet-500' },
 }
 
 /** Size options for individual priority items. */
@@ -75,6 +102,10 @@ export function formatWeekOf(weekOf: string): string {
 
 export interface PulseFormState {
   workloadSentiment: 1 | 2 | 3 | 4 | 5
+  /** Happiness / mood level — 1 struggling, 3 feeling good, 5 excellent. */
+  moodSentiment: 1 | 2 | 3 | 4 | 5
+  /** Optional free-text context for the mood rating. */
+  moodNote: string
   /** Priority rows — each has text, size, and optional status. */
   currentPriorities: PriorityItem[]
   /** Upcoming items — same shape as currentPriorities, shown in a separate section. */
@@ -94,6 +125,8 @@ export interface PulseFormState {
 export function emptyForm(): PulseFormState {
   return {
     workloadSentiment: 3,
+    moodSentiment: 3,
+    moodNote: '',
     currentPriorities: [{ text: '', size: 'M' }],
     upcoming: [{ text: '', size: 'M' }],
     developmentFocus: [{ text: '', size: 'M' }],
@@ -112,6 +145,8 @@ export function pulseToForm(pulse: WeeklyPulse): PulseFormState {
 
   return {
     workloadSentiment: pulse.workloadSentiment,
+    moodSentiment: pulse.moodSentiment ?? 3,
+    moodNote: pulse.moodNote ?? '',
     currentPriorities: pulse.currentPriorities.length > 0 ? pulse.currentPriorities : [{ text: '', size: 'M' }],
     upcoming: pulse.upcoming.length > 0 ? pulse.upcoming : [{ text: '', size: 'M' }],
     developmentFocus: pulse.developmentFocus.length > 0 ? pulse.developmentFocus : [{ text: '', size: 'M' }],
@@ -129,6 +164,8 @@ export function pulseToForm(pulse: WeeklyPulse): PulseFormState {
 export function cleanForm(form: PulseFormState): Omit<WeeklyPulse, 'id' | 'updatedAt' | 'memberId' | 'weekOf'> {
   return {
     workloadSentiment: form.workloadSentiment,
+    moodSentiment: form.moodSentiment,
+    moodNote: form.moodNote.trim() || undefined,
     currentPriorities: form.currentPriorities.filter(p => p.text.trim()),
     priorityTags: [],
     upcoming: form.upcoming.filter(p => p.text.trim()),
@@ -430,7 +467,47 @@ export function PulseEditDialog({
           </div>
         </div>
 
-        {/* ── 2. Current Priorities ────────────────────────────────────────────
+        {/* ── 2. Mood / Happiness ──────────────────────────────────────────────
+            Five emoji card-buttons (same shape as workload) plus an optional
+            free-text note field for context ("excited about launch" etc.).    */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Happiness / Mood
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {([1, 2, 3, 4, 5] as const).map(n => {
+              const col = MOOD_COLORS[n]
+              const active = form.moodSentiment === n
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, moodSentiment: n }))}
+                  className={cn(
+                    'flex flex-col items-center gap-2 px-2 py-5 rounded-xl border-2 text-center transition-all',
+                    active
+                      ? `${col.bg} border-current`
+                      : 'bg-white border-slate-200 hover:border-slate-300',
+                  )}
+                >
+                  <span className="text-3xl leading-none">{MOOD_EMOJI[n]}</span>
+                  <span className={cn('text-[10px] leading-tight', active ? col.text : 'text-slate-400')}>
+                    {MOOD_LABELS[n].replace(/^\S+\s/, '')}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {/* Optional note — only shown once a mood level is selected (always true since we default to 3). */}
+          <Input
+            placeholder="Why? (optional — e.g. excited about the launch)"
+            value={form.moodNote}
+            onChange={e => setForm(f => ({ ...f, moodNote: e.target.value }))}
+            className="mt-1 text-sm"
+          />
+        </div>
+
+        {/* ── 3. Current Priorities ────────────────────────────────────────────
             Each row: number · text input · status pills · size pills · delete */}
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
